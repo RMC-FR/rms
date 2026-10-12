@@ -179,85 +179,69 @@ const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d
 const monday = s => { const d = new Date(s + 'T00:00:00Z'); return addDays(s, -((d.getUTCDay() + 6) % 7)); };
 const weekDays = ws => Array.from({length:7}, (_, i) => addDays(ws, i));
 
-/* ---------- Supabase layer (plain fetch: Auth + PostgREST). Row level security enforces who sees what. ---------- */
+/* ---------- Backend: Google Apps Script web app on the owner's Google Sheet. Every call needs a signed login token. ---------- */
 const CFG = window.RMS_CONFIG || {};
-const MAIL = '@rms.example.com', SKEY = 'rms-session-v1';
-const AUTH = {tok:null, ref:null};
+const SKEY = 'rms-session-v2';
+const AUTH = {tok:null};
 let ME = null, S = {entries:[], cats:{}}, PROFILES = [], SNAP = {e:new Map(), c:new Map()};
 let idc = 0; const nid = () => Date.now() * 1000 + (idc++ % 1000);
 const lsGet = () => { try{ return localStorage.getItem(SKEY); }catch(e){ return null; } };
 const lsSet = v => { try{ v ? localStorage.setItem(SKEY, v) : localStorage.removeItem(SKEY); }catch(e){} };
-async function http(path, o = {}){
-  const h = {apikey:CFG.anonKey, 'Content-Type':'application/json', Authorization:'Bearer ' + ((o.auth !== false && AUTH.tok) || CFG.anonKey), ...(o.headers || {})};
-  const r = await fetch(CFG.url + path, {method:o.method || 'GET', headers:h, body:o.body === undefined ? undefined : JSON.stringify(o.body)});
-  if(r.status === 401 && o.auth !== false && AUTH.ref && !o.retried && await refresh()) return http(path, {...o, retried:true});
-  const txt = await r.text(); let j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(e){}
-  if(!r.ok){ const er = new Error((j && (j.msg || j.message || j.error_description || j.error)) || ('HTTP ' + r.status)); er.status = r.status; throw er; }
-  return j;
-}
-function takeSession(j){ AUTH.tok = j.access_token; AUTH.ref = j.refresh_token; lsSet(j.refresh_token); return j.user && j.user.id; }
-async function refresh(){
-  if(!AUTH.ref) return false;
-  try{ takeSession(await http('/auth/v1/token?grant_type=refresh_token', {method:'POST', body:{refresh_token:AUTH.ref}, auth:false})); return true; }
-  catch(e){ AUTH.tok = null; AUTH.ref = null; lsSet(null); return false; }
-}
-async function pageAll(t, q){
-  let out = [];
-  for(let from = 0;; from += 1000){
-    const r = await http(`/rest/v1/${t}?${q}`, {headers:{'Range-Unit':'items', Range:`${from}-${from + 999}`}});
-    out = out.concat(r); if(r.length < 1000) return out;
+async function api(a, body = {}){
+  let r;
+  try{ r = await fetch(CFG.url, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({a, t:AUTH.tok, ...body}), redirect:'follow'}); }
+  catch(e){ throw new Error('Cannot reach the server. Check your internet connection.'); }
+  let j; try{ j = await r.json(); }catch(e){ throw new Error('Unexpected reply from the server.'); }
+  if(j.error){
+    const er = new Error(j.error === 'AUTH' ? 'Your session expired. Please sign in again.' : j.error); er.auth = j.error === 'AUTH';
+    if(er.auth){ AUTH.tok = null; lsSet(null); ME = null; UI.loginErr = er.message; render(); }
+    throw er;
   }
+  return j;
 }
 const pack = e => JSON.stringify({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:e.amt, ref:e.ref || '', note:e.note || ''});
 const ckey = c => c.br + '|' + c.sec + '|' + c.label;
-async function loadAll(uid){
-  const prof = await http(`/rest/v1/profiles?select=*&order=role,username`);
-  ME = prof.find(p => p.id === uid); if(!ME) throw new Error('This account has no profile. Ask the administrator.');
-  PROFILES = prof;
-  const [meta, cats, ents] = await Promise.all([pageAll('branch_meta', 'select=*'), pageAll('cats', 'select=*&order=br,sec,label'), pageAll('entries', 'select=*&order=id')]);
+function applyLoad(j){
+  ME = j.me; PROFILES = j.profiles;
   const order = ['WT', 'LE', 'BO', 'GN', 'TM', 'CT'];
-  DATA = {}; meta.forEach(m => DATA[m.br] = m.data);
+  DATA = {}; j.meta.forEach(m => DATA[m.br] = m.data);
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
-  S = {entries:ents.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || ''})), cats:{}};
+  S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || ''})), cats:{}};
   BR.forEach(b => S.cats[b] = []);
-  cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted}));
+  j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map()};
   for(const b of BR) for(const c of S.cats[b]) SNAP.c.set(ckey({br:b, ...c}), c.counted);
 }
-async function afterLogin(uid){
-  AUTH.uid = uid;
-  await loadAll(uid);
+const loadAll = async () => applyLoad(await api('load'));
+async function afterLogin(){
+  await loadAll();
   UI.branch = ME.role === 'admin' ? 'ALL' : ME.br; UI.tab = ME.role === 'admin' ? 'summary' : 'daily';
   UI.week = BR.length && DATA[BR[0]].dates ? addDays(DATA[BR[0]].dates[0], 7) : UI.week;
 }
 async function signIn(username, pw){
-  const j = await http('/auth/v1/token?grant_type=password', {method:'POST', auth:false, body:{email:username.trim().toLowerCase() + MAIL, password:pw}});
-  await afterLogin(takeSession(j));
+  const j = await api('login', {u:username.trim(), p:pw});
+  AUTH.tok = j.token; lsSet(j.token);
+  await afterLogin();
 }
 async function signOut(){
-  try{ if(AUTH.tok) await http('/auth/v1/logout', {method:'POST'}); }catch(e){}
-  AUTH.tok = AUTH.ref = null; lsSet(null); ME = null; S = {entries:[], cats:{}}; DATA = {}; BR = []; PROFILES = [];
+  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}}; DATA = {}; BR = []; PROFILES = [];
   UI.pw = false; UI.syncErr = null; UI.loginErr = '';
 }
-/* save(): sends only what changed since the last successful sync, one request queue so edits stay in order */
+/* save(): sends only what changed since the last successful sync; a single queue keeps edits in order */
 let queue = Promise.resolve();
-function save(){ UI.syncErr = null; queue = queue.then(doSync).catch(e => { UI.syncErr = e.message || 'Unknown error'; render(); }); }
+function save(){ UI.syncErr = null; queue = queue.then(doSync).catch(e => { if(!e.auth){ UI.syncErr = e.message || 'Unknown error'; render(); } }); }
 async function doSync(){
+  if(!ME) return;
   const cur = new Map(S.entries.map(e => [e.id, pack(e)])), curC = new Map();
   for(const b of Object.keys(S.cats)) for(const c of S.cats[b]) curC.set(ckey({br:b, ...c}), {br:b, sec:c.sec, label:c.label, counted:c.counted});
   const upC = [...curC].filter(([k, v]) => SNAP.c.get(k) !== v.counted).map(x => x[1]);
   const up = [...cur].filter(([id, js]) => SNAP.e.get(id) !== js).map(x => JSON.parse(x[1]));
   const del = [...SNAP.e.keys()].filter(id => !cur.has(id));
-  const chunk = (a, n) => Array.from({length:Math.ceil(a.length / n)}, (_, i) => a.slice(i * n, i * n + n));
-  const MERGE = {Prefer:'resolution=merge-duplicates,return=minimal'};
-  for(const c of chunk(upC, 200)) await http('/rest/v1/cats?on_conflict=br,sec,label', {method:'POST', headers:MERGE, body:c});
-  for(const c of chunk(up, 200)) await http('/rest/v1/entries?on_conflict=id', {method:'POST', headers:MERGE, body:c});
-  for(const c of chunk(del, 100)) await http(`/rest/v1/entries?id=in.(${c.join(',')})`, {method:'DELETE', headers:{Prefer:'return=minimal'}});
+  if(!up.length && !upC.length && !del.length) return;
+  await api('sync', {up, upC, del});
   upC.forEach(c => SNAP.c.set(ckey(c), c.counted)); up.forEach(e => SNAP.e.set(e.id, pack(e))); del.forEach(id => SNAP.e.delete(id));
   if(UI.syncErr){ UI.syncErr = null; render(); }
 }
-
-
 const todayLocal = () => new Date().toLocaleDateString('en-CA');
 const UI = {imp:{text:'', reports:null}, booting:true, loginErr:'', pw:false, branch:'ALL', tab:'summary', day:todayLocal(), week:'2026-10-05', editId:null, draft:{}, fSec:'expense', confirmDel:null};
 const user = () => ({role:ME.role, branch:ME.br, name:ME.name});
@@ -317,11 +301,11 @@ function render(){
   if(UI.focusAmt && $('#f-amt')){ $('#f-amt').focus(); UI.focusAmt = false; }
 }
 function viewLogin(){
-  const bad = !CFG.url || !CFG.anonKey;
+  const bad = !CFG.url;
   return `<form class="login card" id="login" autocomplete="on"><div class="pad"><h1>Sales Ledger</h1><p>Sign in to continue.</p>
     <label>User ID<input id="l-user" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" required value="${esc(UI.loginUser || '')}"></label>
     <label>Password<input id="l-pw" name="password" type="password" autocomplete="current-password" required></label>
-    <div class="err" role="alert">${bad ? 'The database is not configured yet (config.js).' : esc(UI.loginErr)}</div>
+    <div class="err" role="alert">${bad ? 'The server address is not set yet (config.js).' : esc(UI.loginErr)}</div>
     <button class="btn primary" type="submit" ${bad ? 'disabled' : ''}>${UI.busy ? 'Signing in…' : 'Sign in'}</button></div></form>`;
 }
 function viewPw(){
@@ -724,7 +708,7 @@ function viewWage(){
     <div class="hint">The sum of the employees above may differ from the sheet total (${money(ws.total)}) because of how the sheet groups its ranges. Automatic wage calculation from hours comes in the next step.</div>`;
 }
 function viewAccess(){
-  return `<div class="card"><h2>Accounts <small>Read-only. Accounts are created and removed in the database (Supabase) for now.</small></h2><div class="scroll"><table>
+  return `<div class="card"><h2>Accounts <small>Read-only. Accounts are created and removed in the database (Google Sheet) for now.</small></h2><div class="scroll"><table>
     <thead><tr><th>Name</th><th>User ID</th><th>Role</th><th>Can view</th><th>Password</th></tr></thead><tbody>
     ${PROFILES.map(u => `<tr><td>${esc(u.name)}</td><td style="font-family:var(--mono);font-size:12.5px">${esc(u.username)}</td>
       <td><span class="role">${u.role.toUpperCase()}</span></td><td>${u.role === 'admin' ? 'All branches' : esc(u.br)}</td>
@@ -763,7 +747,7 @@ document.addEventListener('click', ev => {
   else if(a === 'pw'){ UI.pw = true; UI.pwErr = ''; }
   else if(a === 'pwcancel'){ UI.pw = false; }
   else if(a === 'retry'){ save(); }
-  else if(a === 'reload'){ loadAll(AUTH.uid || ME.id).then(() => { flash('Data reloaded'); render(); }).catch(e => flash('Reload failed: ' + e.message)); return; }
+  else if(a === 'reload'){ loadAll().then(() => { flash('Data reloaded'); render(); }).catch(e => flash('Reload failed: ' + e.message)); return; }
   else return;
   render();
 });
@@ -786,7 +770,7 @@ document.addEventListener('submit', ev => {
   ev.preventDefault();
   if(ev.target.id === 'login'){
     UI.loginUser = $('#l-user').value; const pw = $('#l-pw').value; UI.busy = true; UI.loginErr = ''; render();
-    signIn(UI.loginUser, pw).catch(e => { UI.loginErr = e.status === 400 || e.status === 401 || /invalid/i.test(e.message) ? 'Wrong user ID or password.' : e.message; ME = null; })
+    signIn(UI.loginUser, pw).catch(e => { UI.loginErr = e.message; ME = null; })
       .finally(() => { UI.busy = false; render(); });
     return;
   }
@@ -796,9 +780,8 @@ document.addEventListener('submit', ev => {
     if(p1 !== p2){ UI.pwErr = 'The two passwords do not match.'; render(); return; }
     if(p1 === '1234'){ UI.pwErr = 'Choose a different password.'; render(); return; }
     UI.busy = true; UI.pwErr = ''; render();
-    http('/auth/v1/user', {method:'PUT', body:{password:p1}})
-      .then(() => ME.must_change ? http('/rest/v1/rpc/clear_must_change', {method:'POST', body:{}}) : null)
-      .then(() => { ME.must_change = false; UI.pw = false; flash('Password changed'); })
+    api('chpw', {np:p1})
+      .then(j => { AUTH.tok = j.token; lsSet(j.token); ME = j.me; UI.pw = false; flash('Password changed'); })
       .catch(e => { UI.pwErr = e.message; })
       .finally(() => { UI.busy = false; render(); });
     return;
@@ -836,8 +819,8 @@ document.addEventListener('submit', ev => {
 });
 async function boot(){
   render();
-  try{ const r = lsGet(); if(r && CFG.url){ AUTH.ref = r; if(await refresh()){ const u = await http('/auth/v1/user'); AUTH.uid = u.id; await afterLogin(u.id); } } }
-  catch(e){ ME = null; }
+  try{ const t = lsGet(); if(t && CFG.url){ AUTH.tok = t; await afterLogin(); } }
+  catch(e){ ME = null; if(!e.auth){ AUTH.tok = null; } }
   UI.booting = false; render();
 }
 boot();

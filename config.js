@@ -1,3 +1,3 @@
-// Supabase connection. Both values are meant to be public (the anon key is safe: row level security protects the data).
-// NEVER put the service_role key here.
-window.RMS_CONFIG = { url: '', anonKey: '' };
+// Address of the Google Apps Script web app (looks like https://script.google.com/macros/s/.../exec).
+// It is safe to be public: every call needs a login.
+window.RMS_CONFIG = { url: '' };
