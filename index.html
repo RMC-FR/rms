@@ -218,10 +218,11 @@ function applyLoad(j){
   for(const b of BR) for(const c of S.cats[b]) SNAP.c.set(ckey({br:b, ...c}), c.counted);
 }
 const loadAll = async () => applyLoad(await api('load'));
+const latestWeek = () => { const d = S.entries.reduce((m, e) => e.date > m ? e.date : m, ''); return d ? monday(d) : UI.week; };
 async function afterLogin(){
   await loadAll();
-  UI.branch = ME.role === 'admin' ? 'ALL' : ME.br; UI.tab = ME.role === 'admin' ? 'summary' : 'daily';
-  UI.week = BR.length && DATA[BR[0]].dates ? addDays(DATA[BR[0]].dates[0], 7) : UI.week;
+  UI.branch = ME.role === 'admin' ? 'ALL' : ME.br; UI.tab = ME.role === 'admin' ? 'summary' : 'import';
+  UI.week = latestWeek();
 }
 async function signIn(username, pw){
   const j = await api('login', {u:username.trim(), p:pw});
@@ -289,7 +290,7 @@ function render(){
   const u = user();
   const chips = u.role === 'admin' ? ['ALL', ...BR].map(b =>
     `<button class="chip" data-act="branch" data-v="${b}" aria-pressed="${UI.branch === b}">${b === 'ALL' ? 'All branches' : b}</button>`).join('') : '';
-  const tabs = [['daily','Daily sales'], ['import','Import report'], ['summary','Summary'], ['sales','Weekly sales'], ['expense','Expenses'], ['wage','Wages'], ...(u.role === 'admin' ? [['access','Access']] : [])]
+  const tabs = [['import','Import report'], ['summary','Summary'], ['sales','Weekly sales'], ['expense','Expenses'], ['wage','Wages'], ...(u.role === 'admin' ? [['access','Access']] : [])]
     .map(([k, l]) => `<button class="tab" role="tab" data-act="tab" data-v="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('');
   $('#app').innerHTML = `
     <header class="top">
@@ -327,7 +328,7 @@ function weekBar(){
   return `<div class="bar"><div class="week"><button class="btn" data-act="wk" data-v="-7" aria-label="Previous week">‹</button>
     <b>${fd(UI.week)} – ${fd(addDays(UI.week, 6))}</b>
     <button class="btn" data-act="wk" data-v="7" aria-label="Next week">›</button>
-    <button class="btn" data-act="wk" data-v="0">Week 28/09</button><button class="btn" data-act="wk" data-v="latest">Week 05/10</button></div></div>`;
+    <button class="btn" data-act="wk" data-v="0">Week 28/09</button><button class="btn" data-act="wk" data-v="latest">Latest week</button></div></div>`;
 }
 function kpis(t, cash){
   const nw = t.hasWage;
@@ -405,7 +406,7 @@ function hintHtml(){
 }
 function viewLedger(secs){
   const b = UI.branch, c = calc(b, UI.week), days = c.days, isSales = secs[0] === 'sales';
-  const editing = UI.editId ? S.entries.find(e => e.id === UI.editId) : null;
+  const ro = isSales, editing = !ro && UI.editId ? S.entries.find(e => e.id === UI.editId) : null;
   const dr = UI.draft;
   const fsec = editing ? editing.sec : (isSales ? 'sales' : (secs.includes(UI.fSec) ? UI.fSec : 'expense'));
   const today = iso(new Date());
@@ -423,8 +424,8 @@ function viewLedger(secs){
         out += '<tr>' + (i === 0 ? `<td rowspan="${k}" class="sub">${esc(ct.label)} ${ct.counted ? '' : '<span class="tag warn">not in total</span>'}</td>` : '') +
           days.map((d, j) => {
             const e = lists[j][i];
-            if(e) return `<td class="num cell ${e.id === UI.editId ? 'editing' : ''}" data-act="edit" data-id="${e.id}" title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : 'Click to edit')}">${e.amt.toFixed(2)}${e.sec === 'disc' ? (e.note ? `<small>${esc(e.note)}</small>` : '') : (e.ref ? `<small>#${esc(e.ref)}</small>` : '')}</td>`;
-            if(i === lists[j].length) return `<td class="num cell ${lists[j].length ? 'dim' : (k === 1 ? 'dim' : 'dim')}" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(ct.label)}" title="Click to add an entry">${lists[j].length ? '+' : '·'}</td>`;
+            if(e) return `<td class="num ${ro ? '' : 'cell'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : (ro ? '' : 'Click to edit'))}">${e.amt.toFixed(2)}${e.sec === 'disc' ? (e.note ? `<small>${esc(e.note)}</small>` : '') : (e.ref ? `<small>#${esc(e.ref)}</small>` : '')}</td>`;
+            if(i === lists[j].length) return ro ? '<td class="num dim">·</td>' : `<td class="num cell dim" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(ct.label)}" title="Click to add an entry">${lists[j].length ? '+' : '·'}</td>`;
             return '<td></td>';
           }).join('') + (i === 0 ? `<td rowspan="${k}" class="num sub"><b>${tot ? tot.toFixed(2) : '·'}</b></td>` : '') + '</tr>';
       }
@@ -434,7 +435,7 @@ function viewLedger(secs){
   const foot = isSales ? c.rows.map(r => r.sales) : c.rows.map(r => r.exp), ft = isSales ? c.t.sales : c.t.exp;
   const adj = isSales ? c.t.adjSales : c.t.adjExp;
   return weekBar() + `
-    <div class="card"><h2>${editing ? 'Edit entry' : (isSales ? 'Add sales entry' : 'Add expense entry')} <small>One invoice per entry</small></h2><div class="pad">
+    ${ro ? '' : `<div class="card"><h2>${editing ? 'Edit entry' : (isSales ? 'Add sales entry' : 'Add expense entry')} <small>One invoice per entry</small></h2><div class="pad">
       <form class="form" id="entry" autocomplete="off">
         <label>Date (DD/MM/YYYY)<input type="text" id="f-date" inputmode="numeric" placeholder="DD/MM/YYYY" value="${esc(dr.date && !/^\d{4}-/.test(dr.date) ? dr.date : fd(dateV))}" required></label>
         ${isSales ? '' : `<label>Type<select id="f-sec" data-act="fsec" ${editing ? 'disabled' : ''}>${secs.map(s => `<option value="${s}" ${s === fsec ? 'selected' : ''}>${SECNAME[s]}</option>`).join('')}</select></label>`}
@@ -447,8 +448,8 @@ function viewLedger(secs){
           ${editing ? `<button class="btn" type="button" data-act="cancel">Cancel</button><button class="btn danger" type="button" data-act="del" data-id="${editing.id}">${UI.confirmDel === editing.id ? 'Confirm delete' : 'Delete'}</button>` : ''}</div>
       </form>
       <div class="hint" id="hint">${hintHtml()}</div>
-    </div></div>
-    <div class="card"><h2>Weekly table <small>Every entry is a cell. Click a cell to edit it, or a dotted cell to add one.</small></h2><div class="scroll"><table>
+    </div></div>`}
+    <div class="card"><h2>Weekly table <small>${ro ? 'Sales come from the imported reports. To correct a day, import the corrected report again.' : 'Every entry is a cell. Click a cell to edit it, or a dotted cell to add one.'}</small></h2><div class="scroll"><table>
       <thead><tr><th>Line</th>${days.map((d, i) => `<th class="r">${DOW[i]}<br>${fs2(d)}</th>`).join('')}<th class="r">Week</th></tr></thead><tbody>${rowsHtml}
       ${adj ? `<tr><td class="sub">Excel adjustment <span class="tag warn">read-only</span></td><td colspan="7"></td><td class="num sub">${adj.toFixed(2)}</td></tr>` : ''}
       <tr class="tot"><td>${isSales ? 'Sales total' : 'Expenses total'}</td>${foot.map(v => `<td class="num">${v.toFixed(2)}</td>`).join('')}<td class="num">${ft.toFixed(2)}</td></tr></tbody></table></div></div>`;
@@ -513,7 +514,11 @@ Closing amount : $ 247.20
 
 Closing staff : Jaeyoon Park`;
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-const numOf = s => { const v = parseFloat(String(s ?? '').replace(/[$,\s]/g, '')); return isFinite(v) ? v : null; };
+const numOf = s => { const m = String(s ?? '').replace(/,/g, '').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; };
+/* Korean / alternative labels used by some stores -> the canonical key the parser understands */
+const KO_LABELS = [[/가게|매장|store\s*name|shop/i, 'store'], [/마감자|마감\s*직원/, 'staff'], [/봉투|마감\s*(캐시|금액)/, 'closing'], [/현금\s*지출/, 'cashout'], [/인보이스|매입|total\s*purchase|purchases?$/i, 'purchase'], [/총\s*매[상출]/, 'salestotal'], [/날짜/, 'date']];
+const canonLabel = label => { const k = KO_LABELS.find(([re]) => re.test(label)); return k ? k[1] : norm(label); };
+function storeLineBranch(line){ const m = line.replace(/\*/g, '').match(/^([^:：]*)[:：]\s*(.+)$/); return m && canonLabel(m[1].trim()) === 'store' ? detectBranch(m[2]) : null; }
 function detectBranch(line){
   const n = norm(line.replace(/\*/g, ''));
   if(n.length < 5 || /[:：]/.test(line)) return null;
@@ -542,7 +547,7 @@ function mapSalesCat(b, label){
 }
 function parseReports(text){
   const lines = text.split(/\r?\n/).map(l => l.trim());
-  const heads = []; lines.forEach((l, i) => { const b = detectBranch(l); if(b) heads.push([i, b]); });
+  const heads = []; lines.forEach((l, i) => { const b = detectBranch(l) || storeLineBranch(l); if(b) heads.push([i, b]); });
   const blocks = heads.length ? heads.map(([i, b], k) => ({branch:b, lines:lines.slice(i + 1, k + 1 < heads.length ? heads[k + 1][0] : lines.length)})) : [{branch:null, lines}];
   return blocks.map(bl => {
     const r = {branch:bl.branch, date:null, dateRaw:'', staff:'', totalRep:null, closingRep:null, cashOut:null, ignored:[], raw:[], fields:[], addBack:false, blocked:''};
@@ -550,15 +555,21 @@ function parseReports(text){
       if(!line) continue;
       if(line.startsWith('(')){ line.replace(/^\(|\)$/g, '').split(',').forEach(p => { const m = p.match(/^\s*(.*?)\s*[:：]\s*(.*?)\s*$/); if(m) r.ignored.push(m[2] ? `${m[1]}: ${m[2]}` : `${m[1]} (empty)`); }); continue; }
       const m = line.match(/^(.*?)\s*[:：]\s*(.*)$/); if(!m) continue;
-      const label = m[1].replace(/\*/g, '').trim(), val = m[2].trim(), n = norm(label), amt = numOf(val);
-      if(n === 'date'){ r.dateRaw = val; r.date = parseDate(val, '2026'); }
+      const label = m[1].replace(/\*/g, '').trim(), val = m[2].trim(), n = canonLabel(label), amt = numOf(val);
+      if(n === 'store'){ continue; }
+      if(n === 'date'){ const dm = val.match(/\d{1,2}[\/\-.]\d{1,2}(?:[\/\-.]\d{2,4})?/); r.dateRaw = dm ? dm[0] : val; r.date = parseDate(r.dateRaw, '2026'); }
       else if(/staff/.test(n)){ r.staff = val; }
       else if(n === 'salestotal' || n === 'total'){ r.totalRep = amt; }
       else if(/^closing/.test(n)){ r.closingRep = amt; }
       else if(/cashout/.test(n)){ r.cashOut = amt; }
+      else if(n === 'purchase' || /^totalpurchase/.test(n)){ r.purchase = amt; r.ignored.push(`Total Purchase: ${money(amt || 0)} (invoices are entered under Expenses)`); }
       else if(/^\d+(am|pm)/.test(n)){ r.ignored.push(`${label}${amt === null ? ' (empty)' : ': ' + money(amt)}`); }
       else if(amt === null){ r.ignored.push(`${label} (empty)`); }
-      else r.raw.push({label, amount:amt});
+      else {
+        const prov = [...val.matchAll(/([A-Za-z][A-Za-z.&' ]*?)\s*[:\-]?\s*\$?\s*(\d[\d,]*(?:\.\d+)?)/g)];
+        if(/[A-Za-z]/.test(val) && prov.length) prov.forEach(p => r.raw.push({label:p[1].trim(), amount:numOf(p[2])}));   // e.g. "Delivery : Uber 255.92 (6 orders)"
+        else r.raw.push({label, amount:amt});
+      }
     }
     if(!r.branch) r.branch = user().role === 'admin' ? (UI.branch === 'ALL' ? BR[0] : UI.branch) : user().branch;
     mapReport(r); return r;
@@ -593,7 +604,7 @@ function analyze(r){
     if(Math.abs(r.closingRep - closingCalc) < 0.005) checks.push(['ok', `Closing cash matches (${money(closingCalc)}).`]);
     else checks.push(['bd', `Closing cash does not match: cash sales − cash-out is ${money(closingCalc)}, but the report's closing amount is ${money(r.closingRep)}. You will be asked how to continue when you save.`]);
   }
-  if(r.fields.some(f => f.kind === 'unmapped' && f.target === 'skip')) checks.push(['wn', 'Some lines are not matched to a sales line and will be skipped. Choose where they belong if you want them recorded.']);
+  if(r.fields.some(f => f.kind === 'unmapped' && f.target === 'skip' && f.amount > 0)) checks.push(['wn', 'Some lines are not matched to a sales line and will be skipped. Choose where they belong if you want them recorded.']);
   if(!r.date) checks.push(['bd', 'The date is missing or not valid. Enter it as DD/MM/YYYY.']);
   return {suggest, cashRec, co, checks, hasCash:!!cashLine};
 }
@@ -745,7 +756,7 @@ document.addEventListener('click', ev => {
   else if(a === 'modalresubmit'){ UI.modal = null; }
   else if(a === 'modalrecord'){ const m = UI.modal; if(!m || !m.reason.trim()) return; UI.modal = null; impSave(m.ri, {amt:m.D, reason:m.reason.trim()}); }
   else if(a === 'impdiscard'){ UI.imp.reports.splice(+t.dataset.r, 1); if(!UI.imp.reports.length) UI.imp.reports = null; }
-  else if(a === 'wk'){ const v = +t.dataset.v; UI.week = t.dataset.v === 'latest' ? '2026-10-05' : v === 0 ? DATA[BR[0]].dates[0] : addDays(UI.week, v); UI.editId = null; UI.draft = {}; }
+  else if(a === 'wk'){ const v = +t.dataset.v; UI.week = t.dataset.v === 'latest' ? latestWeek() : v === 0 ? DATA[BR[0]].dates[0] : addDays(UI.week, v); UI.editId = null; UI.draft = {}; }
   else if(a === 'add'){ UI.editId = null; UI.fSec = t.dataset.sec; UI.draft = {date:fd(t.dataset.d), cat:t.dataset.c}; UI.focusAmt = true; }
   else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.confirmDel = null; UI.focusAmt = true; }
   else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; }
