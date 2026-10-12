@@ -154,6 +154,8 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 <script src="config.js"></script>
 
 <script>
+const getTheme = () => { try{ return localStorage.getItem('rms-theme') || 'light'; }catch(e){ return 'light'; } };
+document.documentElement.dataset.theme = getTheme();
 let DATA = {};
 const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const SECNAME = {sales:'Sales', expense:'Invoices (to pay)', cash:'Cash purchases (cash-out)', card:'Card purchases (paid)', transfer:'Transfer / Missing', disc:'Cash discrepancy'};
@@ -290,7 +292,7 @@ function render(){
     <header class="top">
       <div class="brand"><h1>Sales Ledger</h1><span>${UI.branch === 'ALL' ? 'All branches' : esc(DATA[UI.branch].name)}</span></div>
       <div class="acct"><span class="role">${u.role === 'admin' ? 'ADMIN · ALL BRANCHES' : 'MANAGER · ' + esc(u.branch)}</span> <b>${esc(u.name)}</b>
-        <button class="btn sm" data-act="reload">Reload data</button><button class="btn sm" data-act="pw">Change password</button><button class="btn sm" data-act="logout">Sign out</button></div>
+        <button class="btn sm" data-act="theme">${getTheme() === 'dark' ? 'Light mode' : 'Dark mode'}</button><button class="btn sm" data-act="reload">Reload data</button><button class="btn sm" data-act="pw">Change password</button><button class="btn sm" data-act="logout">Sign out</button></div>
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
@@ -743,6 +745,7 @@ document.addEventListener('click', ev => {
   else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.confirmDel = null; UI.focusAmt = true; }
   else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; }
   else if(a === 'del'){ const id = +t.dataset.id; if(UI.confirmDel === id){ S.entries = S.entries.filter(e => e.id !== id); UI.confirmDel = null; UI.editId = null; UI.draft = {}; save(); flash('Entry deleted'); } else { UI.confirmDel = id; } }
+  else if(a === 'theme'){ const n = getTheme() === 'dark' ? 'light' : 'dark'; try{ localStorage.setItem('rms-theme', n); }catch(e){} document.documentElement.dataset.theme = n; }
   else if(a === 'logout'){ signOut().then(render); return; }
   else if(a === 'pw'){ UI.pw = true; UI.pwErr = ''; }
   else if(a === 'pwcancel'){ UI.pw = false; }
