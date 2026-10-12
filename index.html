@@ -149,6 +149,18 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .login .btn{width:100%;padding:10px}
 .syncerr{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:6px;padding:8px 12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;justify-content:space-between}
 .acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sheet th,.sheet td{padding:5px 8px}
+.sheet .brow td{font-weight:700}
+.sheet .brow.s td{background:var(--accent-soft)}.sheet .brow.e td{background:rgba(58,155,120,.16)}.sheet .brow.c td{background:rgba(226,171,92,.22)}.sheet .brow.t td{background:rgba(111,143,214,.16)}
+.sheet .ln.grp2 td{background:var(--surface2)}
+.sheet .ln.ind td.sub{padding-left:26px;font-size:12.5px;color:var(--muted)}
+.sheet td.cellp{position:relative;vertical-align:top;padding-right:22px}
+.sheet .inv{line-height:1.35}.sheet .inv.edit{cursor:pointer;border-radius:4px;padding:0 2px}.sheet .inv.edit:hover{background:var(--accent-soft)}
+.sheet .inv small{display:block;font-size:10.5px;color:var(--muted);font-family:var(--sans)}
+.sheet .invsum{border-top:1px solid var(--line);margin-top:2px;font-weight:700}
+.sheet .plus{position:absolute;right:3px;top:3px;width:17px;height:17px;border:1px solid var(--line);border-radius:50%;background:var(--surface);color:var(--muted);font-size:12px;line-height:1;padding:0;opacity:0}
+.sheet td:hover .plus,.sheet .plus:focus-visible{opacity:1}
+.sheet.sum td.sm{font-size:12px;color:var(--muted)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:760px){.two{grid-template-columns:1fr}.top{padding-top:12px}}
 </style>
@@ -206,6 +218,7 @@ async function api(a, body = {}){
 }
 const pack = e => JSON.stringify({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:e.amt, ref:e.ref || '', note:e.note || ''});
 const ckey = c => c.br + '|' + c.sec + '|' + c.label;
+const cval = c => c.counted + '|' + (c.grp || '');
 function applyLoad(j){
   ME = j.me; PROFILES = j.profiles;
   const order = ['WT', 'LE', 'BO', 'GN', 'TM', 'CT'];
@@ -213,9 +226,11 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || ''})), cats:{}};
   BR.forEach(b => S.cats[b] = []);
-  j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted}));
+  j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map()};
-  for(const b of BR) for(const c of S.cats[b]) SNAP.c.set(ckey({br:b, ...c}), c.counted);
+  for(const b of BR) for(const c of S.cats[b]) SNAP.c.set(ckey({br:b, ...c}), cval(c));
+  let fixed = false; for(const b of BR) for(const c of S.cats[b]) if(c.sec === 'cash' && !c.grp){ c.grp = classify(c.label); fixed = true; }   // one-time: sort existing cash vendors into categories
+  if(fixed) setTimeout(save, 0);
 }
 const loadAll = async () => applyLoad(await api('load'));
 const latestWeek = () => { const d = S.entries.reduce((m, e) => e.date > m ? e.date : m, ''); return d ? monday(d) : UI.week; };
@@ -239,13 +254,13 @@ function save(){ UI.syncErr = null; queue = queue.then(doSync).catch(e => { if(!
 async function doSync(){
   if(!ME) return;
   const cur = new Map(S.entries.map(e => [e.id, pack(e)])), curC = new Map();
-  for(const b of Object.keys(S.cats)) for(const c of S.cats[b]) curC.set(ckey({br:b, ...c}), {br:b, sec:c.sec, label:c.label, counted:c.counted});
-  const upC = [...curC].filter(([k, v]) => SNAP.c.get(k) !== v.counted).map(x => x[1]);
+  for(const b of Object.keys(S.cats)) for(const c of S.cats[b]) curC.set(ckey({br:b, ...c}), {br:b, sec:c.sec, label:c.label, counted:c.counted, grp:c.grp || ''});
+  const upC = [...curC].filter(([k, v]) => SNAP.c.get(k) !== cval(v)).map(x => x[1]);
   const up = [...cur].filter(([id, js]) => SNAP.e.get(id) !== js).map(x => JSON.parse(x[1]));
   const del = [...SNAP.e.keys()].filter(id => !cur.has(id));
   if(!up.length && !upC.length && !del.length) return;
   await api('sync', {up, upC, del});
-  upC.forEach(c => SNAP.c.set(ckey(c), c.counted)); up.forEach(e => SNAP.e.set(e.id, pack(e))); del.forEach(id => SNAP.e.delete(id));
+  upC.forEach(c => SNAP.c.set(ckey(c), cval(c))); up.forEach(e => SNAP.e.set(e.id, pack(e))); del.forEach(id => SNAP.e.delete(id));
   if(UI.syncErr){ UI.syncErr = null; render(); }
 }
 const todayLocal = () => new Date().toLocaleDateString('en-CA');
@@ -290,7 +305,7 @@ function render(){
   const u = user();
   const chips = u.role === 'admin' ? ['ALL', ...BR].map(b =>
     `<button class="chip" data-act="branch" data-v="${b}" aria-pressed="${UI.branch === b}">${b === 'ALL' ? 'All branches' : b}</button>`).join('') : '';
-  const tabs = [['import','Import report'], ['summary','Summary'], ['sales','Weekly sales'], ['expense','Expenses'], ['wage','Wages'], ...(u.role === 'admin' ? [['access','Access']] : [])]
+  const tabs = [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ['wage','Wages'], ...(u.role === 'admin' ? [['access','Access']] : [])]
     .map(([k, l]) => `<button class="tab" role="tab" data-act="tab" data-v="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('');
   $('#app').innerHTML = `
     <header class="top">
@@ -302,7 +317,7 @@ function render(){
     ${chips ? `<div class="chips">${chips}</div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sales' ? viewLedger(['sales']) : UI.tab === 'expense' ? viewLedger(['expense','cash','card','transfer','disc']) : UI.tab === 'wage' ? viewWage() : viewAccess()}`;
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? viewSheet() : UI.tab === 'wage' ? viewWage() : viewAccess()}`;
   if(UI.focusReason && $('#m-reason')){ $('#m-reason').focus(); UI.focusReason = false; }
   if(UI.focusAmt && $('#f-amt')){ $('#f-amt').focus(); UI.focusAmt = false; }
 }
@@ -399,48 +414,40 @@ function viewSummary(){
 function hintHtml(){
   const b = UI.branch, cat = $('#f-cat') ? $('#f-cat').value.trim() : (UI.draft.cat || '');
   const dt = parseDate($('#f-date') ? $('#f-date').value : (UI.draft.date || ''), UI.week);
-  const sec = $('#f-sec') ? $('#f-sec').value : (UI.tab === 'sales' ? 'sales' : UI.fSec);
+  const sec = $('#f-sec') ? $('#f-sec').value : UI.fSec;
   const ex = cat && dt ? entriesFor(b, [dt], [sec]).filter(e => e.cat === cat && e.id !== UI.editId) : [];
   return ex.length ? `<b>${fs2(dt)}</b> ${esc(cat)} already has ${ex.length} ${ex.length > 1 ? 'entries' : 'entry'} totalling <b>${money(ex.reduce((a, e) => a + e.amt, 0))}</b>. Adding another creates a new line in the table.`
     : 'Enter one invoice per entry. Several entries on the same date and supplier each get their own line in the weekly table. A new supplier name is added to the list automatically.';
 }
-function viewLedger(secs){
-  const b = UI.branch, c = calc(b, UI.week), days = c.days, isSales = secs[0] === 'sales';
-  const ro = isSales, editing = !ro && UI.editId ? S.entries.find(e => e.id === UI.editId) : null;
-  const dr = UI.draft;
-  const fsec = editing ? editing.sec : (isSales ? 'sales' : (secs.includes(UI.fSec) ? UI.fSec : 'expense'));
+const GROUPS = ['Grocery', 'Liquor', 'Equipment', 'Refund', 'ETC'];
+function classify(v){
+  const n = String(v || '').toLowerCase();
+  if(/refund/.test(n)) return 'Refund';
+  if(/coles|woolworth|aldi|\biga\b|costco|harris farm|grocer|fruit|veg|market|supermarket|asian/.test(n)) return 'Grocery';
+  if(/dan murphy|\bbws\b|liquor|wine|beer|cellar/.test(n)) return 'Liquor';
+  if(/bunnings|kmart|target|officeworks|big w|ikea|equipment|hardware|repair|plumb|electric|spotlight|reject shop/.test(n)) return 'Equipment';
+  return 'ETC';
+}
+const grpOf = (b, label) => { const c = S.cats[b].find(x => x.sec === 'cash' && x.label === label); return (c && c.grp) || classify(label); };
+const fx = n => n ? n.toFixed(2) : '–';
+const pc = (n, d) => d > 0 && n ? (n / d * 100).toFixed(2) + '%' : '';
+function entryForm(b, days){
+  const secs = ['expense', 'cash', 'card', 'transfer', 'disc'];
+  const editing = UI.editId ? S.entries.find(e => e.id === UI.editId) : null, dr = UI.draft;
+  const fsec = editing ? editing.sec : (secs.includes(UI.fSec) ? UI.fSec : 'expense');
   const today = iso(new Date());
   const dateV = dr.date ?? (editing ? editing.date : (days.includes(today) ? today : days[0]));
   const val = k => esc(dr[k] ?? (editing ? ({cat:editing.cat, amt:editing.amt, ref:editing.ref, note:editing.note}[k]) : ''));
   const dl = S.cats[b].filter(x => x.sec === fsec).map(x => `<option value="${esc(x.label)}">`).join('');
-  const rowsHtml = secs.map(sec => {
-    const cs = S.cats[b].filter(x => x.sec === sec);
-    if(!cs.length) return sec === 'card' ? `<tr class="grp"><td colspan="9">${SECNAME[sec]}</td></tr><tr><td colspan="9" class="empty">No card purchases yet. Choose Type “${SECNAME.card}” above to add one.</td></tr>` : '';
-    return `<tr class="grp"><td colspan="9">${SECNAME[sec]}</td></tr>` + cs.map(ct => {
-      const lists = days.map(d => S.entries.filter(e => e.br === b && e.date === d && e.sec === sec && e.cat === ct.label).sort((x, y) => x.id - y.id));
-      const k = Math.max(1, ...lists.map(l => l.length)), tot = lists.flat().reduce((a, e) => a + e.amt, 0);
-      let out = '';
-      for(let i = 0; i < k; i++){
-        out += '<tr>' + (i === 0 ? `<td rowspan="${k}" class="sub">${esc(ct.label)} ${ct.counted ? '' : '<span class="tag warn">not in total</span>'}</td>` : '') +
-          days.map((d, j) => {
-            const e = lists[j][i];
-            if(e) return `<td class="num ${ro ? '' : 'cell'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : (ro ? '' : 'Click to edit'))}">${e.amt.toFixed(2)}${e.sec === 'disc' ? (e.note ? `<small>${esc(e.note)}</small>` : '') : (e.ref ? `<small>#${esc(e.ref)}</small>` : '')}</td>`;
-            if(i === lists[j].length) return ro ? '<td class="num dim">·</td>' : `<td class="num cell dim" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(ct.label)}" title="Click to add an entry">${lists[j].length ? '+' : '·'}</td>`;
-            return '<td></td>';
-          }).join('') + (i === 0 ? `<td rowspan="${k}" class="num sub"><b>${tot ? tot.toFixed(2) : '·'}</b></td>` : '') + '</tr>';
-      }
-      return out;
-    }).join('');
-  }).join('');
-  const foot = isSales ? c.rows.map(r => r.sales) : c.rows.map(r => r.exp), ft = isSales ? c.t.sales : c.t.exp;
-  const adj = isSales ? c.t.adjSales : c.t.adjExp;
-  return weekBar() + `
-    ${ro ? '' : `<div class="card"><h2>${editing ? 'Edit entry' : (isSales ? 'Add sales entry' : 'Add expense entry')} <small>One invoice per entry</small></h2><div class="pad">
+  const vend = (dr.cat ?? (editing ? editing.cat : '')) || '';
+  const grp = dr.grp ?? (fsec === 'cash' ? grpOf(b, vend) : 'ETC');
+  return `<div class="card"><h2>${editing ? 'Edit entry' : 'Add expense entry'} <small>Sales are imported from the daily report</small></h2><div class="pad">
       <form class="form" id="entry" autocomplete="off">
         <label>Date (DD/MM/YYYY)<input type="text" id="f-date" inputmode="numeric" placeholder="DD/MM/YYYY" value="${esc(dr.date && !/^\d{4}-/.test(dr.date) ? dr.date : fd(dateV))}" required></label>
-        ${isSales ? '' : `<label>Type<select id="f-sec" data-act="fsec" ${editing ? 'disabled' : ''}>${secs.map(s => `<option value="${s}" ${s === fsec ? 'selected' : ''}>${SECNAME[s]}</option>`).join('')}</select></label>`}
-        <label>${isSales ? 'Line (Card, Cash, Uber…)' : (fsec === 'cash' ? 'Vendor (cash purchase)' : fsec === 'card' ? 'Vendor (card purchase)' : 'Supplier / line')}<input type="text" id="f-cat" list="catlist" value="${val('cat')}" placeholder="${isSales ? 'Card Sales' : (fsec === 'cash' ? 'Coles' : fsec === 'card' ? 'Woolworth' : 'JNH')}" required></label>
+        <label>Type<select id="f-sec" data-act="fsec" ${editing ? 'disabled' : ''}>${secs.map(x => `<option value="${x}" ${x === fsec ? 'selected' : ''}>${SECNAME[x]}</option>`).join('')}</select></label>
+        <label>${fsec === 'cash' ? 'Vendor (cash purchase)' : fsec === 'card' ? 'Vendor (card purchase)' : 'Supplier / line'}<input type="text" id="f-cat" list="catlist" value="${val('cat')}" placeholder="${fsec === 'cash' ? 'Coles' : fsec === 'card' ? 'Woolworth' : 'JNH'}" required></label>
         <datalist id="catlist">${dl}</datalist>
+        ${fsec === 'cash' ? `<label>Category<select id="f-grp">${GROUPS.map(g => `<option ${g === grp ? 'selected' : ''}>${g}</option>`).join('')}</select></label>` : ''}
         <label>${fsec === 'disc' ? 'Amount (AUD, − shortage / + surplus)' : 'Amount (AUD)'}<input type="number" id="f-amt" step="0.01" ${fsec === 'disc' ? '' : 'min="0"'} inputmode="decimal" value="${val('amt')}" required></label>
         <label>Invoice no.<input type="text" id="f-ref" value="${val('ref')}" placeholder="Optional"></label>
         <label>${fsec === 'disc' ? 'Reason (required)' : 'Note'}<input type="text" id="f-note" value="${val('note')}" placeholder="${fsec === 'disc' ? 'Why is the cash different?' : 'Optional'}" ${fsec === 'disc' ? 'required' : ''}></label>
@@ -448,11 +455,63 @@ function viewLedger(secs){
           ${editing ? `<button class="btn" type="button" data-act="cancel">Cancel</button><button class="btn danger" type="button" data-act="del" data-id="${editing.id}">${UI.confirmDel === editing.id ? 'Confirm delete' : 'Delete'}</button>` : ''}</div>
       </form>
       <div class="hint" id="hint">${hintHtml()}</div>
-    </div></div>`}
-    <div class="card"><h2>Weekly table <small>${ro ? 'Sales come from the imported reports. To correct a day, import the corrected report again.' : 'Every entry is a cell. Click a cell to edit it, or a dotted cell to add one.'}</small></h2><div class="scroll"><table>
-      <thead><tr><th>Line</th>${days.map((d, i) => `<th class="r">${DOW[i]}<br>${fs2(d)}</th>`).join('')}<th class="r">Week</th></tr></thead><tbody>${rowsHtml}
-      ${adj ? `<tr><td class="sub">Excel adjustment <span class="tag warn">read-only</span></td><td colspan="7"></td><td class="num sub">${adj.toFixed(2)}</td></tr>` : ''}
-      <tr class="tot"><td>${isSales ? 'Sales total' : 'Expenses total'}</td>${foot.map(v => `<td class="num">${v.toFixed(2)}</td>`).join('')}<td class="num">${ft.toFixed(2)}</td></tr></tbody></table></div></div>`;
+    </div></div>`;
+}
+function viewSheet(){
+  const b = UI.branch, c = calc(b, UI.week), days = c.days, t = c.t, imp = t.hasWage;
+  const E = (sec, d, label) => S.entries.filter(e => e.br === b && e.date === d && e.sec === sec && (label === undefined || e.cat === label)).sort((x, y) => x.id - y.id);
+  const sumE = es => es.reduce((a, e) => a + e.amt, 0);
+  const cell = (es, ro, d, sec, label) => {
+    if(!es.length) return ro ? '<td class="num dim">·</td>' : `<td class="num cell dim" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Click to add">·</td>`;
+    const lines = es.map(e => `<div class="inv ${ro ? '' : 'edit'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : [e.ref ? 'Invoice ' + e.ref : '', ro ? '' : 'Click to edit'].filter(Boolean).join(' · '))}">${e.amt.toFixed(2)}${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}</div>`).join('');
+    return `<td class="num ${ro ? '' : 'cellp'}">${lines}${es.length > 1 ? `<div class="invsum">${sumE(es).toFixed(2)}</div>` : ''}${ro ? '' : `<button type="button" class="plus" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Add another" aria-label="Add another">+</button>`}</td>`;
+  };
+  const barRow = (cls, label, vals, tot, extra) => `<tr class="brow ${cls}"><td>${label}</td>${vals.map(v => `<td class="num">${v ? v.toFixed(2) : '–'}</td>`).join('')}<td class="num">${tot ? tot.toFixed(2) : '–'}</td><td class="num">${extra || ''}</td></tr>`;
+  const lineRow = (name, es_by_day, ro, sec, label, cat, denom, indent) => {
+    const tot = es_by_day.flat().reduce((a, e) => a + e.amt, 0);
+    return `<tr class="ln ${indent ? 'ind' : ''}"><td class="sub">${esc(name)}${cat && !cat.counted ? ' <span class="tag warn">not in total</span>' : ''}</td>${days.map((d, i) => cell(es_by_day[i], ro, d, sec, label)).join('')}<td class="num sub"><b>${tot ? tot.toFixed(2) : '–'}</b></td><td class="num">${pc(tot, denom)}</td></tr>`;
+  };
+  const sCats = S.cats[b].filter(x => x.sec === 'sales');
+  const salesLines = sCats.map(ct => lineRow(ct.label, days.map(d => E('sales', d, ct.label)), true, 'sales', ct.label, ct, t.sales)).join('');
+  const sumSalesWhere = f => sCats.filter(f).reduce((a, ct) => a + (ct.counted ? sumE(days.flatMap(d => E('sales', d, ct.label))) : 0), 0);
+  const cardS = sumSalesWhere(x => /^card/i.test(x.label)), cashS = sumSalesWhere(x => /^cash/i.test(x.label)), delivS = sumSalesWhere(x => !/^(card|cash)/i.test(x.label));
+  const dayOf = (sec) => days.map(d => sumE(E(sec, d).filter(e => catInfo(b, sec, e.cat).counted)));
+  const invDay = dayOf('expense'), cardDay = dayOf('card'), cashDay = dayOf('cash');
+  const invTot = invDay.reduce((x, y) => x + y, 0), cardTot = cardDay.reduce((x, y) => x + y, 0), cashTot = cashDay.reduce((x, y) => x + y, 0);
+  const expTot = t.exp, adjE = t.adjExp;
+  const invLines = S.cats[b].filter(x => x.sec === 'expense').map(ct => lineRow(ct.label, days.map(d => E('expense', d, ct.label)), false, 'expense', ct.label, ct, expTot)).join('');
+  const cardCats = S.cats[b].filter(x => x.sec === 'card');
+  const cardLines = cardCats.map(ct => lineRow(ct.label, days.map(d => E('card', d, ct.label)), false, 'card', ct.label, ct, expTot)).join('');
+  const cashCats = S.cats[b].filter(x => x.sec === 'cash').filter(ct => days.some(d => E('cash', d, ct.label).length));
+  const cashRows = GROUPS.map(g => {
+    const vs = cashCats.filter(ct => grpOf(b, ct.label) === g);
+    const gd = days.map(d => vs.reduce((a, ct) => a + sumE(E('cash', d, ct.label)), 0)), gt = gd.reduce((x, y) => x + y, 0);
+    return `<tr class="ln grp2"><td class="sub"><b>${g}</b></td>${gd.map(v => `<td class="num">${v ? v.toFixed(2) : '–'}</td>`).join('')}<td class="num sub"><b>${gt ? gt.toFixed(2) : '–'}</b></td><td class="num">${pc(gt, expTot)}</td></tr>` +
+      vs.map(ct => lineRow(ct.label, days.map(d => E('cash', d, ct.label)), false, 'cash', ct.label, ct, expTot, true)).join('');
+  }).join('');
+  const trRows = days.map(d => E('transfer', d)), dcRows = days.map(d => E('disc', d));
+  const simple = (name, by, sec) => `<tr class="ln"><td class="sub">${name}</td>${days.map((d, i) => cell(by[i], false, d, sec, by[i][0] ? by[i][0].cat : (S.cats[b].find(x => x.sec === sec) || {}).label)).join('')}<td class="num sub"><b>${fx(by.flat().reduce((a, e) => a + e.amt, 0))}</b></td><td></td></tr>`;
+  const adjS = t.adjSales;
+  const sums = [['Total sales', t.sales, ''], ['Card', cardS, pc(cardS, t.sales)], ['Cash', cashS, pc(cashS, t.sales)], ['Delivery', delivS, pc(delivS, t.sales)], ['Closing cash', t.closing, ''], ['Expense total', t.exp, pc(t.exp, t.sales)], ['Wage', imp ? t.wage : null, imp ? pc(t.wage, t.sales) : ''], ['Net sales', imp && t.hasExp ? t.net : null, imp ? pc(t.net, t.sales) : ''], ['E + W', imp ? t.exp + t.wage : null, imp ? pc(t.exp + t.wage, t.sales) : '']];
+  return weekBar() + entryForm(b, days) + `
+    <div class="card"><h2>Weekly sheet <small>Sales come from the imported daily reports (read-only). Click an expense amount to edit it. Several invoices from one supplier on the same day are stacked in the cell and added up below them.</small></h2><div class="scroll"><table class="sheet">
+      <thead><tr><th>Date</th>${days.map((d, i) => `<th class="r">${DOW[i]}<br>${fs2(d)}</th>`).join('')}<th class="r">Sub total</th><th class="r">%</th></tr></thead><tbody>
+      ${barRow('s', 'SALES TOTAL', c.rows.map(r => r.sales), t.sales)}
+      ${salesLines}${adjS ? `<tr class="ln"><td class="sub">Excel adjustment <span class="tag warn">read-only</span></td><td colspan="7"></td><td class="num sub"><b>${adjS.toFixed(2)}</b></td><td></td></tr>` : ''}
+      ${barRow('e', 'EXPENSE (invoices)', invDay, invTot + adjE, pc(invTot + adjE, expTot))}
+      ${invLines || ''}
+      ${cardCats.length ? barRow('e', 'CARD PURCHASES (paid)', cardDay, cardTot, pc(cardTot, expTot)) + cardLines : ''}
+      ${barRow('c', 'CASH (cash-out)', cashDay, cashTot, pc(cashTot, expTot))}
+      ${cashRows}
+      ${barRow('t', 'Expense total', c.rows.map(r => r.exp), expTot)}
+      ${simple('Transfer / Missing', trRows, 'transfer')}
+      ${dcRows.flat().length ? simple('Cash discrepancy', dcRows, 'disc') : ''}
+      ${barRow('t', 'Closing cash', c.rows.map(r => r.closing), t.closing)}
+      </tbody></table></div></div>
+    <div class="card"><h2>Week summary <small>${fd(UI.week)} – ${fd(addDays(UI.week, 6))}</small></h2><div class="scroll"><table class="sheet sum">
+      <thead><tr>${sums.map(x => `<th class="r">${x[0]}</th>`).join('')}</tr></thead><tbody>
+      <tr>${sums.map(x => `<td class="num"><b>${x[1] === null ? '–' : money(x[1])}</b></td>`).join('')}</tr>
+      <tr>${sums.map(x => `<td class="num sm">${x[2] || ''}</td>`).join('')}</tr></tbody></table></div></div>`;
 }
 
 const dayTotal = (b, d) => S.entries.filter(e => e.br === b && e.date === d && e.sec === 'sales' && catInfo(b, 'sales', e.cat).counted).reduce((a, e) => a + e.amt, 0);
@@ -680,7 +739,7 @@ function impSave(ri, disc){
   for(const f of r.fields){
     if(f.target === 'skip' || !(f.amount > 0)) continue;
     const [k, label] = f.target.split('|'), sec = k === 'cash' ? 'cash' : 'sales';
-    if(!S.cats[b].some(c => c.sec === sec && c.label === label)) S.cats[b].push({sec, label, counted:true});
+    if(!S.cats[b].some(c => c.sec === sec && c.label === label)) S.cats[b].push({sec, label, counted:true, ...(sec === 'cash' ? {grp:classify(label)} : {})});
     S.entries = S.entries.filter(e => !(e.br === b && e.date === r.date && e.sec === sec && e.cat === label));
     const amt = f.target === 'sales|Cash Sales' && r.addBack ? f.amount + a.co : f.amount;
     S.entries.push({id:nid(), br:b, date:r.date, sec, cat:label, amt:Math.round(amt * 100) / 100, ref:'', note}); n++;
@@ -692,7 +751,7 @@ function impSave(ri, disc){
   }
   save(); flash(disc ? `Saved ${b} ${fd(r.date)} with a cash discrepancy of ${money(disc.amt)}` : `${n} lines saved for ${b} on ${fd(r.date)}`);
   UI.imp.reports.splice(ri, 1);
-  if(!UI.imp.reports.length){ UI.imp = {text:'', reports:null}; UI.branch = b; UI.day = r.date; UI.tab = 'daily'; }
+  if(!UI.imp.reports.length){ UI.imp = {text:'', reports:null}; UI.branch = b; UI.day = r.date; UI.tab = 'sheet'; }
 }
 function impChange(t){
   const r = UI.imp.reports && UI.imp.reports[+t.dataset.r]; if(!r) return;
@@ -737,7 +796,7 @@ function viewAccess(){
 function flash(m){ const f = document.createElement('div'); f.className = 'flash'; f.textContent = m; document.body.append(f); setTimeout(() => f.remove(), 2200); }
 function readDraft(){
   const g = id => { const e = document.getElementById(id); return e ? e.value : undefined; };
-  UI.draft = {date:g('f-date'), cat:g('f-cat'), amt:g('f-amt'), ref:g('f-ref'), note:g('f-note')};
+  UI.draft = {date:g('f-date'), cat:g('f-cat'), amt:g('f-amt'), ref:g('f-ref'), note:g('f-note'), grp:g('f-grp')};
 }
 document.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
@@ -780,7 +839,7 @@ document.addEventListener('change', ev => {
   }
   else if(t.dataset.imp){ impChange(t); }
   else if(t.id === 'd-date'){ const d = parseDate(t.value, UI.day); if(d){ UI.day = d; render(); } else { flash('Enter the date as DD/MM/YYYY'); t.value = fd(UI.day); } }
-  else if(t.id === 'f-cat' || t.id === 'f-date'){ readDraft(); const h = $('#hint'); if(h) h.innerHTML = hintHtml(); }
+  else if(t.id === 'f-cat' || t.id === 'f-date'){ if(t.id === 'f-cat' && $('#f-grp') && !UI.editId) $('#f-grp').value = grpOf(UI.branch, t.value.trim()); readDraft(); const h = $('#hint'); if(h) h.innerHTML = hintHtml(); }
 });
 document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && UI.modal){ UI.modal = null; render(); } });
 document.addEventListener('input', ev => { if(ev.target.id === 'imp-text') UI.imp.text = ev.target.value;
@@ -822,12 +881,14 @@ document.addEventListener('submit', ev => {
     const b = UI.branch; if(!allowed().includes(b)) return;
     const amt = parseFloat($('#f-amt').value), cat = $('#f-cat').value.trim(), date = parseDate($('#f-date').value, UI.week);
     if(!date){ flash('Enter the date as DD/MM/YYYY'); return; }
-    const secPre = UI.editId ? (S.entries.find(e => e.id === UI.editId) || {}).sec : (UI.tab === 'sales' ? 'sales' : ($('#f-sec') ? $('#f-sec').value : 'expense'));
+    const secPre = UI.editId ? (S.entries.find(e => e.id === UI.editId) || {}).sec : ($('#f-sec') ? $('#f-sec').value : 'expense');
     if(!isFinite(amt) || (secPre !== 'disc' && amt < 0) || !cat) return;
     if(secPre === 'disc' && !$('#f-note').value.trim()){ flash('A reason is required for a cash discrepancy'); return; }
     const editing = UI.editId ? S.entries.find(e => e.id === UI.editId) : null;
-    const sec = editing ? editing.sec : (UI.tab === 'sales' ? 'sales' : ($('#f-sec') ? $('#f-sec').value : 'expense'));
-    if(!S.cats[b].some(c => c.sec === sec && c.label === cat)) S.cats[b].push({sec, label:cat, counted:true});
+    const sec = editing ? editing.sec : ($('#f-sec') ? $('#f-sec').value : 'expense');
+    const gsel = $('#f-grp') ? $('#f-grp').value : null, ec = S.cats[b].find(c => c.sec === sec && c.label === cat);
+    if(!ec) S.cats[b].push({sec, label:cat, counted:true, ...(sec === 'cash' ? {grp:gsel || classify(cat)} : {})});
+    else if(sec === 'cash' && gsel && ec.grp !== gsel) ec.grp = gsel;
     const rec = {date, sec, cat, amt:Math.round(amt*100)/100, ref:$('#f-ref').value.trim(), note:$('#f-note').value.trim()};
     if(editing) Object.assign(editing, rec); else S.entries.push({id:nid(), br:b, ...rec});
     save();

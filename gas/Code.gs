@@ -8,7 +8,7 @@ const P_ = () => PropertiesService.getScriptProperties();
 const SHEET_ = n => SpreadsheetApp.openById(P_().getProperty('SSID')).getSheetByName(n);
 const HEAD_ = {
   entries: ['id', 'br', 'date', 'sec', 'cat', 'amt', 'ref', 'note', 'updated_at', 'updated_by'],
-  cats: ['br', 'sec', 'label', 'counted'],
+  cats: ['br', 'sec', 'label', 'counted', 'grp'],
   meta: ['br', 'json'],
   users: ['username', 'name', 'role', 'br', 'must_change', 'salt', 'hash']
 };
@@ -111,7 +111,7 @@ function load_(me) {
   return {
     me: pub_(me), profiles,
     meta: read_('meta').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, data: JSON.parse(r.json) })),
-    cats: read_('cats').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, sec: r.sec, label: r.label, counted: r.counted === true || r.counted === 'TRUE' })),
+    cats: read_('cats').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, sec: r.sec, label: r.label, counted: r.counted === true || r.counted === 'TRUE', grp: String(r.grp || '') })),
     entries: read_('entries').filter(r => canSee_(me, r.br)).map(r => ({ id: r.id, br: r.br, date: String(r.date), sec: r.sec, cat: String(r.cat), amt: Number(r.amt), ref: String(r.ref), note: String(r.note) }))
   };
 }
@@ -132,9 +132,10 @@ function sync_(me, b) {
     const add = [];
     for (const c of upC) {
       const row = idx[c.br + '|' + c.sec + '|' + c.label];
-      if (row) sh.getRange(row, 4).setValue(!!c.counted); else add.push([c.br, c.sec, c.label, !!c.counted]);
+      if (row) sh.getRange(row, 4, 1, 2).setValues([[!!c.counted, String(c.grp || '')]]); else add.push([c.br, c.sec, c.label, !!c.counted, String(c.grp || '')]);
     }
-    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 4).setValues(add);
+    if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 5).setValues(add);
+    sh.getRange(1, 5).setValue('grp');
   }
   // entries
   const sh = SHEET_('entries'), n = sh.getLastRow();
