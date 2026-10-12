@@ -1,0 +1,788 @@
+<title>Sales Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: ledger-style operations console. Top bar (demo account) > branch chips > tabs > working area. */
+:root{
+  --bg:#f3f4f1; --surface:#ffffff; --surface2:#eceee9; --line:#d7dad3; --fg:#1d2420; --muted:#667068;
+  --accent:#1f5f5b; --accent-fg:#ffffff; --accent-soft:#dcebe8;
+  --good:#1f7a4d; --warn:#9a6a00; --bad:#b3372b; --bad-soft:#f7e3e0; --warn-soft:#f6ecd2;
+  --sans:'Noto Sans KR',system-ui,-apple-system,'Segoe UI',sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121614; --surface:#1a201d; --surface2:#222a26; --line:#34403a; --fg:#e6ebe7; --muted:#9aa69f;
+  --accent:#6cc2ba; --accent-fg:#0b1412; --accent-soft:#1f3a37;
+  --good:#5cc78e; --warn:#e0b44d; --bad:#f08a7e; --bad-soft:#3a2220; --warn-soft:#38300f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121614; --surface:#1a201d; --surface2:#222a26; --line:#34403a; --fg:#e6ebe7; --muted:#9aa69f;
+  --accent:#6cc2ba; --accent-fg:#0b1412; --accent-soft:#1f3a37;
+  --good:#5cc78e; --warn:#e0b44d; --bad:#f08a7e; --bad-soft:#3a2220; --warn-soft:#38300f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5;padding-inline:16px;padding-block:0 48px}
+.wrap{max-width:1180px;margin:0 auto}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.demo{background:var(--warn-soft);color:var(--fg);border-bottom:1px solid var(--line);margin-inline:-16px;padding:6px 16px;font-size:12.5px}
+.demo b{color:var(--warn)}
+.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding-block:16px 12px}
+.brand{display:flex;flex-direction:column}
+.brand h1{font-size:19px;margin:0;letter-spacing:-.01em}
+.brand span{color:var(--muted);font-size:12.5px}
+.acct{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.acct label{font-size:12px;color:var(--muted)}
+select,input[type=text],input[type=number],input[type=date],input[type=email]{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;min-width:0}
+.role{font-size:11.5px;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:700;letter-spacing:.03em}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 14px;font-weight:500}
+.chip[aria-pressed=true]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:9px 16px;color:var(--muted);font-weight:500;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent);font-weight:700}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.week{display:flex;align-items:center;gap:8px}
+.week b{font-family:var(--mono);font-size:13px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:6px 12px;font-weight:500}
+.btn:hover{background:var(--surface2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.kpi small{display:block;color:var(--muted);font-size:12px}
+.kpi strong{font-family:var(--mono);font-size:19px;font-variant-numeric:tabular-nums}
+.kpi em{font-style:normal;font-size:12px;color:var(--muted);font-family:var(--mono)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:16px;min-width:0}
+.card>h2{font-size:14px;margin:0;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.card>h2 small{font-weight:400;color:var(--muted);font-size:12px}
+.pad{padding:14px}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:500;text-align:left;white-space:nowrap}
+th.r{text-align:right}
+tr.grp td{background:var(--surface2);font-weight:700;font-size:12px;letter-spacing:.03em;color:var(--muted)}
+tr.tot td{font-weight:700;background:var(--surface2)}
+tr:last-child td{border-bottom:0}
+td.cell{cursor:pointer}
+td.cell:hover{background:var(--accent-soft)}
+td.zero{color:var(--line)}
+.pierow{display:flex;gap:10px;align-items:center}.pierow dl{flex:1;min-width:0}.pierow dt{white-space:nowrap}.mpie{width:72px;height:72px;flex:none}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.tag{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.form input,.form select{width:100%;color:var(--fg)}
+.hint{font-size:12.5px;color:var(--muted);margin-top:10px}
+.hint b{color:var(--fg);font-family:var(--mono)}
+.neg{color:var(--bad)}
+.day{display:flex;justify-content:space-between;align-items:baseline;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--line);font-weight:700}
+.day span:last-child{font-family:var(--mono)}
+.ent{table-layout:fixed;min-width:640px}.ent td:nth-child(1){width:32%}.ent td:nth-child(2){width:15%}.ent td:nth-child(4){width:14%}.ent td:nth-child(5){width:15%}.ent td{overflow:hidden;text-overflow:ellipsis}
+.cell small{display:block;font-size:10.5px;color:var(--muted);font-family:var(--sans);max-width:90px;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
+td.sub{color:var(--muted);vertical-align:top}
+td.cell.editing{outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-soft)}
+td.dim{color:var(--line)}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-bottom:16px}
+.bcard{display:flex;flex-direction:column;gap:10px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0;width:100%}
+.bcard:hover{border-color:var(--accent);background:var(--surface2)}
+.bcard .hd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.bcard .hd b{font-size:16px}.bcard .hd span{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bcard .big{font-family:var(--mono);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.bcard .big small{display:block;font-family:var(--sans);font-size:11.5px;font-weight:400;color:var(--muted)}
+.bcard dl{display:grid;grid-template-columns:1fr auto auto;gap:5px 12px;margin:0;font-size:13px;align-items:baseline}
+.bcard dt{color:var(--muted)}.bcard dd{margin:0;font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.bcard dd.p{color:var(--muted);min-width:52px}
+.bcard .go{font-size:12px;color:var(--accent);font-weight:700}
+.daynav{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.daynav input{width:130px;font-family:var(--mono);font-size:15px;text-align:center}
+.daynav .dow{font-weight:700;font-size:15px}
+.pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px}
+.pill.ok{background:var(--accent-soft);color:var(--good)}.pill.no{background:var(--warn-soft);color:var(--warn)}
+.dline{display:grid;grid-template-columns:minmax(110px,1fr) 2fr;gap:10px;align-items:start;padding:12px 14px;border-bottom:1px solid var(--line)}
+.dline .dl{padding-top:9px;font-size:15px}
+.dins{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.dinp{font-family:var(--mono);font-size:18px;padding:9px 10px;width:150px;max-width:100%;text-align:right}
+.dnew{display:grid;grid-template-columns:minmax(110px,1fr) 2fr;gap:10px;padding:12px 14px;align-items:center;background:var(--surface2)}
+.dnew .row{display:flex;flex-wrap:wrap;gap:8px}
+.dfoot{position:sticky;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:2px solid var(--accent);border-radius:0 0 8px 8px}
+.dfoot strong{font-family:var(--mono);font-size:22px}
+.dfoot small{display:block;color:var(--muted);font-size:12px}
+.btn.big{padding:11px 26px;font-size:16px}
+tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{background:var(--accent-soft);font-weight:700}
+@media (max-width:560px){.dline,.dnew{grid-template-columns:1fr}.dline .dl{padding-top:0}.dinp{width:calc(50% - 4px);flex:1 1 130px}}
+.imp textarea{width:100%;min-height:200px;font-family:var(--mono);font-size:13px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:10px;resize:vertical}
+.imp .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.chk{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.chk div{display:flex;gap:8px;align-items:baseline;font-size:13px}
+.chk .ok{color:var(--good)}.chk .wn{color:var(--warn)}.chk .bd{color:var(--bad)}
+.rtable input,.rtable select{width:100%;min-width:90px}
+.rtable td.skipped{color:var(--muted)}
+.fileb{position:relative;overflow:hidden}.fileb input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.err{background:var(--bad-soft);color:var(--bad);padding:10px 14px;border-radius:6px;margin:12px 14px;font-weight:500}
+.mback{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.modal{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;max-width:520px;width:100%;max-height:calc(100% - 16px);overflow:auto;padding:18px 18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.modal h2{margin:0 0 6px;font-size:17px;color:var(--bad)}
+.modal p{margin:0 0 12px;color:var(--muted)}
+.modal table{margin-bottom:14px}
+.modal textarea{width:100%;min-height:84px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:9px;font:inherit;resize:vertical}
+.modal label{display:block;font-weight:700;margin-bottom:4px}
+.modal .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;justify-content:flex-end}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.empty{padding:22px 14px;color:var(--muted);text-align:center}
+.editing{outline:2px solid var(--accent);outline-offset:-2px}
+.flash{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:6px;font-size:13px;z-index:9}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.two{grid-template-columns:1fr}.top{padding-top:12px}}
+</style>
+
+<div class="demo"><b>DEMO</b> · Entries are saved in this browser only. Real sign-in and a shared database come with the GitHub version. Switch accounts at the top right to compare access levels.</div>
+<div class="wrap" id="app"></div>
+
+<script>
+const DATA = {"WT": {"name": "Sushi & More WATERLOO (WT)", "dates": ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], "items": [{"sec": "sales", "label": "Card Sales", "vals": [1730.56, 2010.22, 1583.05, 1614.7, 2179.14, 1707.1, null], "counted": true}, {"sec": "sales", "label": "Cash Sales", "vals": [174.4, 38.9, 76.7, 192.3, 121.6, 32.9, null], "counted": true}, {"sec": "sales", "label": "Uber", "vals": [301.04, 128.3, 106.74, 593.18, 641.09, 454.32, null], "counted": true}, {"sec": "sales", "label": "Voucher", "vals": [null, null, null, null, null, null, null], "counted": false}, {"sec": "sales", "label": "Missing", "vals": [null, null, null, null, null, null, null], "counted": false}, {"sec": "expense", "label": "Panetta", "vals": [223.0, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "JFC", "vals": [null, 256.52, null, 327.23, null, null, null], "counted": true}, {"sec": "expense", "label": "JNH", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "NTC", "vals": [null, 385.55, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Jonefood", "vals": [80.5, null, null, null, 217.8, null, null], "counted": true}, {"sec": "expense", "label": "Gomaps", "vals": [null, 196.37, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Empress", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "B&E", "vals": [291.04, null, 264.34, null, null, 158.1, null], "counted": true}, {"sec": "expense", "label": "Moby's", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "YCC", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Pearl Seafood", "vals": [278.16, null, 348.5, null, 257.68, null, null], "counted": true}, {"sec": "cash", "label": "Grocery", "vals": [null, null, null, null, 5.0, null, null], "counted": true}, {"sec": "transfer", "label": "Transfer/Missing", "vals": [null, null, null, null, null, null, null], "counted": true}], "wages": [{"name": "Jinheum", "section": "RATE FIXED", "data": {"Total hr": 38.0, "Total Day": 5.0, "Tax rate": 40.4858, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1538.4604, "Tax Tresh": 1538.4604, "Cash rate": 280.0, "Cash Wage": 0.0, "PH rate": 0.0}}, {"name": "Danny", "section": "RATE FIXED", "data": {"Total Day": 1.0, "Tax hr": 0.0, "hr thresh": 38.0, "Tax Wage": 330.0, "Tax Tresh": 0.0, "Cash rate": 330.0, "PH rate": 0.0}}, {"name": "Daein", "section": "TIME FIXED", "data": {"Total hr": 42.75, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Tresh": 1056.78, "Tax Wage": 1129.7812, "Cash rate": 25.0, "Cash Hr": 4.75, "Cash Wage": 118.75, "SAT hr": 10.5, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Ha Eun", "section": "TIME FIXED", "data": {"Tax rate": 27.81, "Tax hr": 0.0, "hr thresh": 20.0, "Tax Tresh": 556.2, "Tax Wage": 0.0, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Fernando", "section": "TIME FIXED", "data": {"Total hr": 51.5, "Tax rate": 28.0, "Tax hr": 14.5, "hr thresh": 14.5, "Tax Tresh": 406.0, "Tax Wage": 479.5, "Cash rate": 25.0, "Cash Hr": 37.0, "Cash Wage": 925.0, "SAT hr": 10.5, "SAT rate": 7.0, "SUN rate": 7.0}}, {"name": "Monica", "section": "TIME FIXED", "data": {"Tax rate": 27.81, "Tax hr": 0.0, "hr thresh": 38.0, "Tax Tresh": 1056.78, "Tax Wage": 0.0, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Ellie", "section": "TIME FIXED", "data": {"Tax rate": 27.81, "Tax hr": 0.0, "hr thresh": 24.0, "Tax Tresh": 667.44, "Tax Wage": 0.0, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Yubin", "section": "TIME FIXED", "data": {"Tax rate": 27.81, "Tax hr": 0.0, "hr thresh": 24.0, "Tax Tresh": 667.44, "Tax Wage": 0.0, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Devi", "section": "TIME FIXED", "data": {"Total hr": 36.0, "Tax rate": 27.81, "Tax hr": 36.0, "hr thresh": 36.0, "Tax Tresh": 1001.16, "Tax Wage": 1039.3987, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 5.5, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Jofanny", "section": "CASH", "data": {"Total hr": 20.25, "Cash rate": 25.0, "Cash Wage": 506.25, "PH rate": 0.0}}, {"name": "Natalia", "section": "CASH", "data": {"Total hr": 4.0, "Cash rate": 25.0, "Cash Wage": 100.0, "PH rate": 0.0}}], "wageSummary": {"total": 5127.7416, "tax": 3477.7416, "cash": 1650.0, "hr": 192.5}, "xlSales": 12945.24, "xlExp": 3289.79, "adjSales": 0.0, "adjExp": 0.0, "wk2": [{"date": "2026-10-06", "cat": "Card Sales", "amt": 1531.0, "note": "Imported from Sales Report · written by Jinheum"}, {"date": "2026-10-06", "cat": "Cash Sales", "amt": 80.1, "note": "Imported from Sales Report · written by Jinheum"}, {"date": "2026-10-06", "cat": "Uber", "amt": 160.5, "note": "Imported from Sales Report · written by Jinheum"}, {"date": "2026-10-07", "cat": "Card Sales", "amt": 1607.96, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-07", "cat": "Cash Sales", "amt": 205.0, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-07", "cat": "Uber", "amt": 231.55, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-08", "cat": "Card Sales", "amt": 1841.4, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-08", "cat": "Cash Sales", "amt": 105.2, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-08", "cat": "Uber", "amt": 281.08, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-09", "cat": "Card Sales", "amt": 2371.5, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-09", "cat": "Cash Sales", "amt": 27.0, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-09", "cat": "Uber", "amt": 304.06, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-10", "cat": "Card Sales", "amt": 2153.6, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-10", "cat": "Cash Sales", "amt": 171.5, "note": "Imported from Sales Report · written by Fernando"}, {"date": "2026-10-10", "cat": "Uber", "amt": 146.88, "note": "Imported from Sales Report · written by Fernando"}], "wk2p": [{"date": "2026-10-06", "sec": "expense", "cat": "B&E", "amt": 285.42, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "expense", "cat": "Pearl Seafood", "amt": 279.74, "note": "Imported from Sales Report · as written: Pearl seafoods"}, {"date": "2026-10-06", "sec": "expense", "cat": "JFC", "amt": 349.04, "note": "Imported from Sales Report · as written: Jfc"}, {"date": "2026-10-06", "sec": "expense", "cat": "Panetta", "amt": 221.0, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "cash", "cat": "Daein", "amt": 68.75, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "cash", "cat": "Ellie", "amt": 43.75, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "sec": "expense", "cat": "Jonefood", "amt": 145.65, "note": "Imported from Sales Report · as written: John foods"}, {"date": "2026-10-08", "sec": "expense", "cat": "JFC", "amt": 393.7, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "expense", "cat": "Pearl Seafood", "amt": 402.48, "note": "Imported from Sales Report · as written: Pearl Seafoods"}, {"date": "2026-10-08", "sec": "expense", "cat": "B&E", "amt": 390.98, "note": "Imported from Sales Report · as written: B&E Foods"}, {"date": "2026-10-08", "sec": "cash", "cat": "White Wine", "amt": 15.0, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "B&E", "amt": 219.0, "note": "Imported from Sales Report"}]}, "LE": {"name": "Sushi & More LEICHHARDT (LE)", "dates": ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], "items": [{"sec": "sales", "label": "Card Sales", "vals": [2068.33, 1832.28, 2079.58, 2124.69, 2776.0, 2589.7, 2055.9], "counted": true}, {"sec": "sales", "label": "Cash Sales", "vals": [528.0, 503.2, 509.9, 499.8, 422.0, 339.4, 416.4], "counted": true}, {"sec": "sales", "label": "School", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "sales", "label": "Uber", "vals": [131.7, 20.1, null, 35.5, null, null, null], "counted": true}, {"sec": "sales", "label": "Too Good", "vals": [null, 59.94, 49.95, 29.97, 29.97, 39.96, 29.97], "counted": true}, {"sec": "expense", "label": "CCA", "vals": [565.06, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "JFC", "vals": [null, null, 372.12, null, null, null, null], "counted": true}, {"sec": "expense", "label": "JNH", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Empress", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Gomaps", "vals": [339.86, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Meat boys", "vals": [null, null, null, null, 258.0, null, null], "counted": true}, {"sec": "expense", "label": "Moby's", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "B&E", "vals": [null, null, 296.5, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Pearl Seafoods", "vals": [null, 397.15, 352.24, null, null, 556.33, null], "counted": true}, {"sec": "expense", "label": "Panetta", "vals": [null, null, 327.0, null, null, 99.0, null], "counted": true}, {"sec": "expense", "label": "ntc", "vals": [null, null, null, 1090.3, null, null, null], "counted": true}, {"sec": "cash", "label": "Dollar", "vals": [null, 5.5, null, null, null, null, null], "counted": true}], "wages": [{"name": "Danny", "section": "RATE FIXED", "data": {"Total Day": 2.0, "Tax Wage": 660.0, "Tax Tresh": 0.0, "Cash rate": 330.0}}, {"name": "Jaeyoon", "section": "RATE FIXED", "data": {"Tax rate": 37.955, "Tax hr": 0.0, "hr thresh": 38.0, "Tax Wage": 0.0, "Tax Tresh": 1442.29, "Cash rate": 280.0, "Cash Wage": 0.0}}, {"name": "Mona", "section": "TIME FIXED", "data": {"Total hr": 51.5, "Tax rate": 28.0, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Tresh": 672.0, "Tax Wage": 724.5, "Cash rate": 29.0, "Cash Hr": 27.5, "Cash Wage": 797.5, "SAT hr": 7.5, "SAT rate": 7.0, "SUN rate": 7.0}}, {"name": "Nandin", "section": "TIME FIXED", "data": {"Tax rate": 27.81, "Tax hr": 0.0, "hr thresh": 24.0, "Tax Tresh": 667.44, "Tax Wage": 0.0, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Khongoroo", "section": "TIME FIXED", "data": {"Total hr": 43.0, "Tax rate": 27.81, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Tresh": 667.44, "Tax Wage": 792.585, "Cash rate": 25.0, "Cash Hr": 19.0, "Cash Wage": 475.0, "SAT hr": 10.0, "SAT rate": 6.9525, "SUN hr": 8.0, "SUN rate": 6.9525}}, {"name": "Zoloo", "section": "TIME FIXED", "data": {"Total hr": 29.5, "Tax rate": 27.81, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Tresh": 667.44, "Tax Wage": 716.1075, "Cash rate": 25.0, "Cash Hr": 5.5, "Cash Wage": 137.5, "SAT rate": 6.9525, "SUN hr": 7.0, "SUN rate": 6.9525}}, {"name": "Hyerin", "section": "TIME FIXED", "data": {"Tax rate": 27.81, "Tax hr": 0.0, "hr thresh": 20.0, "Tax Tresh": 556.2, "Tax Wage": 0.0, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Enkhjin", "section": "TIME FIXED", "data": {"Total hr": 37.0, "Tax rate": 27.81, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Tresh": 667.44, "Tax Wage": 768.2512, "Cash rate": 25.0, "Cash Hr": 13.0, "Cash Wage": 325.0, "SAT hr": 7.5, "SAT rate": 6.9525, "SUN hr": 7.0, "SUN rate": 6.9525}}, {"name": "WonJoon", "section": "TIME FIXED", "data": {"Total hr": 42.5, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Tresh": 1056.78, "Tax Wage": 1056.78, "Cash rate": 25.0, "Cash Hr": 4.5, "Cash Wage": 112.5, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Badamaa", "section": "TIME FIXED", "data": {"Total hr": 28.5, "Tax rate": 27.81, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Tresh": 667.44, "Tax Wage": 761.2987, "Cash rate": 25.0, "Cash Hr": 4.5, "Cash Wage": 112.5, "SAT hr": 6.5, "SAT rate": 6.9525, "SUN hr": 7.0, "SUN rate": 6.9525}}, {"name": "Alice", "section": "TIME FIXED", "data": {"Total hr": 7.5, "Tax rate": 27.81, "Tax hr": 7.5, "hr thresh": 7.5, "Tax Tresh": 208.575, "Tax Wage": 208.575, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525, "SUN rate": 6.9525}}, {"name": "Judy", "section": "CASH", "data": {"Cash rate": 50.0, "Cash Wage": 0.0}}, {"name": "Yulia", "section": "CASH", "data": {"Cash rate": 280.0, "Cash Wage": 0.0}}, {"name": "Natalia", "section": "CASH", "data": {"Cash rate": 25.0, "Cash Wage": 0.0}}], "wageSummary": {"total": 7648.0975, "tax": 5688.0975, "cash": 1960.0, "hr": 239.5}, "xlSales": 19172.24, "xlExp": 4659.06, "adjSales": 0.0, "adjExp": 0.0, "wk2": [{"date": "2026-10-06", "cat": "Card Sales", "amt": 2009.9, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-06", "cat": "Cash Sales", "amt": 431.8, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-06", "cat": "Too Good", "amt": 39.96, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-07", "cat": "Card Sales", "amt": 2299.61, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-07", "cat": "Cash Sales", "amt": 513.9, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-07", "cat": "Too Good", "amt": 39.96, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-08", "cat": "Card Sales", "amt": 2322.9, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-08", "cat": "Cash Sales", "amt": 593.7, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-08", "cat": "Too Good", "amt": 19.98, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-09", "cat": "Card Sales", "amt": 2389.3, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-09", "cat": "Cash Sales", "amt": 552.8, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-09", "cat": "Too Good", "amt": 39.96, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-10", "cat": "Card Sales", "amt": 3010.8, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-10", "cat": "Cash Sales", "amt": 306.5, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-10", "cat": "Too Good", "amt": 39.96, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-10", "cat": "Uber", "amt": 110.15, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-11", "cat": "Card Sales", "amt": 1841.9, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-11", "cat": "Cash Sales", "amt": 300.9, "note": "Imported from Sales Report · written by Mona"}, {"date": "2026-10-11", "cat": "Too Good", "amt": 39.96, "note": "Imported from Sales Report · written by Mona"}], "wk2p": [{"date": "2026-10-06", "sec": "expense", "cat": "Empress", "amt": 586.24, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "sec": "expense", "cat": "Pearl Seafoods", "amt": 406.61, "note": "Imported from Sales Report · as written: Pearl seafoods"}, {"date": "2026-10-07", "sec": "cash", "cat": "Aldi chicken", "amt": 93.05, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "sec": "cash", "cat": "Wools Tofu", "amt": 10.0, "note": "Imported from Sales Report · as written: wools tofu"}, {"date": "2026-10-08", "sec": "expense", "cat": "B&E", "amt": 366.6, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "sec": "expense", "cat": "JFC", "amt": 487.81, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "sec": "expense", "cat": "Gomaps", "amt": 492.99, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "sec": "expense", "cat": "Pearl Seafoods", "amt": 402.67, "note": "Imported from Sales Report · as written: Pearl seafoods"}, {"date": "2026-10-10", "sec": "expense", "cat": "Panetta", "amt": 265.0, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "Pearl Seafoods", "amt": 275.01, "note": "Imported from Sales Report · as written: Pearl seafoods"}, {"date": "2026-10-10", "sec": "expense", "cat": "Fridge fix", "amt": 308.0, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "B&E", "amt": 226.6, "note": "Imported from Sales Report"}]}, "BO": {"name": "Akira Bowral (BO)", "dates": ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], "items": [{"sec": "sales", "label": "Card Sales", "vals": [3138.34, 4385.62, 4015.89, 3879.2, 3911.0, 2690.5, 2410.7], "counted": true}, {"sec": "sales", "label": "Cash Sales", "vals": [693.9, 707.9, 494.7, 560.8, 652.8, 500.8, 356.3], "counted": true}, {"sec": "sales", "label": "Doordash", "vals": [231.9, 76.2, null, 205.3, 81.9, 27.3, 27.3], "counted": true}, {"sec": "sales", "label": "Online", "vals": [74.09, 12.69, 36.75, 25.5, 77.0, 36.5, 124.0], "counted": true}, {"sec": "sales", "label": "Good To Go", "vals": [30.96, 30.96, 27.96, 27.96, 27.96, 38.96, 29.46], "counted": true}, {"sec": "sales", "label": "Uber", "vals": [41.0, 174.0, null, 266.0, 173.0, 258.0, 38.0], "counted": true}, {"sec": "expense", "label": "CCA", "vals": [null, null, null, 383.55, null, null, null], "counted": true}, {"sec": "expense", "label": "JFC", "vals": [null, null, null, 950.76, null, null, null], "counted": true}, {"sec": "expense", "label": "JNH", "vals": [null, 936.41, null, 1145.22, null, 655.43, null], "counted": true}, {"sec": "expense", "label": "JNH Vege", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Gomaps", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "B&E", "vals": [402.6, null, null, null, 362.6, null, null], "counted": true}, {"sec": "expense", "label": "Passion In Fruit", "vals": [null, 132.77, 90.0, 126.47, null, 55.82, null], "counted": true}, {"sec": "expense", "label": "Moby's", "vals": [1027.08, null, null, 1032.75, null, 383.79, null], "counted": true}, {"sec": "expense", "label": "Plumber", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "cash", "label": "Grocery", "vals": [161.3, null, null, 74.0, 9.8, 21.6, null], "counted": true}, {"sec": "cash", "label": "ETC", "vals": [null, 44.0, null, null, 462.0, null, null], "counted": true}], "wages": [{"name": "Santosh", "section": "RATE FIXED", "data": {"Total Hr": 30.33, "Tax rate": 40.2322, "hr thresh": 38.0, "Tax Wage": 1528.82, "Tax Tresh": 1528.8236, "Cash rate": 29.0, "Cash Wage": 0.0, "Adj": 649.25}}, {"name": "Rikesh", "section": "TIME FIXED", "data": {"Total Hr": 45.17, "Tax rate": 28.0, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1190.0, "Tax Tresh": 1064.0, "Cash rate": 28.0, "Cash Hr": 7.17, "Cash Wage": 0.0, "Adj": -200.76, "SAT hr": 9.0, "SAT rate": 7.0, "SUN hr": 9.0}}, {"name": "Sangita", "section": "TIME FIXED", "data": {"Total Hr": 41.0, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1112.4, "Tax Tresh": 1056.78, "Cash rate": 25.0, "Cash Hr": 3.0, "Cash Wage": 75.0, "SAT rate": 6.9525, "SUN hr": 8.0}}, {"name": "Robin", "section": "TIME FIXED", "data": {"Total Hr": 52.33, "Tax rate": 27.81, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Wage": 771.7275, "Tax Tresh": 667.44, "Cash rate": 23.0, "Cash Hr": 28.33, "Cash Wage": 541.59, "Adj": -120.0, "SAT hr": 10.0, "SAT rate": 6.9525, "SUN hr": 5.0}}, {"name": "Basanta", "section": "TIME FIXED", "data": {"Total Hr": 36.0, "Tax rate": 27.81, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Wage": 709.155, "Tax Tresh": 667.44, "Cash rate": 23.0, "Cash Hr": 12.0, "Cash Wage": 276.0, "SAT hr": 6.0, "SAT rate": 6.9525}}, {"name": "Nishan", "section": "TIME FIXED", "data": {"Total Hr": 47.0, "Tax rate": 27.81, "Tax hr": 24.0, "hr thresh": 24.0, "Tax Wage": 792.585, "Tax Tresh": 667.44, "Cash rate": 23.0, "Cash Hr": 23.0, "Cash Wage": 409.0, "Adj": -120.0, "SAT hr": 8.0, "SAT rate": 6.9525, "SUN hr": 10.0}}, {"name": "Binda", "section": "TIME FIXED", "data": {"Total Hr": 4.5, "Tax rate": 27.81, "Tax hr": 4.5, "hr thresh": 4.5, "Tax Wage": 125.145, "Tax Tresh": 125.145, "Cash rate": 23.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 6.9525}}, {"name": "Anima", "section": "CASH", "data": {"Cash rate": 21.0, "Cash Wage": 0.0}}, {"name": "Bhupraj", "section": "CASH", "data": {"Cash rate": 21.0, "Cash Wage": 0.0}}], "wageSummary": {"total": 7442.9325, "tax": 6349.8325, "cash": 1093.1, "hr": 256.33}, "xlSales": 30316.74, "xlExp": 8448.15, "adjSales": 0.0, "adjExp": -9.8, "wk2": [{"date": "2026-10-06", "cat": "Card Sales", "amt": 4237.7, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "cat": "Cash Sales", "amt": 611.65, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "cat": "Doordash", "amt": 224.7, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "cat": "Uber", "amt": 173.0, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "cat": "Good To Go", "amt": 34.46, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Card Sales", "amt": 4004.1, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Cash Sales", "amt": 582.3, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Doordash", "amt": 209.6, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Online", "amt": 152.0, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Uber", "amt": 42.0, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Good To Go", "amt": 34.46, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Card Sales", "amt": 3764.5, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Cash Sales", "amt": 345.5, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Doordash", "amt": 145.5, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Online", "amt": 120.0, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Good To Go", "amt": 33.96, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Card Sales", "amt": 4187.6, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Cash Sales", "amt": 571.6, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Doordash", "amt": 32.7, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Online", "amt": 45.8, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Uber", "amt": 72.0, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Good To Go", "amt": 15.48, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Card Sales", "amt": 3804.7, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Cash Sales", "amt": 362.1, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Doordash", "amt": 85.3, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Online", "amt": 129.59, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Uber", "amt": 178.0, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Good To Go", "amt": 37.96, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Card Sales", "amt": 2736.7, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Cash Sales", "amt": 344.0, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Online", "amt": 133.0, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Uber", "amt": 134.0, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Good To Go", "amt": 30.46, "note": "Imported from Sales Report"}], "wk2p": [{"date": "2026-10-06", "sec": "expense", "cat": "JNH", "amt": 840.53, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "expense", "cat": "Moby's", "amt": 884.53, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "expense", "cat": "B&E", "amt": 355.74, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "expense", "cat": "Passion In Fruit", "amt": 135.54, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "cash", "cat": "Coles", "amt": 126.6, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "sec": "cash", "cat": "Coles", "amt": 46.55, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "expense", "cat": "JNH", "amt": 504.24, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "expense", "cat": "Moby's", "amt": 761.35, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "expense", "cat": "JFC", "amt": 905.46, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "expense", "cat": "B&E", "amt": 595.36, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "expense", "cat": "Cocacola", "amt": 286.71, "note": "Imported from Sales Report · as written: COCACOLA"}, {"date": "2026-10-08", "sec": "expense", "cat": "Passion In Fruit", "amt": 223.33, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "cash", "cat": "Coles", "amt": 38.4, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "JNH", "amt": 671.7, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "Moby's", "amt": 413.1, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "Passion In Fruit", "amt": 141.87, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "cash", "cat": "Coles", "amt": 148.05, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "sec": "cash", "cat": "Bunnings", "amt": 29.99, "note": "Imported from Sales Report"}]}, "GN": {"name": "Sushi Zen Glenorie (GN)", "dates": ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], "items": [{"sec": "sales", "label": "Card Sales", "vals": [2137.99, 1681.74, 1761.08, 2095.62, 2402.5, 1262.2, 1181.8], "counted": true}, {"sec": "sales", "label": "Cash Sales", "vals": [313.5, 438.5, 450.0, 485.3, 295.7, 309.6, 373.7], "counted": true}, {"sec": "sales", "label": "Uber", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "sales", "label": "Refund", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "sales", "label": "Too Good", "vals": [36.0, null, null, 14.4, 14.4, null, 14.4], "counted": true}, {"sec": "expense", "label": "Pearl Seafoods", "vals": [null, 313.58, null, 378.49, null, 389.4, null], "counted": true}, {"sec": "expense", "label": "JFC", "vals": [null, 1115.3, null, null, 958.62, null, null], "counted": true}, {"sec": "expense", "label": "B&E", "vals": [null, 375.3, null, null, 239.6, 281.6, null], "counted": true}, {"sec": "expense", "label": "YCC", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Mobys", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Empress", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Meat Boys", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "NTC", "vals": [null, null, 1062.95, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Panetta", "vals": [null, null, null, null, null, null, null], "counted": true}], "wages": [{"name": "Danny", "section": "RATE FIXED", "data": {"Tax Wage": 0.0, "Tax Tresh": 0.0, "Cash rate": 330.0}}, {"name": "Helen", "section": "TIME FIXED", "data": {"Total hr": 38.0, "Weekday hr": 29.0, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1119.3525, "Tax Tresh": 1056.78, "Cash rate": 26.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 34.7625, "SUN hr": 9.0}}, {"name": "Jinhee", "section": "TIME FIXED", "data": {"Total hr": 38.0, "Weekday hr": 28.5, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1122.8287, "Tax Tresh": 1056.78, "Cash rate": 26.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 34.7625, "SUN hr": 9.5}}, {"name": "Yejun", "section": "TIME FIXED", "data": {"Total hr": 38.0, "Weekday hr": 28.0, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1126.305, "Tax Tresh": 1056.78, "Cash rate": 26.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 10.0, "SAT rate": 34.7625}}, {"name": "Yuhyeon", "section": "TIME FIXED", "data": {"Total hr": 38.0, "Weekday hr": 28.0, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1126.305, "Tax Tresh": 1056.78, "Cash rate": 26.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 10.0, "SAT rate": 34.7625}}, {"name": "Kate", "section": "TIME FIXED", "data": {"Total hr": 6.5, "Weekday hr": 6.5, "Tax rate": 27.81, "Tax hr": 6.5, "hr thresh": 6.5, "Tax Wage": 180.765, "Tax Tresh": 180.765, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 34.7625}}, {"name": "Sara", "section": "TIME FIXED", "data": {"Total hr": 0.0, "Weekday hr": 0.0, "Tax rate": 34.76, "Tax hr": 0.0, "hr thresh": 0.0, "Tax Wage": 166.848, "Tax Tresh": 0.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 4.0, "SAT rate": 41.712}}], "wageSummary": {"total": 4842.4042, "tax": 4842.4042, "cash": 0.0, "hr": 158.5}, "xlSales": 15268.43, "xlExp": 5114.84, "adjSales": 0.0, "adjExp": 0.0, "wk2": [{"date": "2026-10-06", "cat": "Card Sales", "amt": 1181.8, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "cat": "Cash Sales", "amt": 373.7, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "cat": "Too Good", "amt": 14.4, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Card Sales", "amt": 1586.6, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Cash Sales", "amt": 470.8, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "cat": "Too Good", "amt": 21.6, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Card Sales", "amt": 1864.0, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Cash Sales", "amt": 399.1, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "cat": "Too Good", "amt": 7.2, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Card Sales", "amt": 2802.5, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "cat": "Cash Sales", "amt": 348.1, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Too Good", "amt": 7.2, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Card Sales", "amt": 1863.5, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "cat": "Cash Sales", "amt": 367.2, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Card Sales", "amt": 1103.0, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Cash Sales", "amt": 230.0, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "cat": "Too Good", "amt": 21.6, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "disc", "cat": "Cash discrepancy", "amt": -0.27, "note": "Weekly sheet total 2,270.03 vs lines 2,270.30 (difference 0.27)"}], "wk2p": [{"date": "2026-10-07", "sec": "expense", "cat": "Pearl Seafoods", "amt": 383.96, "note": "Imported from Sales Report · as written: pearl seafood"}, {"date": "2026-10-08", "sec": "expense", "cat": "B&E", "amt": 437.95, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "sec": "expense", "cat": "JFC", "amt": 243.58, "note": "Imported from Sales Report", "ref": "001985902"}, {"date": "2026-10-09", "sec": "expense", "cat": "Pearl Seafoods", "amt": 268.23, "note": "Imported from Sales Report · as written: Pearl seafoods"}, {"date": "2026-10-09", "sec": "expense", "cat": "B&E", "amt": 57.2, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "B&E", "amt": 297.97, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "sec": "expense", "cat": "NTC", "amt": 983.35, "note": "Imported from Sales Report · invoice 1076811", "ref": "1076811"}, {"date": "2026-10-09", "sec": "expense", "cat": "JFC", "amt": 188.89, "note": "Imported from Sales Report", "ref": "001991000"}]}, "TM": {"name": "Table81 North Turramurra (TM)", "dates": ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], "items": [{"sec": "sales", "label": "Card Sales", "vals": [null, 2656.28, 3610.7, 1910.6, 2966.7, 2269.6, 1355.9], "counted": true}, {"sec": "sales", "label": "Cash Sales", "vals": [null, 71.3, 523.3, 333.9, 298.4, 117.1, 4.5], "counted": true}, {"sec": "sales", "label": "Missing", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "sales", "label": "Uber", "vals": [null, 22.0, 58.0, 102.0, 276.5, 106.0, 73.5], "counted": true}, {"sec": "sales", "label": "Online/Deposit", "vals": [null, null, 29.63, 47.0, 36.27, null, null], "counted": true}, {"sec": "expense", "label": "CCA", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "JFC", "vals": [null, null, 567.2, null, null, 481.16, null], "counted": true}, {"sec": "expense", "label": "JNH", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Gomaps", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Panetta", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "B&E", "vals": [null, 209.0, 317.45, 350.74, null, 327.3, null], "counted": true}, {"sec": "expense", "label": "Empress", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Nippon", "vals": [null, null, null, null, 220.05, null, null], "counted": true}, {"sec": "expense", "label": "NTC", "vals": [null, null, 607.65, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Meat Boys", "vals": [null, null, null, 534.2, null, null, null], "counted": true}, {"sec": "expense", "label": "Pearl Seafood", "vals": [254.28, null, 447.12, null, 299.64, 294.84, null], "counted": true}, {"sec": "cash", "label": "Grocery", "vals": [null, 111.0, 47.84, null, null, 85.43, null], "counted": true}], "wages": [{"name": "Jaeyoon", "section": "RATE FIXED", "data": {"Total hr": 38.0, "Total Day": 5.0, "Tax rate": 37.955, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1442.29, "Tax Tresh": 1442.29, "Cash rate": 280.0, "Extra Day": 1.0, "Cash Wage": 280.0}}, {"name": "Danny", "section": "RATE FIXED", "data": {"Total Day": 2.0, "Tax Wage": 660.0, "Tax Tresh": 0.0, "Cash rate": 330.0}}, {"name": "Jinheum", "section": "RATE FIXED", "data": {"Tax rate": 40.4858, "Tax hr": 0.0, "hr thresh": 38.0, "Tax Wage": 0.0, "Tax Tresh": 1538.4604, "Cash rate": 280.0, "Extra Day": 1.0, "Cash Wage": 280.0}}, {"name": "Peter", "section": "TIME FIXED", "data": {"Total hr": 36.0, "Weekday hr": 28.0, "Tax rate": 29.97, "Tax hr": 36.0, "hr thresh": 36.0, "Tax Wage": 1118.84, "Tax Tresh": 1078.92, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 8.0, "SAT rate": 34.96}}, {"name": "Darcy", "section": "TIME FIXED", "data": {"Total hr": 24.5, "Weekday hr": 19.5, "Tax rate": 27.81, "Tax hr": 24.5, "hr thresh": 24.5, "Tax Wage": 716.1075, "Tax Tresh": 681.345, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 5.0, "SAT rate": 34.7625}}, {"name": "Fergus", "section": "TIME FIXED", "data": {"Total hr": 12.0, "Weekday hr": 4.0, "Tax rate": 27.81, "Tax hr": 12.0, "hr thresh": 12.0, "Tax Wage": 389.34, "Tax Tresh": 333.72, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 8.0, "SAT rate": 34.7625}}, {"name": "Daniel", "section": "TIME FIXED", "data": {"Total hr": 35.25, "Weekday hr": 17.25, "Tax rate": 27.81, "Tax hr": 35.25, "hr thresh": 35.25, "Tax Wage": 1105.4475, "Tax Tresh": 980.3025, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT hr": 9.5, "SAT rate": 34.7625, "SUN hr": 8.5}}, {"name": "Rachel", "section": "TIME FIXED", "data": {"Total hr": 0.0, "Tax rate": 19.83, "Tax hr": 0.0, "hr thresh": 0.0, "Tax Wage": 0.0, "Tax Tresh": 0.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 23.796}}, {"name": "Ella", "section": "TIME FIXED", "data": {"Total hr": 4.0, "Weekday hr": 4.0, "Tax rate": 16.53, "Tax hr": 4.0, "hr thresh": 4.0, "Tax Wage": 66.12, "Tax Tresh": 66.12, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 19.836}}, {"name": "Rose", "section": "TIME FIXED", "data": {"Total hr": 5.5, "Weekday hr": 5.5, "Tax rate": 27.81, "Tax hr": 5.5, "hr thresh": 5.5, "Tax Wage": 152.955, "Tax Tresh": 152.955, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 34.7625}}, {"name": "Tham Joey", "section": "TIME FIXED", "data": {"Total hr": 24.25, "Tax rate": 27.81, "Tax hr": 22.25, "hr thresh": 22.25, "Tax Wage": 639.63, "Tax Tresh": 618.7725, "Cash rate": 23.0, "Cash Hr": 2.0, "Cash Wage": 46.0, "SAT rate": 6.9525, "SUN hr": 3.0}}, {"name": "Fernando", "section": "TIME FIXED", "data": {"Total hr": 9.5, "Tax rate": 28.0, "Tax hr": 9.5, "hr thresh": 9.5, "Tax Wage": 399.0, "Tax Tresh": 266.0, "Cash rate": 25.0, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 7.0, "SUN hr": 9.5}}, {"name": "Finn", "section": "TIME FIXED", "data": {"Total hr": 5.0, "Weekday hr": 5.0, "Tax rate": 16.53, "Tax hr": 5.0, "hr thresh": 5.0, "Tax Wage": 82.65, "Tax Tresh": 82.65, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 19.836}}, {"name": "Sophia", "section": "TIME FIXED", "data": {"Total hr": 4.25, "Weekday hr": 4.25, "Tax rate": 16.53, "Tax hr": 4.25, "hr thresh": 4.25, "Tax Wage": 70.2525, "Tax Tresh": 70.2525, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 19.836}}, {"name": "Beatrix", "section": "TIME FIXED", "data": {"Total hr": 3.75, "Weekday hr": 3.75, "Tax rate": 16.53, "Tax hr": 3.75, "hr thresh": 3.75, "Tax Wage": 61.9875, "Tax Tresh": 61.9875, "Cash Hr": 0.0, "Cash Wage": 0.0, "SAT rate": 19.836}}], "wageSummary": {"total": 7510.62, "tax": 6904.62, "cash": 606.0, "hr": 202.0}, "xlSales": 16869.18, "xlExp": 5154.9, "adjSales": 0.0, "adjExp": 0.0, "wk2": [{"date": "2026-10-06", "cat": "Card Sales", "amt": 1828.6, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-06", "cat": "Cash Sales", "amt": 304.0, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-06", "cat": "Uber", "amt": 106.0, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-07", "cat": "Card Sales", "amt": 2638.8, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-07", "cat": "Cash Sales", "amt": 99.9, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-07", "cat": "Online/Deposit", "amt": 23.5, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-07", "cat": "Uber", "amt": 168.5, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-08", "cat": "Card Sales", "amt": 2486.5, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-08", "cat": "Cash Sales", "amt": 422.8, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-08", "cat": "Uber", "amt": 149.0, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-09", "cat": "Card Sales", "amt": 3266.3, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-09", "cat": "Cash Sales", "amt": 669.6, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-09", "cat": "Uber", "amt": 179.0, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-10", "cat": "Card Sales", "amt": 3553.7, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-10", "cat": "Cash Sales", "amt": 247.0, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-10", "cat": "Uber", "amt": 115.0, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-11", "cat": "Card Sales", "amt": 2021.2, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-11", "cat": "Cash Sales", "amt": 253.5, "note": "Imported from Sales Report · written by Jaeyoon Park"}, {"date": "2026-10-11", "cat": "Uber", "amt": 111.0, "note": "Imported from Sales Report · written by Jaeyoon Park"}], "wk2p": [{"date": "2026-10-06", "sec": "expense", "cat": "Pearl Seafood", "amt": 403.26, "note": "Imported from Sales Report · as written: PEARL SEAFOOD"}, {"date": "2026-10-07", "sec": "expense", "cat": "JFC", "amt": 330.05, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "sec": "expense", "cat": "Gomaps", "amt": 389.82, "note": "Imported from Sales Report · as written: GOMAPS"}, {"date": "2026-10-07", "sec": "expense", "cat": "B&E", "amt": 316.73, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "expense", "cat": "Pearl Seafood", "amt": 652.8, "note": "Imported from Sales Report · as written: PEARL SEAFOOD"}, {"date": "2026-10-08", "sec": "expense", "cat": "Meat Boys", "amt": 347.75, "note": "Imported from Sales Report · as written: MEAT BOYS"}, {"date": "2026-10-08", "sec": "card", "cat": "Woolworth", "amt": 101.0, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "sec": "expense", "cat": "NTC", "amt": 479.7, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "sec": "expense", "cat": "B&E", "amt": 309.8, "note": "Imported from Sales Report"}, {"date": "2026-10-08", "sec": "card", "cat": "Dan Murphy", "amt": 369.81, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "JFC", "amt": 367.34, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "Pearl Seafood", "amt": 323.7, "note": "Imported from Sales Report · as written: PEARL SEAFOOD"}, {"date": "2026-10-10", "sec": "expense", "cat": "B&E", "amt": 337.4, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "card", "cat": "Woolworth", "amt": 3.4, "note": "Imported from Sales Report"}, {"date": "2026-10-11", "sec": "cash", "cat": "Woolworth", "amt": 6.3, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "card", "cat": "Fita Fruita", "amt": 35.53, "note": "Imported from Sales Report"}]}, "CT": {"name": "Table81 Campbelltown (CT)", "dates": ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], "items": [{"sec": "sales", "label": "Card Sales", "vals": [1070.33, 1494.84, 1433.49, 1071.8, 1476.6, 1050.15, 1071.5], "counted": true}, {"sec": "sales", "label": "Cash Sales", "vals": [81.9, 80.4, 120.8, 158.4, 147.1, 121.6, 212.9], "counted": true}, {"sec": "sales", "label": "School", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "sales", "label": "Uber", "vals": [1004.0, 571.2, 470.0, 609.5, 888.6, 945.8, 851.1], "counted": true}, {"sec": "sales", "label": "Too Good", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "CCA", "vals": [null, null, null, null, 515.88, null, null], "counted": true}, {"sec": "expense", "label": "JFC", "vals": [null, null, 482.82, null, null, null, null], "counted": true}, {"sec": "expense", "label": "JNH", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Henry's", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Gomaps", "vals": [null, 225.64, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Meat boys", "vals": [483.27, null, null, null, null, null, null], "counted": true}, {"sec": "card", "label": "Woolworths", "vals": [null, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "B&E", "vals": [null, 311.81, 194.6, null, null, null, null], "counted": true}, {"sec": "expense", "label": "Pearl Seafoods", "vals": [null, null, 286.04, null, null, 229.31, null], "counted": true}, {"sec": "expense", "label": "Panetta", "vals": [226.0, null, null, null, null, null, null], "counted": true}, {"sec": "expense", "label": "ntc", "vals": [null, 612.1, null, null, null, null, null], "counted": true}, {"sec": "cash", "label": "Grocery", "vals": [20.0, null, null, null, null, null, null], "counted": true}], "wages": [{"name": "Robert", "section": "RATE FIXED", "data": {"Total hr": 38.0, "Total Day": 5.0, "Tax rate": 36.8421, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1400.0002, "Tax Tresh": 1400.0002, "Cash rate": 280.0, "Extra Day": 2.0, "Cash Wage": 560.0}}, {"name": "Danny", "section": "RATE FIXED", "data": {"Total Day": 1.0, "Tax Wage": 330.0, "Tax Tresh": 0.0, "Cash rate": 330.0}}, {"name": "TIME FIXED", "section": "RATE FIXED", "data": {}}, {"name": "Dilla", "section": "RATE FIXED", "data": {"Tax rate": 27.81, "Tax hr": 0.0, "hr thresh": 12.0, "Tax Wage": 0.0, "Tax Tresh": 333.72, "Cash rate": 23.0, "Extra Day": 0.0, "Cash Wage": 0.0}}, {"name": "Muk", "section": "RATE FIXED", "data": {"Total hr": 38.0, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1188.83, "Tax Tresh": 1056.78, "Cash rate": 23.0, "Extra Day": 0.0, "Cash Wage": 0.0, "Adj": 19.0}}, {"name": "Julie", "section": "RATE FIXED", "data": {"Total hr": 9.5, "Tax rate": 27.81, "Tax hr": 9.5, "hr thresh": 24.0, "Tax Wage": 264.195, "Tax Tresh": 667.44, "Cash rate": 23.0, "Extra Day": 0.0, "Cash Wage": 0.0}}, {"name": "Lea Risma", "section": "RATE FIXED", "data": {"Total hr": 40.0, "Tax rate": 27.81, "Tax hr": 38.0, "hr thresh": 38.0, "Tax Wage": 1122.805, "Tax Tresh": 1056.78, "Cash rate": 23.0, "Extra Day": 2.0, "Cash Wage": 46.0, "Adj": 9.5}}, {"name": "Nichapha", "section": "RATE FIXED", "data": {"Total hr": 29.0, "Tax rate": 27.81, "Tax hr": 29.0, "hr thresh": 29.0, "Tax Wage": 875.99, "Tax Tresh": 806.49, "Extra Day": 0.0, "Adj": 10.0}}, {"name": "Minta", "section": "RATE FIXED", "data": {"Total hr": 19.5, "Tax rate": 27.81, "Tax hr": 19.5, "hr thresh": 19.5, "Tax Wage": 542.295, "Tax Tresh": 542.295, "Extra Day": 0.0}}, {"name": "Irene", "section": "RATE FIXED", "data": {"Total hr": 9.5, "Tax rate": 27.81, "Tax hr": 9.5, "hr thresh": 15.0, "Tax Wage": 264.195, "Tax Tresh": 417.15, "Cash rate": 23.0, "Extra Day": 0.0, "Cash Wage": 0.0}}, {"name": "Rehan Khan", "section": "RATE FIXED", "data": {"Tax rate": 20.0, "Tax hr": 0.0, "hr thresh": 15.0, "Tax Wage": 0.0, "Tax Tresh": 300.0, "Cash rate": 23.0, "Extra Day": 0.0, "Cash Wage": 0.0}}], "wageSummary": {"total": 6594.3102, "tax": 5988.3102, "cash": 606.0, "hr": 183.5}, "xlSales": 14932.01, "xlExp": 3587.47, "adjSales": 0.0, "adjExp": 0.0, "wk2": [{"date": "2026-10-06", "cat": "Card Sales", "amt": 886.8, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-06", "cat": "Cash Sales", "amt": 27.3, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-06", "cat": "Uber", "amt": 381.1, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-07", "cat": "Card Sales", "amt": 854.94, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-07", "cat": "Cash Sales", "amt": 183.3, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-07", "cat": "Uber", "amt": 514.6, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-08", "cat": "Card Sales", "amt": 956.2, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-08", "cat": "Cash Sales", "amt": 228.2, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-08", "cat": "Uber", "amt": 442.1, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-09", "cat": "Card Sales", "amt": 1479.31, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-09", "cat": "Cash Sales", "amt": 30.0, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-09", "cat": "Uber", "amt": 571.0, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-10", "cat": "Card Sales", "amt": 906.06, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-10", "cat": "Cash Sales", "amt": 14.0, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-10", "cat": "Uber", "amt": 477.0, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-11", "cat": "Card Sales", "amt": 1400.38, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-11", "cat": "Cash Sales", "amt": 45.8, "note": "Imported from Sales Report · written by Robert"}, {"date": "2026-10-11", "cat": "Uber", "amt": 1012.6, "note": "Imported from Sales Report · written by Robert"}], "wk2p": [{"date": "2026-10-06", "sec": "expense", "cat": "B&E", "amt": 291.6, "note": "Imported from Sales Report"}, {"date": "2026-10-06", "sec": "expense", "cat": "Panetta", "amt": 293.0, "note": "Imported from Sales Report · as written: PANETTA"}, {"date": "2026-10-06", "sec": "expense", "cat": "ntc", "amt": 446.6, "note": "Imported from Sales Report · as written: NTC"}, {"date": "2026-10-06", "sec": "expense", "cat": "Meat boys", "amt": 540.7, "note": "Imported from Sales Report · as written: Meat Boys"}, {"date": "2026-10-06", "sec": "card", "cat": "Woolworths", "amt": 20.0, "note": "Imported from Sales Report"}, {"date": "2026-10-07", "sec": "expense", "cat": "Pearl Seafoods", "amt": 351.45, "note": "Imported from Sales Report · as written: Pearl Seafood"}, {"date": "2026-10-08", "sec": "expense", "cat": "Gomaps", "amt": 213.86, "note": "Imported from Sales Report"}, {"date": "2026-10-09", "sec": "expense", "cat": "B&E", "amt": 263.6, "note": "Imported from Sales Report"}, {"date": "2026-10-10", "sec": "expense", "cat": "Pearl Seafoods", "amt": 338.84, "note": "Imported from Sales Report · as written: Pearl Seafood"}, {"date": "2026-10-10", "sec": "expense", "cat": "JFC", "amt": 601.35, "note": "Imported from Sales Report"}]}};
+const DOW = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const SECNAME = {sales:'Sales', expense:'Invoices (to pay)', cash:'Cash purchases (cash-out)', card:'Card purchases (paid)', transfer:'Transfer / Missing', disc:'Cash discrepancy'};
+const WSEC = {'RATE FIXED':'Fixed rate (RATE FIXED)', 'TIME FIXED':'Hourly (TIME FIXED)', 'CASH':'Cash (CASH)'};
+const KEY = 'sales-ledger-demo-v2';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => new Intl.NumberFormat('en-AU', {style:'currency', currency:'AUD'}).format(n || 0);
+const pct = n => isFinite(n) ? (n*100).toFixed(1) + '%' : '–';
+const BR = Object.keys(DATA);
+
+/* dates: stored as ISO, shown as DD/MM/YYYY */
+const fd = s => s ? s.slice(8,10) + '/' + s.slice(5,7) + '/' + s.slice(0,4) : '';
+const fs2 = s => s.slice(8,10) + '/' + s.slice(5,7);
+function parseDate(txt, ref){
+  const m = String(txt).trim().match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2}|\d{4}))?$/); if(!m) return null;
+  let y = m[3] ? +m[3] : +(ref || '2026').slice(0,4); if(y < 100) y += 2000;
+  const d = +m[1], mo = +m[2], dt = new Date(Date.UTC(y, mo - 1, d));
+  if(dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+  return dt.toISOString().slice(0,10);
+}
+const iso = d => d.toISOString().slice(0,10);
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+const monday = s => { const d = new Date(s + 'T00:00:00Z'); return addDays(s, -((d.getUTCDay() + 6) % 7)); };
+const weekDays = ws => Array.from({length:7}, (_, i) => addDays(ws, i));
+
+function addWk2(s){
+  if(!s.fixGN1){
+    const tg = s.entries.find(e => e.br === 'GN' && e.date === '2026-10-09' && e.cat === 'Too Good' && e.amt === 7.2 && e.note.startsWith('Imported from Sales Report'));
+    if(tg) tg.date = '2026-10-10';
+    if(!s.entries.some(e => e.br === 'GN' && e.date === '2026-10-08' && e.sec === 'disc') && s.imp && s.imp.includes('wk2')){
+      if(!s.cats.GN.some(c => c.sec === 'disc' && c.label === 'Cash discrepancy')) s.cats.GN.push({sec:'disc', label:'Cash discrepancy', counted:false});
+      s.entries.push({id:s.nextId++, br:'GN', date:'2026-10-08', sec:'disc', cat:'Cash discrepancy', amt:-0.27, ref:'', note:'Weekly sheet total 2,270.03 vs lines 2,270.30 (difference 0.27)'});
+    }
+    s.fixGN1 = true;
+  }
+  for(const e of s.entries) if(e.br === 'WT' && (e.cat === 'Daein cash' || e.cat === 'Ellie cash')) e.cat = e.cat.slice(0, -5);
+  if(s.cats.WT) for(const c of s.cats.WT) if(c.label === 'Daein cash' || c.label === 'Ellie cash') c.label = c.label.slice(0, -5);
+  for(const b of ['WT','BO']) for(const c of (s.cats[b] || [])) if(c.sec === 'sales' && c.label === 'Uber') c.counted = true;
+  for(const e of s.entries) if(e.br === 'TM' && e.cat === 'Pearl Salmon') e.cat = 'Pearl Seafood';
+  if(s.cats.TM){ const hasNew = s.cats.TM.some(c => c.label === 'Pearl Seafood'); s.cats.TM = s.cats.TM.filter(c => !(c.label === 'Pearl Salmon' && (hasNew || (c.label = 'Pearl Seafood', false)))); }
+  if(!s.fix2){
+    const IMP = e => e.note.startsWith('Imported from Sales Report');
+    const edit = (b, date, cat, from, to) => { const e = s.entries.find(x => x.br === b && x.date === date && x.cat === cat && Math.abs(x.amt - from) < 0.005 && IMP(x)); if(e) Object.assign(e, to); return e; };
+    const addCat = (b, sec, label) => { if(!s.cats[b].some(c => c.sec === sec && c.label === label)) s.cats[b].push({sec, label, counted:true}); };
+    const add = (b, date, sec, cat, amt, ref) => { if(s.entries.some(x => x.br === b && x.date === date && x.cat === cat && Math.abs(x.amt - amt) < 0.005 && x.sec === sec)) return; addCat(b, sec, cat); s.entries.push({id:s.nextId++, br:b, date, sec, cat, amt, ref:ref || '', note:'Imported from Sales Report'}); };
+    if(s.imp && s.imp.includes('wk2p')){
+      edit('GN', '2026-10-07', 'Pearl Seafoods', 386.96, {amt:383.96});
+      edit('TM', '2026-10-06', 'Pearl Seafood', 403.00, {amt:403.26});
+      edit('LE', '2026-10-07', 'Aldi chicken', 93.10, {amt:93.05});
+      edit('TM', '2026-10-09', 'Dan Murphy', 369.81, {date:'2026-10-08'});
+      add('GN', '2026-10-07', 'expense', 'NTC', 983.35, '1076811');
+      edit('GN', '2026-10-09', 'JFC', 432.47, {amt:243.58, ref:'001985902'}); add('GN', '2026-10-09', 'expense', 'JFC', 188.89, '001991000');
+      edit('TM', '2026-10-10', 'Woolworth', 38.93, {amt:3.40}); add('TM', '2026-10-10', 'expense', 'Fita Fruita', 35.53);
+    }
+    s.fix2 = true;
+  }
+  if(!s.fix3){
+    const mv = (b, names) => { for(const e of s.entries) if(e.br === b && e.sec === 'expense' && names.includes(e.cat)) e.sec = 'card';
+      const keep = []; for(const c of s.cats[b]){ if(c.sec === 'expense' && names.includes(c.label)){ if(!s.cats[b].some(x => x.sec === 'card' && x.label === c.label)) keep.push({sec:'card', label:c.label, counted:c.counted}); } else keep.push(c); }
+      s.cats[b] = keep.concat(); };
+    mv('TM', ['Woolworth', 'Fita Fruita', 'Dan Murphy']); mv('CT', ['Woolworths']);
+    s.fix3 = true;
+  }
+  s.imp = s.imp || [];
+  for(const g of ['wk2', 'wk2p']){
+    if(s.imp.includes(g)) continue;
+    for(const b of BR){
+      for(const r of (DATA[b][g] || [])){
+        const sec = r.sec || 'sales';
+        if(s.entries.some(e => e.br === b && e.date === r.date && e.sec === sec && e.cat === r.cat && e.amt === r.amt && e.note.startsWith('Imported from Sales Report'))) continue;
+        if(!s.cats[b].some(c => c.sec === sec && c.label === r.cat)) s.cats[b].push({sec, label:r.cat, counted:sec !== 'disc'});
+        s.entries.push({id:s.nextId++, br:b, date:r.date, sec, cat:r.cat, amt:r.amt, ref:r.ref || '', note:r.note});
+      }
+    }
+    s.imp.push(g);
+  }
+}
+function seed(){
+  const s = {entries:[], cats:{}, nextId:1, users:[
+    {email:'admin@example.com', name:'Owner (Admin)', role:'admin', branch:null},
+    ...BR.map(b => ({email:b.toLowerCase()+'.manager@example.com', name:b+' Manager', role:'manager', branch:b}))]};
+  for(const b of BR){
+    const d = DATA[b]; s.cats[b] = [];
+    for(const it of d.items){
+      s.cats[b].push({sec:it.sec, label:it.label, counted:it.counted});
+      it.vals.forEach((v,i) => { if(v){ s.entries.push({id:s.nextId++, br:b, date:d.dates[i], sec:it.sec, cat:it.label, amt:v, ref:'', note:''}); }});
+    }
+  }
+  addWk2(s);
+  return s;
+}
+let S;
+try{ S = JSON.parse(localStorage.getItem(KEY)); }catch(e){ S = null; }
+if(!S || !S.entries) S = seed(); else { addWk2(S); }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+const todayLocal = () => new Date().toLocaleDateString('en-CA');
+const UI = {imp:{text:'', reports:null}, userEmail:'admin@example.com', branch:'ALL', tab:'summary', day:todayLocal(), week:'2026-10-05', editId:null, draft:{}, fSec:'expense', confirmDel:null};
+const user = () => S.users.find(u => u.email === UI.userEmail) || S.users[0];
+const allowed = () => user().role === 'admin' ? BR : [user().branch];
+function ensureBranch(){
+  if(user().role !== 'admin') UI.branch = allowed()[0];
+  else if(UI.branch === 'ALL' && UI.tab !== 'summary') UI.branch = BR[0];
+  if(UI.tab === 'access' && user().role !== 'admin') UI.tab = 'summary';
+}
+
+/* calculations */
+const catInfo = (b, sec, label) => (S.cats[b].find(c => c.sec === sec && c.label === label) || {counted:true});
+const entriesFor = (b, days, secs) => S.entries.filter(e => e.br === b && days.includes(e.date) && (!secs || secs.includes(e.sec)));
+function calc(b, ws){
+  const days = weekDays(ws), d = DATA[b], rows = days.map(() => ({sales:0, exp:0, cashSales:0, cashExp:0, transfer:0, disc:0}));
+  for(const e of entriesFor(b, days)){
+    const r = rows[days.indexOf(e.date)], ok = catInfo(b, e.sec, e.cat).counted;
+    if(e.sec === 'sales'){ if(ok) r.sales += e.amt; if(e.cat === 'Cash Sales') r.cashSales += e.amt; }
+    else if(e.sec === 'expense'){ if(ok) r.exp += e.amt; }
+    else if(e.sec === 'cash'){ if(ok){ r.exp += e.amt; r.cashExp += e.amt; } }
+    else if(e.sec === 'card'){ if(ok) r.exp += e.amt; }
+    else if(e.sec === 'transfer'){ r.transfer += e.amt; }
+    else if(e.sec === 'disc'){ r.disc += e.amt; }
+  }
+  rows.forEach(r => r.closing = r.cashSales - r.cashExp - r.transfer + r.disc);
+  const imp = ws === d.dates[0], sum = k => rows.reduce((a, r) => a + r[k], 0);
+  const gross = entriesFor(b, days, ['sales']).reduce((a, e) => a + e.amt, 0);
+  const t = {sales:sum('sales') + (imp ? d.adjSales : 0), exp:sum('exp') + (imp ? d.adjExp : 0), closing:sum('closing'),
+    adjSales:imp ? d.adjSales : 0, adjExp:imp ? d.adjExp : 0, wage:imp && d.wageSummary ? d.wageSummary.total : 0, hasWage:imp};
+  t.hasExp = !!(imp ? true : entriesFor(b, days, ['expense', 'cash', 'card']).length); t.gross = gross; t.ep = t.sales ? t.exp / t.sales : NaN; t.wp = t.sales ? t.wage / t.sales : NaN; t.net = t.sales - t.exp - t.wage; t.np = t.sales ? t.net / t.sales : NaN;
+  return {rows, days, t};
+}
+
+/* rendering */
+function render(){
+  ensureBranch();
+  const u = user();
+  const accts = S.users.map(x => `<option value="${esc(x.email)}" ${x.email === UI.userEmail ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  const chips = u.role === 'admin' ? ['ALL', ...BR].map(b =>
+    `<button class="chip" data-act="branch" data-v="${b}" aria-pressed="${UI.branch === b}">${b === 'ALL' ? 'All branches' : b}</button>`).join('') : '';
+  const tabs = [['daily','Daily sales'], ['import','Import report'], ['summary','Summary'], ['sales','Weekly sales'], ['expense','Expenses'], ['wage','Wages'], ...(u.role === 'admin' ? [['access','Access']] : [])]
+    .map(([k, l]) => `<button class="tab" role="tab" data-act="tab" data-v="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('');
+  $('#app').innerHTML = `
+    <header class="top">
+      <div class="brand"><h1>Sales Ledger</h1><span>${UI.branch === 'ALL' ? 'All branches' : esc(DATA[UI.branch].name)}</span></div>
+      <div class="acct"><label for="acct">Demo account</label><select id="acct" data-act="acct">${accts}</select>
+        <span class="role">${u.role === 'admin' ? 'ADMIN · ALL BRANCHES' : 'MANAGER · ' + esc(u.branch)}</span></div>
+    </header>
+    ${chips ? `<div class="chips">${chips}</div>` : ''}
+    <div class="tabs" role="tablist">${tabs}</div>
+    ${UI.modal ? modalHtml() : ''}
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sales' ? viewLedger(['sales']) : UI.tab === 'expense' ? viewLedger(['expense','cash','card','transfer','disc']) : UI.tab === 'wage' ? viewWage() : viewAccess()}`;
+  if(UI.focusReason && $('#m-reason')){ $('#m-reason').focus(); UI.focusReason = false; }
+  if(UI.focusAmt && $('#f-amt')){ $('#f-amt').focus(); UI.focusAmt = false; }
+}
+function weekBar(){
+  return `<div class="bar"><div class="week"><button class="btn" data-act="wk" data-v="-7" aria-label="Previous week">‹</button>
+    <b>${fd(UI.week)} – ${fd(addDays(UI.week, 6))}</b>
+    <button class="btn" data-act="wk" data-v="7" aria-label="Next week">›</button>
+    <button class="btn" data-act="wk" data-v="0">Week 28/09</button><button class="btn" data-act="wk" data-v="latest">Week 05/10</button></div></div>`;
+}
+function kpis(t, cash){
+  const nw = t.hasWage;
+  return `<div class="kpis">
+    <div class="kpi"><small>Total sales</small><strong>${money(t.sales)}</strong>${t.adjSales ? `<br><em>incl. Excel delivery adj. ${money(t.adjSales)}</em>` : ''}</div>
+    <div class="kpi"><small>Gross sales</small><strong>${money(t.gross)}</strong><br><em>all lines, delivery before fees</em></div>
+    <div class="kpi"><small>Net profit</small><strong class="${t.net < 0 ? 'neg' : ''}">${nw && t.hasExp ? money(t.net) : '–'}</strong><br><em>${nw && t.hasExp ? pct(t.np) + ' of sales' : 'needs expenses and wages'}</em></div>
+    <div class="kpi"><small>Expenses</small><strong>${t.hasExp ? money(t.exp) : '–'}</strong><br><em>${t.hasExp ? pct(t.ep) + ' of sales' : 'No expense data for this week'}</em></div>
+    <div class="kpi"><small>Wages</small><strong>${nw ? money(t.wage) : '–'}</strong><br><em>${nw ? pct(t.wp) + ' of sales' : 'No wage data for this week'}</em></div>
+    ${cash ? `<div class="kpi"><small>Closing cash</small><strong>${money(t.closing)}</strong></div>` : ''}</div>`;
+}
+function branchCard(b, t){
+  const nw = t.hasWage;
+  return `<button class="bcard" data-act="branch" data-v="${b}" aria-label="Open ${esc(DATA[b].name)}">
+    <div class="hd"><b>${b}</b><span>${esc(DATA[b].name.replace(/\s*\(.*\)/, ''))}</span></div>
+    <div class="big"><small>Total sales this week</small>${money(t.sales)}</div>
+    <div class="pierow">${miniPie(t)}<dl>
+      <dt>Gross sales</dt><dd>${money(t.gross)}</dd><dd class="p"></dd>
+      <dt><i class="dot" style="background:var(--good)"></i>Net profit</dt><dd class="${t.net < 0 ? 'neg' : ''}">${nw && t.hasExp ? money(t.net) : '–'}</dd><dd class="p">${nw && t.hasExp ? pct(t.np) : ''}</dd>
+      <dt><i class="dot" style="background:var(--warn)"></i>Expenses</dt><dd>${t.hasExp ? money(t.exp) : '–'}</dd><dd class="p">${t.hasExp ? pct(t.ep) : ''}</dd>
+      <dt><i class="dot" style="background:var(--accent)"></i>Wages</dt><dd>${nw ? money(t.wage) : '–'}</dd><dd class="p">${nw ? pct(t.wp) : ''}</dd>
+    </dl></div><span class="go">Open branch ›</span></button>`;
+}
+function miniPie(t){
+  if(!t.hasExp || !(t.sales > 0)) return '';
+  const full = t.hasWage, net = t.sales - t.exp - t.wage;
+  let sl;
+  if(full && net >= 0) sl = [['Net profit', net, 'var(--good)'], ['Expenses', t.exp, 'var(--warn)'], ['Wages', t.wage, 'var(--accent)']];
+  else if(full) sl = [['Expenses', t.exp, 'var(--warn)'], ['Wages', t.wage, 'var(--accent)']];
+  else sl = [['Left after expenses', Math.max(t.sales - t.exp, 0), 'var(--good)'], ['Expenses', t.exp, 'var(--warn)']];
+  const tot = sl.reduce((a, s) => a + s[1], 0); if(!(tot > 0)) return '';
+  let a0 = -Math.PI / 2, paths = '';
+  const R = 46, r = 28, C = 50, pt = (rad, a) => [(C + rad * Math.cos(a)).toFixed(2), (C + rad * Math.sin(a)).toFixed(2)];
+  for(const [n, v, col] of sl){
+    const f = v / tot; if(f <= 0) continue;
+    const a1 = a0 + Math.min(f, 0.99999) * 2 * Math.PI, big = a1 - a0 > Math.PI ? 1 : 0;
+    const [x0, y0] = pt(R, a0), [x1, y1] = pt(R, a1), [x2, y2] = pt(r, a1), [x3, y3] = pt(r, a0);
+    paths += `<path d="M${x0} ${y0}A${R} ${R} 0 ${big} 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 ${big} 0 ${x3} ${y3}Z" fill="${col}" stroke="var(--surface)" stroke-width="1.5"><title>${esc(n)}: ${money(v)} (${pct(v / t.sales)} of sales)</title></path>`;
+    a0 = a1;
+  }
+  return `<svg class="mpie" viewBox="0 0 100 100" role="img" aria-label="Pie chart of sales split into ${sl.map(s => s[0]).join(', ')}">${paths}</svg>`;
+}
+function viewSummary(){
+  if(UI.branch === 'ALL'){
+    const rs = BR.map(b => [b, calc(b, UI.week).t]);
+    const T = rs.reduce((a, [, t]) => ({hasExp:a.hasExp || t.hasExp, gross:a.gross + t.gross, sales:a.sales + t.sales, exp:a.exp + t.exp, wage:a.wage + t.wage, closing:a.closing + t.closing, hasWage:a.hasWage || t.hasWage, adjSales:a.adjSales + t.adjSales}), {hasExp:false, gross:0, sales:0, exp:0, wage:0, closing:0, hasWage:false, adjSales:0});
+    T.ep = T.exp / T.sales; T.wp = T.wage / T.sales; T.net = T.sales - T.exp - T.wage; T.np = T.net / T.sales;
+    return weekBar() + kpis(T) + `<div class="bgrid">${rs.map(([b, t]) => branchCard(b, t)).join('')}</div>
+      <div class="hint" style="margin:-4px 0 16px">Total sales follows the Excel Sales Total (delivery counted net). Gross sales adds up every sales line, with delivery before fees. Net profit = total sales − expenses − wages.</div><div class="card"><h2>Branch comparison <small>Select a branch to open it</small></h2><div class="scroll"><table>
+      <thead><tr><th>Branch</th><th class="r">Sales</th><th class="r">Expenses</th><th class="r">Exp %</th><th class="r">Wages</th><th class="r">Wage %</th><th class="r">E+W %</th><th class="r">Net</th></tr></thead><tbody>
+      ${rs.map(([b, t]) => `<tr><td><button class="btn sm" data-act="branch" data-v="${b}">${b}</button> ${esc(DATA[b].name.replace(/\s*\(.*\)/, ''))}</td>
+        <td class="num">${money(t.sales)}</td><td class="num">${t.hasExp ? money(t.exp) : '–'}</td><td class="num">${t.hasExp ? pct(t.ep) : '–'}</td>
+        <td class="num">${t.hasWage ? money(t.wage) : '–'}</td><td class="num">${t.hasWage ? pct(t.wp) : '–'}</td>
+        <td class="num">${t.hasWage && t.hasExp ? pct((t.exp + t.wage) / t.sales) : '–'}</td><td class="num">${t.hasWage && t.hasExp ? money(t.net) : '–'}</td></tr>`).join('')}
+      <tr class="tot"><td>Total</td><td class="num">${money(T.sales)}</td><td class="num">${T.hasExp ? money(T.exp) : '–'}</td><td class="num">${T.hasExp ? pct(T.ep) : '–'}</td><td class="num">${T.hasWage ? money(T.wage) : '–'}</td><td class="num">${T.hasWage ? pct(T.wp) : '–'}</td><td class="num">${T.hasWage && T.hasExp ? pct((T.exp + T.wage) / T.sales) : '–'}</td><td class="num">${T.hasWage && T.hasExp ? money(T.net) : '–'}</td></tr>
+      </tbody></table></div></div>`;
+  }
+  const c = calc(UI.branch, UI.week);
+  return weekBar() + kpis(c.t, true) + `<div class="card"><h2>Daily summary</h2><div class="scroll"><table>
+    <thead><tr><th>Date</th><th class="r">Sales</th><th class="r">Expenses</th><th class="r">Closing cash</th></tr></thead><tbody>
+    ${c.days.map((d, i) => `<tr><td>${DOW[i]} <span class="tag">${fs2(d)}</span></td><td class="num">${money(c.rows[i].sales)}</td><td class="num">${money(c.rows[i].exp)}</td><td class="num">${money(c.rows[i].closing)}</td></tr>`).join('')}
+    ${c.t.adjSales || c.t.adjExp ? `<tr><td>Excel adjustment <span class="tag warn">read-only</span></td><td class="num">${money(c.t.adjSales)}</td><td class="num">${money(c.t.adjExp)}</td><td></td></tr>` : ''}
+    <tr class="tot"><td>Week total</td><td class="num">${money(c.t.sales)}</td><td class="num">${money(c.t.exp)}</td><td class="num">${money(c.t.closing)}</td></tr></tbody></table></div></div>`;
+}
+
+function hintHtml(){
+  const b = UI.branch, cat = $('#f-cat') ? $('#f-cat').value.trim() : (UI.draft.cat || '');
+  const dt = parseDate($('#f-date') ? $('#f-date').value : (UI.draft.date || ''), UI.week);
+  const sec = $('#f-sec') ? $('#f-sec').value : (UI.tab === 'sales' ? 'sales' : UI.fSec);
+  const ex = cat && dt ? entriesFor(b, [dt], [sec]).filter(e => e.cat === cat && e.id !== UI.editId) : [];
+  return ex.length ? `<b>${fs2(dt)}</b> ${esc(cat)} already has ${ex.length} ${ex.length > 1 ? 'entries' : 'entry'} totalling <b>${money(ex.reduce((a, e) => a + e.amt, 0))}</b>. Adding another creates a new line in the table.`
+    : 'Enter one invoice per entry. Several entries on the same date and supplier each get their own line in the weekly table. A new supplier name is added to the list automatically.';
+}
+function viewLedger(secs){
+  const b = UI.branch, c = calc(b, UI.week), days = c.days, isSales = secs[0] === 'sales';
+  const editing = UI.editId ? S.entries.find(e => e.id === UI.editId) : null;
+  const dr = UI.draft;
+  const fsec = editing ? editing.sec : (isSales ? 'sales' : (secs.includes(UI.fSec) ? UI.fSec : 'expense'));
+  const today = iso(new Date());
+  const dateV = dr.date ?? (editing ? editing.date : (days.includes(today) ? today : days[0]));
+  const val = k => esc(dr[k] ?? (editing ? ({cat:editing.cat, amt:editing.amt, ref:editing.ref, note:editing.note}[k]) : ''));
+  const dl = S.cats[b].filter(x => x.sec === fsec).map(x => `<option value="${esc(x.label)}">`).join('');
+  const rowsHtml = secs.map(sec => {
+    const cs = S.cats[b].filter(x => x.sec === sec);
+    if(!cs.length) return sec === 'card' ? `<tr class="grp"><td colspan="9">${SECNAME[sec]}</td></tr><tr><td colspan="9" class="empty">No card purchases yet. Choose Type “${SECNAME.card}” above to add one.</td></tr>` : '';
+    return `<tr class="grp"><td colspan="9">${SECNAME[sec]}</td></tr>` + cs.map(ct => {
+      const lists = days.map(d => S.entries.filter(e => e.br === b && e.date === d && e.sec === sec && e.cat === ct.label).sort((x, y) => x.id - y.id));
+      const k = Math.max(1, ...lists.map(l => l.length)), tot = lists.flat().reduce((a, e) => a + e.amt, 0);
+      let out = '';
+      for(let i = 0; i < k; i++){
+        out += '<tr>' + (i === 0 ? `<td rowspan="${k}" class="sub">${esc(ct.label)} ${ct.counted ? '' : '<span class="tag warn">not in total</span>'}</td>` : '') +
+          days.map((d, j) => {
+            const e = lists[j][i];
+            if(e) return `<td class="num cell ${e.id === UI.editId ? 'editing' : ''}" data-act="edit" data-id="${e.id}" title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : 'Click to edit')}">${e.amt.toFixed(2)}${e.sec === 'disc' ? (e.note ? `<small>${esc(e.note)}</small>` : '') : (e.ref ? `<small>#${esc(e.ref)}</small>` : '')}</td>`;
+            if(i === lists[j].length) return `<td class="num cell ${lists[j].length ? 'dim' : (k === 1 ? 'dim' : 'dim')}" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(ct.label)}" title="Click to add an entry">${lists[j].length ? '+' : '·'}</td>`;
+            return '<td></td>';
+          }).join('') + (i === 0 ? `<td rowspan="${k}" class="num sub"><b>${tot ? tot.toFixed(2) : '·'}</b></td>` : '') + '</tr>';
+      }
+      return out;
+    }).join('');
+  }).join('');
+  const foot = isSales ? c.rows.map(r => r.sales) : c.rows.map(r => r.exp), ft = isSales ? c.t.sales : c.t.exp;
+  const adj = isSales ? c.t.adjSales : c.t.adjExp;
+  return weekBar() + `
+    <div class="card"><h2>${editing ? 'Edit entry' : (isSales ? 'Add sales entry' : 'Add expense entry')} <small>One invoice per entry</small></h2><div class="pad">
+      <form class="form" id="entry" autocomplete="off">
+        <label>Date (DD/MM/YYYY)<input type="text" id="f-date" inputmode="numeric" placeholder="DD/MM/YYYY" value="${esc(dr.date && !/^\d{4}-/.test(dr.date) ? dr.date : fd(dateV))}" required></label>
+        ${isSales ? '' : `<label>Type<select id="f-sec" data-act="fsec" ${editing ? 'disabled' : ''}>${secs.map(s => `<option value="${s}" ${s === fsec ? 'selected' : ''}>${SECNAME[s]}</option>`).join('')}</select></label>`}
+        <label>${isSales ? 'Line (Card, Cash, Uber…)' : (fsec === 'cash' ? 'Vendor (cash purchase)' : fsec === 'card' ? 'Vendor (card purchase)' : 'Supplier / line')}<input type="text" id="f-cat" list="catlist" value="${val('cat')}" placeholder="${isSales ? 'Card Sales' : (fsec === 'cash' ? 'Coles' : fsec === 'card' ? 'Woolworth' : 'JNH')}" required></label>
+        <datalist id="catlist">${dl}</datalist>
+        <label>${fsec === 'disc' ? 'Amount (AUD, − shortage / + surplus)' : 'Amount (AUD)'}<input type="number" id="f-amt" step="0.01" ${fsec === 'disc' ? '' : 'min="0"'} inputmode="decimal" value="${val('amt')}" required></label>
+        <label>Invoice no.<input type="text" id="f-ref" value="${val('ref')}" placeholder="Optional"></label>
+        <label>${fsec === 'disc' ? 'Reason (required)' : 'Note'}<input type="text" id="f-note" value="${val('note')}" placeholder="${fsec === 'disc' ? 'Why is the cash different?' : 'Optional'}" ${fsec === 'disc' ? 'required' : ''}></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit">${editing ? 'Save' : 'Add'}</button>
+          ${editing ? `<button class="btn" type="button" data-act="cancel">Cancel</button><button class="btn danger" type="button" data-act="del" data-id="${editing.id}">${UI.confirmDel === editing.id ? 'Confirm delete' : 'Delete'}</button>` : ''}</div>
+      </form>
+      <div class="hint" id="hint">${hintHtml()}</div>
+    </div></div>
+    <div class="card"><h2>Weekly table <small>Every entry is a cell. Click a cell to edit it, or a dotted cell to add one.</small></h2><div class="scroll"><table>
+      <thead><tr><th>Line</th>${days.map((d, i) => `<th class="r">${DOW[i]}<br>${fs2(d)}</th>`).join('')}<th class="r">Week</th></tr></thead><tbody>${rowsHtml}
+      ${adj ? `<tr><td class="sub">Excel adjustment <span class="tag warn">read-only</span></td><td colspan="7"></td><td class="num sub">${adj.toFixed(2)}</td></tr>` : ''}
+      <tr class="tot"><td>${isSales ? 'Sales total' : 'Expenses total'}</td>${foot.map(v => `<td class="num">${v.toFixed(2)}</td>`).join('')}<td class="num">${ft.toFixed(2)}</td></tr></tbody></table></div></div>
+    <div class="hint"><button class="btn sm" data-act="reset">Reset all data to the Excel import</button></div>`;
+}
+
+const dayTotal = (b, d) => S.entries.filter(e => e.br === b && e.date === d && e.sec === 'sales' && catInfo(b, 'sales', e.cat).counted).reduce((a, e) => a + e.amt, 0);
+const dayHas = (b, d) => S.entries.some(e => e.br === b && e.date === d && e.sec === 'sales');
+function viewDaily(){
+  const b = UI.branch, day = UI.day, dow = DOW[(new Date(day + 'T00:00:00Z').getUTCDay() + 6) % 7];
+  const cats = S.cats[b].filter(x => x.sec === 'sales');
+  const ents = S.entries.filter(e => e.br === b && e.date === day && e.sec === 'sales');
+  const inp = (ct, id, v) => `<input class="dinp" type="number" step="0.01" min="0" inputmode="decimal" data-line="${esc(ct.label)}" data-id="${id}" data-counted="${ct.counted ? 1 : 0}" value="${v}" placeholder="0.00" aria-label="${esc(ct.label)} amount">`;
+  const lines = cats.map(ct => {
+    const es = ents.filter(e => e.cat === ct.label).sort((x, y) => x.id - y.id);
+    return `<div class="dline"><div class="dl"><b>${esc(ct.label)}</b>${ct.counted ? '' : ' <span class="tag warn">not in total</span>'}</div>
+      <div class="dins" data-wrap="${esc(ct.label)}">${es.map(e => inp(ct, e.id, e.amt)).join('')}${es.length ? '' : inp(ct, '', '')}<button type="button" class="btn sm" data-act="addinp" data-line="${esc(ct.label)}">+ Another</button></div></div>`;
+  }).join('');
+  const wk = weekDays(monday(day));
+  const total = dayTotal(b, day), has = dayHas(b, day);
+  return `<div class="daynav">
+      <button class="btn" data-act="day" data-v="-1" aria-label="Previous day">‹</button>
+      <input type="text" id="d-date" inputmode="numeric" value="${fd(day)}" aria-label="Date (DD/MM/YYYY)">
+      <button class="btn" data-act="day" data-v="1" aria-label="Next day">›</button>
+      <span class="dow">${dow}</span>
+      <span class="pill ${has ? 'ok' : 'no'}">${has ? 'Submitted' : 'Not submitted yet'}</span>
+      <button class="btn" data-act="day" data-v="0">Today</button>
+      <button class="btn" data-act="day" data-v="last">Last imported day</button>
+      <button class="btn" data-act="tab" data-v="import">Import a KakaoTalk report</button></div>
+    <form id="daily" autocomplete="off"><div class="card"><h2>Sales for ${dow} ${fd(day)} <small>${esc(DATA[b].name)}</small></h2>
+      ${lines}
+      <div class="dnew"><div><b>New line</b><br><small style="color:var(--muted)">e.g. a new delivery platform</small></div>
+        <div class="row"><input type="text" id="n-name" placeholder="Line name" style="flex:1 1 140px"><input class="dinp" type="number" step="0.01" min="0" inputmode="decimal" id="n-amt" data-counted="1" placeholder="0.00"></div></div>
+      <div class="dfoot"><div><small>Day total (lines counted in sales)</small><strong id="dtotal">${money(total)}</strong></div>
+        <button class="btn primary big" type="submit">${has ? 'Update day' : 'Submit day'}</button></div></div></form>
+    <div class="card"><h2>This week <small>${fd(wk[0])} – ${fd(wk[6])} · select a day to open it</small></h2><div class="scroll"><table>
+      <thead><tr><th>Date</th><th class="r">Total sales</th><th>Status</th></tr></thead><tbody>
+      ${wk.map((d, i) => `<tr class="pick ${d === day ? 'cur' : ''}" data-act="pickday" data-v="${d}"><td>${DOW[i]} ${fs2(d)}</td><td class="num">${money(dayTotal(b, d))}</td>
+        <td><span class="pill ${dayHas(b, d) ? 'ok' : 'no'}">${dayHas(b, d) ? 'Submitted' : 'Not submitted'}</span></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+function updDayTotal(){
+  const el = $('#dtotal'); if(!el) return;
+  let s = 0; document.querySelectorAll('#daily .dinp').forEach(i => { if(i.dataset.counted === '1') s += parseFloat(i.value) || 0; });
+  el.textContent = money(s);
+}
+
+/* ---------- Report import (KakaoTalk text) ---------- */
+const EXAMPLE = `***Table81 North Turramurra ***
+
+Date : 11/10/26
+
+Sales total : $ 2,385.70
+3pm Sales : $ 11,128.90
+Card sales : $ 2,021.20
+Cash Sales : $ 247.20
+Online(Prepaid) : 
+Cash-out total : $ 6.3
+Missing : 
+Uber : $ 111
+Closing amount : $ 247.20
+
+(Roll: 17, S.bento: 5, B.bento: )
+
+Closing staff : Jaeyoon Park`;
+const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const numOf = s => { const v = parseFloat(String(s ?? '').replace(/[$,\s]/g, '')); return isFinite(v) ? v : null; };
+function detectBranch(line){
+  const n = norm(line.replace(/\*/g, ''));
+  if(n.length < 5 || /[:：]/.test(line)) return null;
+  for(const b of BR){
+    const full = norm(DATA[b].name.replace(/\s*\(.*\)/, ''));
+    if(n.includes(full) || (n.length >= 8 && full.includes(n)) || n.includes(norm('(' + b + ')')) && /\(\w{2}\)/.test(line)) return b;
+  }
+  return null;
+}
+function mapSalesCat(b, label){
+  const cats = S.cats[b].filter(c => c.sec === 'sales'), n = norm(label);
+  const find = f => (cats.find(c => f(norm(c.label))) || {}).label || null;
+  let r = find(x => x === n);
+  if(r) return r;
+  if(/^card/.test(n)) return find(x => x.startsWith('card'));
+  if(/^cash/.test(n)) return find(x => x.startsWith('cash'));
+  if(/uber/.test(n)) return find(x => x.includes('uber'));
+  if(/online|prepaid|deposit/.test(n)) return find(x => x.includes('online') || x.includes('deposit'));
+  if(/missing/.test(n)) return find(x => x.includes('missing'));
+  if(/door/.test(n)) return find(x => x.includes('door'));
+  if(/toogood/.test(n)) return find(x => x.includes('toogood'));
+  if(/goodtogo|gootogo/.test(n)) return find(x => x.includes('goodtogo'));
+  if(/school/.test(n)) return find(x => x.includes('school'));
+  if(/voucher/.test(n)) return find(x => x.includes('voucher'));
+  return find(x => x.length > 3 && (n.includes(x) || x.includes(n)));
+}
+function parseReports(text){
+  const lines = text.split(/\r?\n/).map(l => l.trim());
+  const heads = []; lines.forEach((l, i) => { const b = detectBranch(l); if(b) heads.push([i, b]); });
+  const blocks = heads.length ? heads.map(([i, b], k) => ({branch:b, lines:lines.slice(i + 1, k + 1 < heads.length ? heads[k + 1][0] : lines.length)})) : [{branch:null, lines}];
+  return blocks.map(bl => {
+    const r = {branch:bl.branch, date:null, dateRaw:'', staff:'', totalRep:null, closingRep:null, cashOut:null, ignored:[], raw:[], fields:[], addBack:false, blocked:''};
+    for(const line of bl.lines){
+      if(!line) continue;
+      if(line.startsWith('(')){ line.replace(/^\(|\)$/g, '').split(',').forEach(p => { const m = p.match(/^\s*(.*?)\s*[:：]\s*(.*?)\s*$/); if(m) r.ignored.push(m[2] ? `${m[1]}: ${m[2]}` : `${m[1]} (empty)`); }); continue; }
+      const m = line.match(/^(.*?)\s*[:：]\s*(.*)$/); if(!m) continue;
+      const label = m[1].replace(/\*/g, '').trim(), val = m[2].trim(), n = norm(label), amt = numOf(val);
+      if(n === 'date'){ r.dateRaw = val; r.date = parseDate(val, '2026'); }
+      else if(/staff/.test(n)){ r.staff = val; }
+      else if(n === 'salestotal' || n === 'total'){ r.totalRep = amt; }
+      else if(/^closing/.test(n)){ r.closingRep = amt; }
+      else if(/cashout/.test(n)){ r.cashOut = amt; }
+      else if(/^\d+(am|pm)/.test(n)){ r.ignored.push(`${label}${amt === null ? ' (empty)' : ': ' + money(amt)}`); }
+      else if(amt === null){ r.ignored.push(`${label} (empty)`); }
+      else r.raw.push({label, amount:amt});
+    }
+    if(!r.branch) r.branch = user().role === 'admin' ? (UI.branch === 'ALL' ? BR[0] : UI.branch) : user().branch;
+    mapReport(r); return r;
+  });
+}
+function mapReport(r){
+  const b = r.branch, cashCats = S.cats[b].filter(c => c.sec === 'cash');
+  r.blocked = allowed().includes(b) ? '' : `This report is for ${b}, but you can only add data for ${allowed().join(', ')}.`;
+  r.fields = r.raw.map(f => { const c = mapSalesCat(b, f.label); return {label:f.label, amount:f.amount, kind:c ? 'sales' : 'unmapped', target:c ? 'sales|' + c : 'skip'}; });
+  if(r.cashOut !== null){
+    r.fields.push({label:'Cash-out total', amount:r.cashOut, kind:'cash', target:'cash|', vendor:''});
+  }
+  r.addBack = false;
+}
+function analyze(r){
+  const b = r.branch, inc = r.fields.filter(f => f.target !== 'skip' && f.amount > 0);
+  const sf = inc.filter(f => f.target.startsWith('sales|') || f.target.startsWith('new|')), cf = inc.filter(f => f.target.startsWith('cash|'));
+  const cashLine = sf.find(f => f.target === 'sales|Cash Sales'), co = cf.reduce((a, f) => a + f.amount, 0);
+  const counted = f => { const l = f.target.split('|')[1]; return catInfo(b, 'sales', l).counted; };
+  const rawSum = sf.filter(counted).reduce((a, f) => a + f.amount, 0);
+  const diff = r.totalRep !== null ? r.totalRep - rawSum : null;
+  const suggest = !!(cashLine && co > 0 && diff !== null && Math.abs(diff - co) < 0.005 && r.closingRep !== null && Math.abs(r.closingRep - cashLine.amount) < 0.005);
+  const cashRec = cashLine ? cashLine.amount + (r.addBack ? co : 0) : 0;
+  const sumRec = rawSum + (cashLine && r.addBack ? co : 0);
+  const closingCalc = cashRec - co;
+  const checks = [];
+  if(r.totalRep !== null){
+    if(Math.abs(r.totalRep - sumRec) < 0.005) checks.push(['ok', `Sales total matches the recorded lines (${money(sumRec)}).`]);
+    else checks.push(['wn', `The report's Sales total is ${money(r.totalRep)}, but the recorded lines add up to ${money(sumRec)} (difference ${money(r.totalRep - sumRec)}).`]);
+  } else checks.push(['wn', 'No Sales total in the report, so lines could not be cross-checked.']);
+  if(r.closingRep !== null && cashLine){
+    if(Math.abs(r.closingRep - closingCalc) < 0.005) checks.push(['ok', `Closing cash matches (${money(closingCalc)}).`]);
+    else checks.push(['bd', `Closing cash does not match: cash sales − cash-out is ${money(closingCalc)}, but the report's closing amount is ${money(r.closingRep)}. You will be asked how to continue when you save.`]);
+  }
+  if(r.fields.some(f => f.kind === 'unmapped' && f.target === 'skip')) checks.push(['wn', 'Some lines are not matched to a sales line and will be skipped. Choose where they belong if you want them recorded.']);
+  if(!r.date) checks.push(['bd', 'The date is missing or not valid. Enter it as DD/MM/YYYY.']);
+  return {suggest, cashRec, co, checks, hasCash:!!cashLine};
+}
+function viewImport(){
+  const reps = UI.imp.reports;
+  const input = `<div class="card imp"><h2>Import a report <small>Paste the KakaoTalk report text or upload a .txt file. Nothing is saved until you confirm.</small></h2><div class="pad">
+    <textarea id="imp-text" placeholder="Paste the report here…" aria-label="Report text">${esc(UI.imp.text)}</textarea>
+    <div class="row"><button class="btn primary" data-act="impparse">Read report</button>
+      <span class="btn fileb">Upload .txt file<input type="file" id="imp-file" accept=".txt,text/plain"></span>
+      <button class="btn" data-act="impexample">Use example</button><button class="btn" data-act="impclear">Clear</button></div>
+    <div class="hint">One text file can hold several reports. Each report starts with the branch name line. Only the date, the sales lines and the cash-out total are recorded. Enter the vendor name for the cash-out (e.g. Coles). The closing amount and Sales total are used to double-check the numbers. Items such as rolls and bento counts are not recorded.</div></div></div>`;
+  if(!reps) return input;
+  if(!reps.length) return input + '<div class="card"><div class="empty">No reports found in that text.</div></div>';
+  return input + reps.map((r, ri) => {
+    const a = analyze(r), b = r.branch;
+    const opts = f => {
+      const sc = S.cats[b].filter(c => c.sec === 'sales').map(c => `<option value="sales|${esc(c.label)}" ${f.target === 'sales|' + c.label ? 'selected' : ''}>Sales · ${esc(c.label)}</option>`).join('');
+      const cc = S.cats[b].filter(c => c.sec === 'cash').map(c => `<option value="cash|${esc(c.label)}" ${f.target === 'cash|' + c.label ? 'selected' : ''}>Cash expense · ${esc(c.label)}</option>`).join('');
+      const nw = f.kind === 'unmapped' ? `<option value="new|${esc(f.label)}" ${f.target === 'new|' + f.label ? 'selected' : ''}>New sales line · ${esc(f.label)}</option>` : (f.target.startsWith('cash|') && !S.cats[b].some(c => c.sec === 'cash' && c.label === f.target.slice(5)) ? `<option value="${esc(f.target)}" selected>New cash expense · ${esc(f.target.slice(5))}</option>` : '');
+      return `<option value="skip" ${f.target === 'skip' ? 'selected' : ''}>Skip (do not record)</option>${sc}${cc}${nw}`;
+    };
+    const rows = r.fields.map((f, fi) => {
+      const sec = f.target.startsWith('cash|') ? 'cash' : 'sales', cat = f.target.split('|')[1];
+      const ex = f.target === 'skip' ? [] : S.entries.filter(e => e.br === b && e.date === r.date && e.sec === sec && e.cat === cat);
+      const shown = f.target === 'sales|Cash Sales' && r.addBack ? f.amount + a.co : f.amount;
+      return `<tr><td class="${f.target === 'skip' ? 'skipped' : ''}">${esc(f.label)}</td>
+        <td>${f.kind === 'cash' ? `<select data-imp="target" data-r="${ri}" data-f="${fi}" aria-label="Record ${esc(f.label)} as"><option value="cash|" ${f.target.startsWith('cash|') ? 'selected' : ''}>Cash expense · vendor</option><option value="skip" ${f.target === 'skip' ? 'selected' : ''}>Skip (do not record)</option></select>
+          ${f.target === 'skip' ? '' : `<input type="text" list="vend-${ri}" data-imp="vendor" data-r="${ri}" data-f="${fi}" value="${esc(f.target.slice(5))}" placeholder="Vendor name (e.g. Coles)" aria-label="Cash expense vendor"><datalist id="vend-${ri}">${S.cats[b].filter(c => c.sec === 'cash' || c.sec === 'expense').map(c => `<option value="${esc(c.label)}">`).join('')}</datalist>`}` : `<select data-imp="target" data-r="${ri}" data-f="${fi}" aria-label="Record ${esc(f.label)} as">${opts(f)}</select>`}</td>
+        <td><input type="number" step="0.01" min="0" class="num" data-imp="amount" data-r="${ri}" data-f="${fi}" value="${f.amount}" aria-label="${esc(f.label)} amount"></td>
+        <td class="num" style="color:var(--muted)">${f.target === 'sales|Cash Sales' && r.addBack ? 'records ' + money(shown) : ''}${ex.length ? `<br><span class="tag warn">replaces ${money(ex.reduce((s, e) => s + e.amt, 0))}</span>` : ''}</td></tr>`;
+    }).join('');
+    const needVendor = r.fields.some(f => f.kind === 'cash' && f.target !== 'skip' && f.amount > 0 && !f.target.slice(5).trim());
+    const canSave = !r.blocked && r.date && !needVendor && r.fields.some(f => f.target !== 'skip' && f.amount > 0);
+    return `<div class="card imp"><h2>${esc(DATA[b].name)} <small>${r.date ? 'Report date ' + fd(r.date) : 'Date not found'}${r.staff ? ' · closing staff ' + esc(r.staff) : ''}</small></h2>
+      ${r.blocked ? `<div class="err">${esc(r.blocked)}</div>` : ''}
+      <div class="pad"><div class="form" style="margin-bottom:12px">
+        <label>Date (DD/MM/YYYY)<input type="text" data-imp="date" data-r="${ri}" value="${r.date ? fd(r.date) : esc(r.dateRaw)}" inputmode="numeric"></label>
+        ${user().role === 'admin' ? `<label>Branch<select data-imp="branch" data-r="${ri}">${BR.map(x => `<option ${x === b ? 'selected' : ''}>${x}</option>`).join('')}</select></label>` : ''}</div>
+      <div class="scroll"><table class="rtable"><thead><tr><th>Line in report</th><th>Record as</th><th class="r">Amount (AUD)</th><th></th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="empty">No amounts found.</td></tr>'}</tbody></table></div>
+      ${a.hasCash && a.co > 0 ? `<label class="chk" style="flex-direction:row;align-items:flex-start;gap:8px"><input type="checkbox" data-imp="addback" data-r="${ri}" ${r.addBack ? 'checked' : ''} style="margin-top:4px"><span>Only tick this if the cash sales in the report are already after cash-out. Add the cash-out (${money(a.co)}) back, so cash sales are recorded as ${money(a.cashRec)} and the cash-out is recorded as an expense.</span></label>` : ''}
+      <div class="chk">${a.checks.map(([k, m]) => `<div class="${k}"><b>${k === 'ok' ? '✓' : k === 'wn' ? '!' : '✕'}</b><span>${esc(m)}</span></div>`).join('')}</div>
+      ${r.ignored.length || r.totalRep !== null || r.closingRep !== null ? `<div class="hint">Not recorded: ${[r.totalRep !== null ? 'Sales total ' + money(r.totalRep) + ' (used to check)' : '', r.closingRep !== null ? 'Closing amount ' + money(r.closingRep) + ' (used to check)' : '', ...r.ignored.map(esc)].filter(Boolean).join(' · ')}</div>` : ''}
+      <div class="row"><button class="btn primary" data-act="impsave" data-r="${ri}" ${canSave ? '' : 'disabled'}>Save to ledger</button><button class="btn" data-act="impdiscard" data-r="${ri}">Discard</button></div></div></div>`;
+  }).join('');
+}
+function closingMismatch(r){
+  const a = analyze(r); if(r.closingRep === null || !a.hasCash) return null;
+  const expected = Math.round((a.cashRec - a.co) * 100) / 100, D = Math.round((r.closingRep - expected) * 100) / 100;
+  return Math.abs(D) < 0.005 ? null : {cash:a.cashRec, co:a.co, expected, reported:r.closingRep, D};
+}
+function modalHtml(){
+  const m = UI.modal, sg = x => (x > 0 ? '+' : x < 0 ? '−' : '') + money(Math.abs(x));
+  return `<div class="mback"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-t">
+    <h2 id="m-t">Closing cash does not match</h2>
+    <p>Cash sales minus cash-out must equal the closing cash. These numbers do not agree.</p>
+    <table><tbody>
+      <tr><td>Cash sales</td><td class="num">${money(m.cash)}</td></tr>
+      <tr><td>Cash-out (cash expense)</td><td class="num">− ${money(m.co)}</td></tr>
+      <tr><td>Expected closing cash</td><td class="num">${money(m.expected)}</td></tr>
+      <tr><td>Closing amount in the report</td><td class="num">${money(m.reported)}</td></tr>
+      <tr class="tot"><td>Difference (${m.D > 0 ? 'surplus' : 'shortage'})</td><td class="num">${sg(m.D)}</td></tr></tbody></table>
+    <label for="m-reason">Reason for the discrepancy (required to record as it is)</label>
+    <textarea id="m-reason" placeholder="For example: change given incorrectly, till miscounted, cash taken for a purchase…">${esc(m.reason)}</textarea>
+    <div class="hint">If you record it as it is, the report is saved and the ${sg(m.D)} is logged as a cash discrepancy together with this reason.</div>
+    <div class="row"><button class="btn" data-act="modalresubmit">Edit and resubmit</button>
+      <button class="btn primary" id="m-rec" data-act="modalrecord" ${m.reason.trim() ? '' : 'disabled'}>Record with cash discrepancy</button></div></div></div>`;
+}
+function impSave(ri, disc){
+  const r = UI.imp.reports[ri], a = analyze(r), b = r.branch;
+  if(r.blocked || !r.date) return;
+  const note = 'Report import' + (r.staff ? ' · closing: ' + r.staff : '');
+  let n = 0;
+  for(const f of r.fields){
+    if(f.target === 'skip' || !(f.amount > 0)) continue;
+    const [k, label] = f.target.split('|'), sec = k === 'cash' ? 'cash' : 'sales';
+    if(!S.cats[b].some(c => c.sec === sec && c.label === label)) S.cats[b].push({sec, label, counted:true});
+    S.entries = S.entries.filter(e => !(e.br === b && e.date === r.date && e.sec === sec && e.cat === label));
+    const amt = f.target === 'sales|Cash Sales' && r.addBack ? f.amount + a.co : f.amount;
+    S.entries.push({id:S.nextId++, br:b, date:r.date, sec, cat:label, amt:Math.round(amt * 100) / 100, ref:'', note}); n++;
+  }
+  S.entries = S.entries.filter(e => !(e.br === b && e.date === r.date && e.sec === 'disc'));
+  if(disc){
+    if(!S.cats[b].some(c => c.sec === 'disc' && c.label === 'Cash discrepancy')) S.cats[b].push({sec:'disc', label:'Cash discrepancy', counted:false});
+    S.entries.push({id:S.nextId++, br:b, date:r.date, sec:'disc', cat:'Cash discrepancy', amt:disc.amt, ref:'', note:disc.reason}); n++;
+  }
+  save(); flash(disc ? `Saved ${b} ${fd(r.date)} with a cash discrepancy of ${money(disc.amt)}` : `${n} lines saved for ${b} on ${fd(r.date)}`);
+  UI.imp.reports.splice(ri, 1);
+  if(!UI.imp.reports.length){ UI.imp = {text:'', reports:null}; UI.branch = b; UI.day = r.date; UI.tab = 'daily'; }
+}
+function impChange(t){
+  const r = UI.imp.reports && UI.imp.reports[+t.dataset.r]; if(!r) return;
+  const k = t.dataset.imp;
+  if(k === 'target'){ r.fields[+t.dataset.f].target = t.value; }
+  else if(k === 'vendor'){ r.fields[+t.dataset.f].target = 'cash|' + t.value.trim(); }
+  else if(k === 'amount'){ r.fields[+t.dataset.f].amount = parseFloat(t.value) || 0; }
+  else if(k === 'date'){ const d = parseDate(t.value, '2026'); r.date = d; r.dateRaw = t.value; }
+  else if(k === 'branch'){ r.branch = t.value; mapReport(r); }
+  else if(k === 'addback'){ r.addBack = t.checked; }
+  render();
+}
+function viewWage(){
+  const b = UI.branch, d = DATA[b], ws = d.wageSummary;
+  if(UI.week !== d.dates[0] || !ws) return weekBar() + `<div class="card"><div class="empty">Wages are only available for the imported week (from ${fd(d.dates[0])}). Entering wages for other weeks comes in the next step.<br><br><button class="btn" data-act="wk" data-v="0">Go to imported week</button></div></div>`;
+  const c = calc(b, UI.week);
+  const rows = ['RATE FIXED', 'TIME FIXED', 'CASH'].map(sec => {
+    const l = d.wages.filter(w => w.section === sec); if(!l.length) return '';
+    return `<tr class="grp"><td colspan="5">${WSEC[sec]}</td></tr>` + l.map(w => {
+      const x = w.data, hr = x['Total hr'] ?? x['Total Hr'] ?? null, tax = x['Tax Wage'] ?? 0, cash = x['Cash Wage'] ?? 0;
+      return `<tr><td>${esc(w.name)}</td><td class="num">${hr ?? '–'}</td><td class="num">${tax ? money(tax) : '–'}</td><td class="num">${cash ? money(cash) : '–'}</td><td class="num">${money(tax + cash)}</td></tr>`;
+    }).join('');
+  }).join('');
+  return weekBar() + `<div class="kpis">
+    <div class="kpi"><small>Wages total</small><strong>${money(ws.total)}</strong></div>
+    <div class="kpi"><small>Taxed wages / cash wages</small><strong style="font-size:15px">${money(ws.tax)} / ${money(ws.cash)}</strong></div>
+    <div class="kpi"><small>Total hours</small><strong>${ws.hr}h</strong></div>
+    <div class="kpi"><small>Wage % of sales</small><strong>${pct(c.t.wp)}</strong></div></div>
+    <div class="card"><h2>Wages by employee <small>Values as in the Excel sheet. Bank account numbers were not imported.</small></h2><div class="scroll"><table>
+      <thead><tr><th>Employee</th><th class="r">Hours</th><th class="r">Taxed</th><th class="r">Cash</th><th class="r">Total</th></tr></thead><tbody>${rows}</tbody></table></div></div>
+    <div class="hint">The sum of the employees above may differ from the sheet total (${money(ws.total)}) because of how the sheet groups its ranges. Automatic wage calculation from hours comes in the next step.</div>`;
+}
+function viewAccess(){
+  return `<div class="card"><h2>Allowed users <small>Only people on this list can sign in (demo: used to switch accounts)</small></h2><div class="scroll"><table>
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Can view</th><th></th></tr></thead><tbody>
+    ${S.users.map(u => `<tr><td>${esc(u.name)}</td><td style="font-family:var(--mono);font-size:12.5px">${esc(u.email)}</td>
+      <td><span class="role">${u.role.toUpperCase()}</span></td><td>${u.role === 'admin' ? 'All branches' : esc(u.branch)}</td>
+      <td style="text-align:right">${u.email === UI.userEmail ? '' : `<button class="btn sm danger" data-act="rmuser" data-v="${esc(u.email)}">Remove</button>`}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="card"><h2>Add user</h2><div class="pad"><form class="form" id="newuser" autocomplete="off">
+      <label>Name<input type="text" id="u-name" required></label>
+      <label>Email<input type="email" id="u-email" required></label>
+      <label>Role<select id="u-role"><option value="manager">Manager</option><option value="admin">Admin</option></select></label>
+      <label>Branch (Manager)<select id="u-br">${BR.map(b => `<option>${b}</option>`).join('')}</select></label>
+      <div><button class="btn primary" type="submit">Add</button></div></form></div></div>`;
+}
+
+/* events */
+function flash(m){ const f = document.createElement('div'); f.className = 'flash'; f.textContent = m; document.body.append(f); setTimeout(() => f.remove(), 2200); }
+function readDraft(){
+  const g = id => { const e = document.getElementById(id); return e ? e.value : undefined; };
+  UI.draft = {date:g('f-date'), cat:g('f-cat'), amt:g('f-amt'), ref:g('f-ref'), note:g('f-note')};
+}
+document.addEventListener('click', ev => {
+  const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
+  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
+  else if(a === 'tab'){ UI.tab = t.dataset.v; UI.editId = null; UI.draft = {}; UI.confirmDel = null; }
+  else if(a === 'day'){ const v = t.dataset.v; UI.day = v === '0' ? todayLocal() : v === 'last' ? DATA[UI.branch === 'ALL' ? BR[0] : UI.branch].dates[6] : addDays(UI.day, +v); }
+  else if(a === 'pickday'){ UI.day = t.dataset.v; window.scrollTo(0, 0); }
+  else if(a === 'addinp'){
+    const w = [...document.querySelectorAll('.dins')].find(x => x.dataset.wrap === t.dataset.line), last = w.querySelector('.dinp');
+    const n = last.cloneNode(); n.value = ''; n.dataset.id = ''; w.insertBefore(n, t); n.focus(); return;
+  }
+  else if(a === 'impparse'){ UI.imp.text = ($('#imp-text') || {}).value || UI.imp.text; UI.imp.reports = parseReports(UI.imp.text); }
+  else if(a === 'impexample'){ UI.imp.text = EXAMPLE; UI.imp.reports = parseReports(EXAMPLE); }
+  else if(a === 'impclear'){ UI.imp = {text:'', reports:null}; }
+  else if(a === 'impsave'){ const ri = +t.dataset.r, m = closingMismatch(UI.imp.reports[ri]); if(m){ UI.modal = {ri, ...m, reason:''}; UI.focusReason = true; } else impSave(ri); }
+  else if(a === 'modalresubmit'){ UI.modal = null; }
+  else if(a === 'modalrecord'){ const m = UI.modal; if(!m || !m.reason.trim()) return; UI.modal = null; impSave(m.ri, {amt:m.D, reason:m.reason.trim()}); }
+  else if(a === 'impdiscard'){ UI.imp.reports.splice(+t.dataset.r, 1); if(!UI.imp.reports.length) UI.imp.reports = null; }
+  else if(a === 'wk'){ const v = +t.dataset.v; UI.week = t.dataset.v === 'latest' ? '2026-10-05' : v === 0 ? DATA[BR[0]].dates[0] : addDays(UI.week, v); UI.editId = null; UI.draft = {}; }
+  else if(a === 'add'){ UI.editId = null; UI.fSec = t.dataset.sec; UI.draft = {date:fd(t.dataset.d), cat:t.dataset.c}; UI.focusAmt = true; }
+  else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.confirmDel = null; UI.focusAmt = true; }
+  else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; }
+  else if(a === 'del'){ const id = +t.dataset.id; if(UI.confirmDel === id){ S.entries = S.entries.filter(e => e.id !== id); UI.confirmDel = null; UI.editId = null; UI.draft = {}; save(); flash('Entry deleted'); } else { UI.confirmDel = id; } }
+  else if(a === 'reset'){ if(UI.confirmReset){ S = seed(); UI.confirmReset = false; UI.editId = null; UI.draft = {}; save(); flash('Reset to the Excel import'); } else { UI.confirmReset = true; t.textContent = 'Click again to confirm. Everything you entered will be removed.'; return; } }
+  else if(a === 'rmuser'){ S.users = S.users.filter(u => u.email !== t.dataset.v); save(); }
+  else return;
+  render();
+});
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if(t.dataset.act === 'acct'){ UI.userEmail = t.value; UI.editId = null; UI.draft = {}; const u = user(); UI.branch = u.role === 'admin' ? 'ALL' : u.branch; UI.tab = u.role === 'admin' ? 'summary' : 'daily'; render(); }
+  else if(t.dataset.act === 'fsec'){ readDraft(); UI.fSec = t.value; render(); }
+  else if(t.id === 'imp-file'){
+    const f = t.files && t.files[0]; if(!f) return;
+    const rd = new FileReader(); rd.onload = () => { UI.imp.text = String(rd.result || ''); UI.imp.reports = parseReports(UI.imp.text); render(); }; rd.readAsText(f); return;
+  }
+  else if(t.dataset.imp){ impChange(t); }
+  else if(t.id === 'd-date'){ const d = parseDate(t.value, UI.day); if(d){ UI.day = d; render(); } else { flash('Enter the date as DD/MM/YYYY'); t.value = fd(UI.day); } }
+  else if(t.id === 'f-cat' || t.id === 'f-date'){ readDraft(); const h = $('#hint'); if(h) h.innerHTML = hintHtml(); }
+});
+document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && UI.modal){ UI.modal = null; render(); } });
+document.addEventListener('input', ev => { if(ev.target.id === 'imp-text') UI.imp.text = ev.target.value;
+  if(ev.target.id === 'm-reason' && UI.modal){ UI.modal.reason = ev.target.value; const bt = $('#m-rec'); if(bt) bt.disabled = !ev.target.value.trim(); } if(ev.target.classList && ev.target.classList.contains('dinp')) updDayTotal(); });
+document.addEventListener('submit', ev => {
+  ev.preventDefault();
+  if(ev.target.id === 'daily'){
+    const b = UI.branch; if(!allowed().includes(b)) return;
+    const day = UI.day; let added = 0, upd = 0, del = 0;
+    document.querySelectorAll('#daily .dinp[data-line]').forEach(i => {
+      const v = Math.round((parseFloat(i.value) || 0) * 100) / 100, id = i.dataset.id ? +i.dataset.id : null;
+      if(id){ const e = S.entries.find(x => x.id === id); if(!e) return; if(v > 0){ if(e.amt !== v){ e.amt = v; upd++; } } else { S.entries = S.entries.filter(x => x.id !== id); del++; } }
+      else if(v > 0){ S.entries.push({id:S.nextId++, br:b, date:day, sec:'sales', cat:i.dataset.line, amt:v, ref:'', note:''}); added++; }
+    });
+    const nn = $('#n-name').value.trim(), na = Math.round((parseFloat($('#n-amt').value) || 0) * 100) / 100;
+    if(nn && na > 0){ if(!S.cats[b].some(c => c.sec === 'sales' && c.label === nn)) S.cats[b].push({sec:'sales', label:nn, counted:true}); S.entries.push({id:S.nextId++, br:b, date:day, sec:'sales', cat:nn, amt:na, ref:'', note:''}); added++; }
+    if(!added && !upd && !del){ flash('Nothing to save. Enter at least one amount.'); return; }
+    save(); flash(`Sales for ${fd(day)} saved · ${money(dayTotal(b, day))}`); render(); return;
+  }
+  if(ev.target.id === 'entry'){
+    const b = UI.branch; if(!allowed().includes(b)) return;
+    const amt = parseFloat($('#f-amt').value), cat = $('#f-cat').value.trim(), date = parseDate($('#f-date').value, UI.week);
+    if(!date){ flash('Enter the date as DD/MM/YYYY'); return; }
+    const secPre = UI.editId ? (S.entries.find(e => e.id === UI.editId) || {}).sec : (UI.tab === 'sales' ? 'sales' : ($('#f-sec') ? $('#f-sec').value : 'expense'));
+    if(!isFinite(amt) || (secPre !== 'disc' && amt < 0) || !cat) return;
+    if(secPre === 'disc' && !$('#f-note').value.trim()){ flash('A reason is required for a cash discrepancy'); return; }
+    const editing = UI.editId ? S.entries.find(e => e.id === UI.editId) : null;
+    const sec = editing ? editing.sec : (UI.tab === 'sales' ? 'sales' : ($('#f-sec') ? $('#f-sec').value : 'expense'));
+    if(!S.cats[b].some(c => c.sec === sec && c.label === cat)) S.cats[b].push({sec, label:cat, counted:true});
+    const rec = {date, sec, cat, amt:Math.round(amt*100)/100, ref:$('#f-ref').value.trim(), note:$('#f-note').value.trim()};
+    if(editing) Object.assign(editing, rec); else S.entries.push({id:S.nextId++, br:b, ...rec});
+    save();
+    UI.week = monday(date); UI.editId = null; UI.draft = {date:fd(date), cat}; UI.focusAmt = true; UI.confirmDel = null;
+    flash(editing ? 'Entry saved' : `${cat} ${money(rec.amt)} added`);
+    render();
+  } else if(ev.target.id === 'newuser'){
+    const email = $('#u-email').value.trim().toLowerCase(), role = $('#u-role').value;
+    if(S.users.some(u => u.email === email)){ flash('That email is already on the list'); return; }
+    S.users.push({email, name:$('#u-name').value.trim(), role, branch:role === 'admin' ? null : $('#u-br').value});
+    save(); flash('User added'); render();
+  }
+});
+render();
+</script>
