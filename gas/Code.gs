@@ -339,3 +339,6 @@ function norm_(o) {
     items: (Array.isArray(o.items) ? o.items : []).slice(0, 150).map(i => ({ name: String(i.name || '').trim().slice(0, 120), qty: num(i.qty), amt: num(i.amount) || 0, cat: ITEM_CATS_.indexOf(i.category) >= 0 ? i.category : 'Other' })).filter(i => i.name)
   };
 }
+
+/** Run once from the editor to grant Drive + external-request permissions. */
+function authorize() { DriveApp.getRootFolder(); UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': P_().getProperty('GEMINI_KEY') || '' }, muteHttpExceptions: true }); Logger.log('authorized'); }
