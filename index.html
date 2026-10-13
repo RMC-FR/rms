@@ -587,22 +587,33 @@ function detectBranch(line){
   }
   return null;
 }
+function lev(a, b){
+  const d = Array.from({length:a.length + 1}, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for(let j = 1; j <= b.length; j++) d[0][j] = j;
+  for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i-1][j] + 1, d[i][j-1] + 1, d[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+const nice = l => String(l).replace(/[^\w\s.&'\/()-]/g, ' ').replace(/\s+/g, ' ').trim().replace(/\b([a-z])/g, c => c.toUpperCase());
 function mapSalesCat(b, label){
   const cats = S.cats[b].filter(c => c.sec === 'sales'), n = norm(label);
   const find = f => (cats.find(c => f(norm(c.label))) || {}).label || null;
   let r = find(x => x === n);
   if(r) return r;
-  if(/^card/.test(n)) return find(x => x.startsWith('card'));
-  if(/^cash/.test(n)) return find(x => x.startsWith('cash'));
-  if(/uber/.test(n)) return find(x => x.includes('uber'));
+  const pre = w => n.length >= 3 && (lev(n.slice(0, w.length), w) <= (w.length > 3 ? 1 : 0) || [...n.slice(0, w.length)].sort().join('') === [...w].sort().join('')) && (n.length <= w.length + 6);   // typo-tolerant start: cahs/cash, crad/card
+  if(/^card/.test(n) || (!/^cash/.test(n) && pre('card'))) return find(x => x.startsWith('card'));
+  if(/^cash/.test(n) || pre('cash')) return find(x => x.startsWith('cash'));
+  if(/uber|ubar|ubr/.test(n)) return find(x => x.includes('uber'));
   if(/online|prepaid|deposit/.test(n)) return find(x => x.includes('online') || x.includes('deposit'));
   if(/missing/.test(n)) return find(x => x.includes('missing'));
   if(/door/.test(n)) return find(x => x.includes('door'));
-  if(/toogood/.test(n)) return find(x => x.includes('toogood'));
-  if(/goodtogo|gootogo/.test(n)) return find(x => x.includes('goodtogo'));
+  if(/good/.test(n)) return find(x => x.includes('toogood')) || find(x => x.includes('goodtogo'));
   if(/school/.test(n)) return find(x => x.includes('school'));
   if(/voucher/.test(n)) return find(x => x.includes('voucher'));
-  return find(x => x.length > 3 && (n.includes(x) || x.includes(n)));
+  const sub = find(x => x.length > 3 && (n.includes(x) || x.includes(n)));
+  if(sub) return sub;
+  let best = null, bd = 99;   // typo tolerance, e.g. "Cahs Sales", "Ubar"
+  for(const c of cats){ const x = norm(c.label), dd = lev(n, x); if(dd < bd){ bd = dd; best = c.label; } }
+  return best && bd <= Math.max(1, Math.floor(norm(best).length * 0.25)) ? best : null;
 }
 function parseReports(text){
   const lines = text.split(/\r?\n/).map(l => l.trim());
@@ -613,8 +624,12 @@ function parseReports(text){
     for(const line of bl.lines){
       if(!line) continue;
       if(line.startsWith('(')){ line.replace(/^\(|\)$/g, '').split(',').forEach(p => { const m = p.match(/^\s*(.*?)\s*[:：]\s*(.*?)\s*$/); if(m) r.ignored.push(m[2] ? `${m[1]}: ${m[2]}` : `${m[1]} (empty)`); }); continue; }
-      const m = line.match(/^(.*?)\s*[:：]\s*(.*)$/); if(!m) continue;
-      const label = m[1].replace(/\*/g, '').trim(), val = m[2].trim(), n = canonLabel(label), amt = numOf(val);
+      let m = line.match(/^(.*?)\s*[:：]\s*(.*)$/);
+      if(!m){ const m2 = line.match(/^(.*?[A-Za-z가-힣)])\s*\$?\s*(-?\d[\d,]*(?:\.\d+)?)\s*$/); if(m2) m = [m2[0], m2[1], m2[2]]; }   // "CASH sales $238.5" (no colon)
+      if(!m) continue;
+      const label = m[1].replace(/\*/g, '').replace(/^[-•·\s]+/, '').trim(), val = m[2].trim(), amt = numOf(val);
+      let n = canonLabel(label);
+      if(lev(n, 'salestotal') <= 3 && n.length >= 6 || n === 'total' || lev(n, 'total') <= 1 && n.length >= 4) n = 'salestotal'; else if(n.length >= 3 && n.length <= 5 && lev(n, 'date') <= 1) n = 'date';
       if(n === 'store'){ continue; }
       if(n === 'date'){ const dm = val.match(/\d{1,2}[\/\-.]\d{1,2}(?:[\/\-.]\d{2,4})?/); r.dateRaw = dm ? dm[0] : val; r.date = parseDate(r.dateRaw, '2026'); }
       else if(/staff/.test(n)){ r.staff = val; }
@@ -642,6 +657,19 @@ function mapReport(r){
     r.fields.push({label:'Cash-out total', amount:r.cashOut, kind:'cash', target:'cash|', vendor:''});
   }
   r.addBack = false;
+  autoInclude(r);
+}
+/* Lines we could not match to a sales line are still recorded when they are exactly what is missing from the report's Sales total. */
+function autoInclude(r){
+  if(r.totalRep === null) return;
+  const b = r.branch, counted = f => f.target.startsWith('sales|') && catInfo(b, 'sales', f.target.slice(6)).counted;
+  const have = r.fields.filter(f => counted(f) && f.amount > 0).reduce((a, f) => a + f.amount, 0);
+  const diff = Math.round((r.totalRep - have) * 100) / 100;
+  const un = r.fields.filter(f => f.kind === 'unmapped' && f.target === 'skip' && f.amount > 0);
+  if(!un.length || Math.abs(diff) < 0.005 || un.length > 10) return;
+  for(let mask = 1; mask < (1 << un.length); mask++){
+    const pick = un.filter((_, i) => mask & (1 << i)); if(Math.abs(pick.reduce((a, f) => a + f.amount, 0) - diff) < 0.005){ pick.forEach(f => { f.target = 'new|' + nice(f.label); f.auto = true; }); return; }
+  }
 }
 function analyze(r){
   const b = r.branch, inc = r.fields.filter(f => f.target !== 'skip' && f.amount > 0);
@@ -682,7 +710,7 @@ function viewImport(){
     const opts = f => {
       const sc = S.cats[b].filter(c => c.sec === 'sales').map(c => `<option value="sales|${esc(c.label)}" ${f.target === 'sales|' + c.label ? 'selected' : ''}>Sales · ${esc(c.label)}</option>`).join('');
       const cc = S.cats[b].filter(c => c.sec === 'cash').map(c => `<option value="cash|${esc(c.label)}" ${f.target === 'cash|' + c.label ? 'selected' : ''}>Cash expense · ${esc(c.label)}</option>`).join('');
-      const nw = f.kind === 'unmapped' ? `<option value="new|${esc(f.label)}" ${f.target === 'new|' + f.label ? 'selected' : ''}>New sales line · ${esc(f.label)}</option>` : (f.target.startsWith('cash|') && !S.cats[b].some(c => c.sec === 'cash' && c.label === f.target.slice(5)) ? `<option value="${esc(f.target)}" selected>New cash expense · ${esc(f.target.slice(5))}</option>` : '');
+      const nw = f.kind === 'unmapped' ? `<option value="new|${esc(nice(f.label))}" ${f.target === 'new|' + nice(f.label) ? 'selected' : ''}>New sales line · ${esc(nice(f.label))}</option>` : (f.target.startsWith('cash|') && !S.cats[b].some(c => c.sec === 'cash' && c.label === f.target.slice(5)) ? `<option value="${esc(f.target)}" selected>New cash expense · ${esc(f.target.slice(5))}</option>` : '');
       return `<option value="skip" ${f.target === 'skip' ? 'selected' : ''}>Skip (do not record)</option>${sc}${cc}${nw}`;
     };
     const rows = r.fields.map((f, fi) => {
