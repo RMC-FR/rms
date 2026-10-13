@@ -691,6 +691,7 @@ function analyze(r){
     if(Math.abs(r.closingRep - closingCalc) < 0.005) checks.push(['ok', `Closing cash matches (${money(closingCalc)}).`]);
     else checks.push(['bd', `Closing cash does not match: cash sales − cash-out is ${money(closingCalc)}, but the report's closing amount is ${money(r.closingRep)}. You will be asked how to continue when you save.`]);
   }
+  if(r.closingRep === null && cashLine) checks.push(['ok', `No closing amount in the report, so closing cash is calculated: cash sales${co ? ' − cash-out' : ''} = ${money(closingCalc)}.`]);
   if(r.fields.some(f => f.kind === 'unmapped' && f.target === 'skip' && f.amount > 0)) checks.push(['wn', 'Some lines are not matched to a sales line and will be skipped. Choose where they belong if you want them recorded.']);
   if(!r.date) checks.push(['bd', 'The date is missing or not valid. Enter it as DD/MM/YYYY.']);
   return {suggest, cashRec, co, checks, hasCash:!!cashLine};
