@@ -128,6 +128,13 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .rtable td.skipped{color:var(--muted)}
 .fileb{position:relative;overflow:hidden}.fileb input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
 .err{background:var(--bad-soft);color:var(--bad);padding:10px 14px;border-radius:6px;margin:12px 14px;font-weight:500}
+.invbox{grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px;background:var(--bg)}
+.invbox .err{margin:0}
+.itbl{width:100%;border-collapse:collapse;font-size:13px}.itbl th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px}.itbl th.r{text-align:right}
+.itbl td{padding:3px 4px}.itbl input,.itbl select{width:100%;min-width:0;padding:5px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}
+.itbl td:nth-child(2){width:62px}.itbl td:nth-child(3){width:104px}.itbl td:nth-child(4){width:88px}.itbl td:nth-child(5){width:34px}.itbl.ro td{padding:5px 6px;border-top:1px solid var(--line)}
+.btn.sm{padding:4px 10px;font-size:12px}
+.modal.wide{max-width:680px}.invimg{max-width:100%;max-height:60vh;display:block;margin:0 auto 12px;border-radius:6px;border:1px solid var(--line)}
 .mback{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
 .modal{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;max-width:520px;width:100%;max-height:calc(100% - 16px);overflow:auto;padding:18px 18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .modal h2{margin:0 0 6px;font-size:17px;color:var(--bad)}
@@ -200,7 +207,7 @@ const weekDays = ws => Array.from({length:7}, (_, i) => addDays(ws, i));
 const CFG = window.RMS_CONFIG || {};
 const SKEY = 'rms-session-v2';
 const AUTH = {tok:null};
-let ME = null, S = {entries:[], cats:{}}, PROFILES = [], SNAP = {e:new Map(), c:new Map()};
+let ME = null, S = {entries:[], cats:{}, items:{}}, PROFILES = [], SNAP = {e:new Map(), c:new Map(), i:new Map()};
 let idc = 0; const nid = () => Date.now() * 1000 + (idc++ % 1000);
 const lsGet = () => { try{ return localStorage.getItem(SKEY); }catch(e){ return null; } };
 const lsSet = v => { try{ v ? localStorage.setItem(SKEY, v) : localStorage.removeItem(SKEY); }catch(e){} };
@@ -216,7 +223,7 @@ async function api(a, body = {}){
   }
   return j;
 }
-const pack = e => JSON.stringify({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:e.amt, ref:e.ref || '', note:e.note || ''});
+const pack = e => JSON.stringify({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:e.amt, ref:e.ref || '', note:e.note || '', file:e.file || ''});
 const ckey = c => c.br + '|' + c.sec + '|' + c.label;
 const cval = c => c.counted + '|' + (c.grp || '');
 function applyLoad(j){
@@ -224,10 +231,11 @@ function applyLoad(j){
   const order = ['WT', 'LE', 'BO', 'GN', 'TM', 'CT'];
   DATA = {}; j.meta.forEach(m => DATA[m.br] = m.data);
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
-  S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || ''})), cats:{}};
+  S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
+  (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
-  SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map()};
+  SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
   for(const b of BR) for(const c of S.cats[b]) SNAP.c.set(ckey({br:b, ...c}), cval(c));
   let fixed = false; for(const b of BR) for(const c of S.cats[b]) if(c.sec === 'cash' && !c.grp){ c.grp = classify(c.label); fixed = true; }   // one-time: sort existing cash vendors into categories
   if(fixed) setTimeout(save, 0);
@@ -245,7 +253,7 @@ async function signIn(username, pw){
   await afterLogin();
 }
 async function signOut(){
-  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}}; DATA = {}; BR = []; PROFILES = [];
+  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}, items:{}}; DATA = {}; BR = []; PROFILES = [];
   UI.pw = false; UI.syncErr = null; UI.loginErr = '';
 }
 /* save(): sends only what changed since the last successful sync; a single queue keeps edits in order */
@@ -258,8 +266,12 @@ async function doSync(){
   const upC = [...curC].filter(([k, v]) => SNAP.c.get(k) !== cval(v)).map(x => x[1]);
   const up = [...cur].filter(([id, js]) => SNAP.e.get(id) !== js).map(x => JSON.parse(x[1]));
   const del = [...SNAP.e.keys()].filter(id => !cur.has(id));
-  if(!up.length && !upC.length && !del.length) return;
-  await api('sync', {up, upC, del});
+  const liveIds = new Set(S.entries.map(e => e.id));
+  Object.keys(S.items).forEach(k => { if(!liveIds.has(+k)) delete S.items[k]; });
+  const items = Object.entries(S.items).filter(([k, v]) => SNAP.i.get(+k) !== JSON.stringify(v)).map(([k, v]) => ({entry:+k, br:v.br, date:v.date, supplier:v.supplier, lines:v.lines}));
+  if(!up.length && !upC.length && !del.length && !items.length) return;
+  await api('sync', {up, upC, del, items});
+  items.forEach(it => SNAP.i.set(it.entry, JSON.stringify(S.items[it.entry])));
   upC.forEach(c => SNAP.c.set(ckey(c), cval(c))); up.forEach(e => SNAP.e.set(e.id, pack(e))); del.forEach(id => SNAP.e.delete(id));
   if(UI.syncErr){ UI.syncErr = null; render(); }
 }
@@ -431,6 +443,86 @@ function classify(v){
 const grpOf = (b, label) => { const c = S.cats[b].find(x => x.sec === 'cash' && x.label === label); return (c && c.grp) || classify(label); };
 const fx = n => n ? n.toFixed(2) : '–';
 const pc = (n, d) => d > 0 && n ? (n / d * 100).toFixed(2) + '%' : '';
+const ITEM_CATS = ['Grocery', 'Drink', 'Liquor', 'Equipment', 'Other'];
+const r2 = n => Math.round((+n || 0) * 100) / 100;
+function shrinkImage(file){
+  return new Promise((res, rej) => {
+    if(file.type === 'application/pdf'){
+      if(file.size > 6.5e6) return rej(new Error('This PDF is too large (over 6 MB). Please use a photo instead.'));
+      const fr = new FileReader(); fr.onload = () => res({mime:'application/pdf', data:String(fr.result).split(',')[1]}); fr.onerror = () => rej(new Error('Could not read the file.')); fr.readAsDataURL(file); return;
+    }
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 1800 / Math.max(im.width, im.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(im.width * k); cv.height = Math.round(im.height * k);
+      const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(im, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      res({mime:'image/jpeg', data:cv.toDataURL('image/jpeg', 0.85).split(',')[1]});
+    };
+    im.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not open this image. Use a JPG, PNG or PDF.')); };
+    im.src = url;
+  });
+}
+function matchSupplier(b, name){
+  const n = norm(name); if(n.length < 3) return null;
+  for(const sec of ['expense', 'card', 'cash']){
+    const c = S.cats[b].find(x => x.sec === sec && (norm(x.label) === n || (norm(x.label).length > 3 && (n.includes(norm(x.label)) || norm(x.label).includes(n)))));
+    if(c) return {sec, label:c.label};
+  }
+  return null;
+}
+async function readInvoice(file){
+  const b = UI.branch; readDraft(); UI.inv = {busy:true, err:'', items:[], file:null, total:null}; render();
+  try{
+    const img = await shrinkImage(file);
+    const j = await api('inv_read', {br:b, mime:img.mime, data:img.data});
+    const p = j.parsed;
+    UI.inv = {busy:false, file:j.file, err:j.perr || '', items:p ? p.items : [], total:p ? p.total : null};
+    if(p){
+      const m = matchSupplier(b, p.supplier);
+      if(m) UI.fSec = m.sec;
+      const sec = UI.editId ? null : UI.fSec;
+      const tot = p.total !== null ? p.total : r2(p.items.reduce((a, i) => a + i.amt, 0));
+      const votes = {}; p.items.forEach(i => votes[i.cat] = (votes[i.cat] || 0) + i.amt);
+      const top = Object.entries(votes).sort((x, y) => y[1] - x[1])[0];
+      UI.draft = {...UI.draft, date:p.date ? fd(p.date) : UI.draft.date, cat:m ? m.label : p.supplier, amt:tot ? String(tot) : '', ref:p.invoice_no || '', grp:sec === 'cash' ? (top && ['Grocery', 'Liquor', 'Equipment'].includes(top[0]) ? top[0] : classify(p.supplier)) : UI.draft.grp};
+    }
+  }catch(e){ UI.inv = {busy:false, err:e.message, items:[], file:null, total:null}; if(e.auth) return; }
+  render();
+}
+function invBox(e){
+  const iv = UI.inv;
+  if(iv){
+    if(iv.busy) return `<div class="invbox"><b>Reading the invoice…</b> <span class="dim">This takes a few seconds. Please wait.</span></div>`;
+    const sum = r2(iv.items.reduce((a, i) => a + (+i.amt || 0), 0));
+    return `<div class="invbox">
+      ${iv.err ? `<div class="err">${esc(iv.err)} The photo was saved. Fill the form by hand.</div>` : ''}
+      ${iv.file ? `<div class="hint">Photo saved to the ${esc(UI.branch)} invoice folder as <b>${esc(iv.file.name)}</b>.</div>` : ''}
+      ${iv.items.length ? `<div class="hint">Read from the photo. Check the lines and the total before you save.</div>
+      <div class="scroll"><table class="itbl"><thead><tr><th>Item</th><th>Qty</th><th>Category</th><th class="r">Amount</th><th></th></tr></thead><tbody>
+      ${iv.items.map((i, k) => `<tr><td><input data-iv="item" data-i="${k}" value="${esc(i.item ?? i.name ?? '')}"></td><td><input data-iv="qty" data-i="${k}" type="number" step="any" value="${i.qty ?? ''}"></td>
+        <td><select data-iv="cat" data-i="${k}">${ITEM_CATS.map(c => `<option ${c === i.cat ? 'selected' : ''}>${c}</option>`).join('')}</select></td>
+        <td><input data-iv="amt" data-i="${k}" type="number" step="0.01" value="${i.amt ?? ''}"></td><td><button type="button" class="btn sm" data-act="ivdel" data-i="${k}" aria-label="Remove line">×</button></td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="hint" id="ivsum">${ivSumHtml()}</div>` : ''}
+      <button type="button" class="btn sm" data-act="ivadd">+ Add line</button> <button type="button" class="btn sm" data-act="ivclear">Remove photo</button></div>`;
+  }
+  return `<div class="invbox"><label>Invoice photo or PDF <span class="dim">(optional: the lines are read automatically)</span>
+    <input type="file" id="inv-file" accept="image/*,application/pdf"></label>
+    ${e && e.file ? `<button type="button" class="btn sm" data-act="vphoto" data-id="${e.id}">View saved photo${S.items[e.id] ? ' and items' : ''}</button>` : ''}</div>`;
+}
+function ivSumHtml(){
+  const iv = UI.inv; if(!iv) return '';
+  const sum = r2(iv.items.reduce((a, i) => a + (+i.amt || 0), 0)), tot = iv.total;
+  return `Lines add up to <b>${money(sum)}</b>${tot !== null && tot !== undefined ? ` · invoice total ${money(tot)} ${Math.abs(sum - tot) < 0.015 ? '<span class="tag">matches</span>' : '<span class="tag warn">differs by ' + money(Math.abs(sum - tot)) + '</span>'}` : ''}`;
+}
+function photoModal(m){
+  const it = S.items[m.id], en = S.entries.find(e => e.id === m.id);
+  const body = m.loading ? '<p>Loading…</p>' : m.err ? `<div class="err">${esc(m.err)}</div>` : m.mime === 'application/pdf' ? `<p><a href="${m.url}" target="_blank" rel="noopener">Open the PDF</a></p>` : `<img class="invimg" alt="Invoice" src="${m.url}">`;
+  return `<div class="mback"><div class="modal wide" role="dialog" aria-modal="true"><h2 style="color:var(--fg)">Invoice ${en ? esc(en.cat) + ' · ' + fd(en.date) : ''}</h2>${body}
+    ${it ? `<div class="scroll"><table class="itbl ro"><thead><tr><th>Item</th><th>Qty</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>${it.lines.map(l => `<tr><td>${esc(l.item)}</td><td>${l.qty ?? ''}</td><td>${esc(l.cat)}</td><td class="num">${(+l.amt).toFixed(2)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <div class="row"><button class="btn primary" data-act="mclose">Close</button></div></div></div>`;
+}
 function entryForm(b, days){
   const secs = ['expense', 'cash', 'card', 'transfer', 'disc'];
   const editing = UI.editId ? S.entries.find(e => e.id === UI.editId) : null, dr = UI.draft;
@@ -443,6 +535,7 @@ function entryForm(b, days){
   const grp = dr.grp ?? (fsec === 'cash' ? grpOf(b, vend) : 'ETC');
   return `<div class="card"><h2>${editing ? 'Edit entry' : 'Add expense entry'} <small>Sales are imported from the daily report</small></h2><div class="pad">
       <form class="form" id="entry" autocomplete="off">
+        ${invBox(editing)}
         <label>Date (DD/MM/YYYY)<input type="text" id="f-date" inputmode="numeric" placeholder="DD/MM/YYYY" value="${esc(dr.date && !/^\d{4}-/.test(dr.date) ? dr.date : fd(dateV))}" required></label>
         <label>Type<select id="f-sec" data-act="fsec" ${editing ? 'disabled' : ''}>${secs.map(x => `<option value="${x}" ${x === fsec ? 'selected' : ''}>${SECNAME[x]}</option>`).join('')}</select></label>
         <label>${fsec === 'cash' ? 'Vendor (cash purchase)' : fsec === 'card' ? 'Vendor (card purchase)' : 'Supplier / line'}<input type="text" id="f-cat" list="catlist" value="${val('cat')}" placeholder="${fsec === 'cash' ? 'Coles' : fsec === 'card' ? 'Woolworth' : 'JNH'}" required></label>
@@ -463,7 +556,7 @@ function viewSheet(){
   const sumE = es => es.reduce((a, e) => a + e.amt, 0);
   const cell = (es, ro, d, sec, label) => {
     if(!es.length) return ro ? '<td class="num dim">·</td>' : `<td class="num cell dim" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Click to add">·</td>`;
-    const lines = es.map(e => `<div class="inv ${ro ? '' : 'edit'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : [e.ref ? 'Invoice ' + e.ref : '', ro ? '' : 'Click to edit'].filter(Boolean).join(' · '))}">${e.amt.toFixed(2)}${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}</div>`).join('');
+    const lines = es.map(e => `<div class="inv ${ro ? '' : 'edit'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : [e.ref ? 'Invoice ' + e.ref : '', ro ? '' : 'Click to edit'].filter(Boolean).join(' · '))}">${e.amt.toFixed(2)}${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}${e.file ? '<small title="Photo attached"> 📎</small>' : ''}</div>`).join('');
     return `<td class="num ${ro ? '' : 'cellp'}">${lines}${es.length > 1 ? `<div class="invsum">${sumE(es).toFixed(2)}</div>` : ''}${ro ? '' : `<button type="button" class="plus" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Add another" aria-label="Add another">+</button>`}</td>`;
   };
   const barRow = (cls, label, vals, tot, extra) => `<tr class="brow ${cls}"><td>${label}</td>${vals.map(v => `<td class="num">${v ? v.toFixed(2) : '–'}</td>`).join('')}<td class="num">${tot ? tot.toFixed(2) : '–'}</td><td class="num">${extra || ''}</td></tr>`;
@@ -744,6 +837,7 @@ function closingMismatch(r){
   return Math.abs(D) < 0.005 ? null : {cash:a.cashRec, co:a.co, expected, reported:r.closingRep, D};
 }
 function modalHtml(){
+  if(UI.modal.kind === 'photo') return photoModal(UI.modal);
   const m = UI.modal, sg = x => (x > 0 ? '+' : x < 0 ? '−' : '') + money(Math.abs(x));
   return `<div class="mback"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-t">
     <h2 id="m-t">Closing cash does not match</h2>
@@ -846,8 +940,18 @@ document.addEventListener('click', ev => {
   else if(a === 'impdiscard'){ UI.imp.reports.splice(+t.dataset.r, 1); if(!UI.imp.reports.length) UI.imp.reports = null; }
   else if(a === 'wk'){ const v = +t.dataset.v; UI.week = t.dataset.v === 'latest' ? latestWeek() : v === 0 ? DATA[BR[0]].dates[0] : addDays(UI.week, v); UI.editId = null; UI.draft = {}; }
   else if(a === 'add'){ UI.editId = null; UI.fSec = t.dataset.sec; UI.draft = {date:fd(t.dataset.d), cat:t.dataset.c}; UI.focusAmt = true; }
-  else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.confirmDel = null; UI.focusAmt = true; }
-  else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; }
+  else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.inv = null; UI.confirmDel = null; UI.focusAmt = true; }
+  else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; UI.inv = null; }
+  else if(a === 'ivdel'){ readDraft(); UI.inv.items.splice(+t.dataset.i, 1); }
+  else if(a === 'ivadd'){ readDraft(); UI.inv.items.push({item:'', qty:null, amt:0, cat:'Other'}); }
+  else if(a === 'ivclear'){ readDraft(); UI.inv = null; }
+  else if(a === 'mclose'){ UI.modal = null; }
+  else if(a === 'vphoto'){
+    const en = S.entries.find(e => e.id === +t.dataset.id); if(!en || !en.file) return;
+    UI.modal = {kind:'photo', id:en.id, loading:true};
+    api('inv_img', {id:en.file}).then(j => { const bin = atob(j.data), u8 = Uint8Array.from(bin, c => c.charCodeAt(0)); UI.modal = {kind:'photo', id:en.id, mime:j.mime, url:URL.createObjectURL(new Blob([u8], {type:j.mime}))}; })
+      .catch(e => { UI.modal = {kind:'photo', id:en.id, err:e.message}; }).finally(render);
+  }
   else if(a === 'del'){ const id = +t.dataset.id; if(UI.confirmDel === id){ S.entries = S.entries.filter(e => e.id !== id); UI.confirmDel = null; UI.editId = null; UI.draft = {}; save(); flash('Entry deleted'); } else { UI.confirmDel = id; } }
   else if(a === 'theme'){ const n = getTheme() === 'dark' ? 'light' : 'dark'; try{ localStorage.setItem('rms-theme', n); }catch(e){} document.documentElement.dataset.theme = n; }
   else if(a === 'logout'){ signOut().then(render); return; }
@@ -870,8 +974,14 @@ document.addEventListener('change', ev => {
   else if(t.id === 'd-date'){ const d = parseDate(t.value, UI.day); if(d){ UI.day = d; render(); } else { flash('Enter the date as DD/MM/YYYY'); t.value = fd(UI.day); } }
   else if(t.id === 'f-cat' || t.id === 'f-date'){ if(t.id === 'f-cat' && $('#f-grp') && !UI.editId) $('#f-grp').value = grpOf(UI.branch, t.value.trim()); readDraft(); const h = $('#hint'); if(h) h.innerHTML = hintHtml(); }
 });
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if(t.id === 'inv-file' && t.files && t.files[0]) readInvoice(t.files[0]);
+  else if(t.dataset && t.dataset.iv === 'cat' && UI.inv){ UI.inv.items[+t.dataset.i].cat = t.value; }
+});
 document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && UI.modal){ UI.modal = null; render(); } });
 document.addEventListener('input', ev => { if(ev.target.id === 'imp-text') UI.imp.text = ev.target.value;
+  if(ev.target.dataset && ev.target.dataset.iv && UI.inv){ const k = ev.target.dataset.iv, it = UI.inv.items[+ev.target.dataset.i], v = ev.target.value; if(k === 'item') it.item = v; else if(k === 'qty') it.qty = v === '' ? null : +v; else if(k === 'amt') it.amt = v === '' ? 0 : +v; if(k === 'amt'){ const h = $('#ivsum'); if(h) h.innerHTML = ivSumHtml(); } }
   if(ev.target.id === 'm-reason' && UI.modal){ UI.modal.reason = ev.target.value; const bt = $('#m-rec'); if(bt) bt.disabled = !ev.target.value.trim(); } if(ev.target.classList && ev.target.classList.contains('dinp')) updDayTotal(); });
 document.addEventListener('submit', ev => {
   ev.preventDefault();
@@ -918,8 +1028,13 @@ document.addEventListener('submit', ev => {
     const gsel = $('#f-grp') ? $('#f-grp').value : null, ec = S.cats[b].find(c => c.sec === sec && c.label === cat);
     if(!ec) S.cats[b].push({sec, label:cat, counted:true, ...(sec === 'cash' ? {grp:gsel || classify(cat)} : {})});
     else if(sec === 'cash' && gsel && ec.grp !== gsel) ec.grp = gsel;
+    if(UI.inv && UI.inv.busy){ flash('Wait until the invoice has been read'); return; }
     const rec = {date, sec, cat, amt:Math.round(amt*100)/100, ref:$('#f-ref').value.trim(), note:$('#f-note').value.trim()};
-    if(editing) Object.assign(editing, rec); else S.entries.push({id:nid(), br:b, ...rec});
+    if(UI.inv && UI.inv.file) rec.file = UI.inv.file.id;
+    let eid;
+    if(editing){ Object.assign(editing, rec); eid = editing.id; } else { eid = nid(); S.entries.push({id:eid, br:b, ...rec}); }
+    if(UI.inv && UI.inv.items.length) S.items[eid] = {br:b, date, supplier:cat, lines:UI.inv.items.filter(i => String(i.item ?? i.name ?? '').trim()).map(i => ({item:String(i.item ?? i.name).trim(), qty:i.qty === '' || i.qty === undefined ? null : i.qty, amt:r2(i.amt), cat:i.cat}))};
+    UI.inv = null;
     save();
     UI.week = monday(date); UI.editId = null; UI.draft = {date:fd(date), cat}; UI.focusAmt = true; UI.confirmDel = null;
     flash(editing ? 'Entry saved' : `${cat} ${money(rec.amt)} added`);

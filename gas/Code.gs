@@ -5,12 +5,18 @@
  */
 const SECS_ = ['sales', 'expense', 'cash', 'card', 'transfer', 'disc'];
 const P_ = () => PropertiesService.getScriptProperties();
-const SHEET_ = n => SpreadsheetApp.openById(P_().getProperty('SSID')).getSheetByName(n);
+const SHEET_ = n => {
+  const ss = SpreadsheetApp.openById(P_().getProperty('SSID'));
+  let sh = ss.getSheetByName(n);
+  if (!sh && HEAD_[n]) { sh = ss.insertSheet(n); sh.getRange(1, 1, 1, HEAD_[n].length).setValues([HEAD_[n]]).setFontWeight('bold'); sh.setFrozenRows(1); }
+  return sh;
+};
 const HEAD_ = {
-  entries: ['id', 'br', 'date', 'sec', 'cat', 'amt', 'ref', 'note', 'updated_at', 'updated_by'],
+  entries: ['id', 'br', 'date', 'sec', 'cat', 'amt', 'ref', 'note', 'updated_at', 'updated_by', 'file'],
   cats: ['br', 'sec', 'label', 'counted', 'grp'],
   meta: ['br', 'json'],
-  users: ['username', 'name', 'role', 'br', 'must_change', 'salt', 'hash']
+  users: ['username', 'name', 'role', 'br', 'must_change', 'salt', 'hash'],
+  items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat']
 };
 
 function doGet() { return out_({ ok: true, service: 'sales-ledger' }); }
@@ -33,6 +39,8 @@ function route_(b) {
   if (b.a === 'load') return load_(me);
   if (b.a === 'sync') return withLock_(() => sync_(me, b));
   if (b.a === 'chpw') return withLock_(() => chpw_(me, b));
+  if (b.a === 'inv_read') return invRead_(me, b);
+  if (b.a === 'inv_img') return invImg_(me, b);
   throw new Error('Unknown action');
 }
 function withLock_(fn) {
@@ -112,7 +120,8 @@ function load_(me) {
     me: pub_(me), profiles,
     meta: read_('meta').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, data: JSON.parse(r.json) })),
     cats: read_('cats').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, sec: r.sec, label: r.label, counted: r.counted === true || r.counted === 'TRUE', grp: String(r.grp || '') })),
-    entries: read_('entries').filter(r => canSee_(me, r.br)).map(r => ({ id: r.id, br: r.br, date: String(r.date), sec: r.sec, cat: String(r.cat), amt: Number(r.amt), ref: String(r.ref), note: String(r.note) }))
+    entries: read_('entries').filter(r => canSee_(me, r.br)).map(r => ({ id: r.id, br: r.br, date: String(r.date), sec: r.sec, cat: String(r.cat), amt: Number(r.amt), ref: String(r.ref), note: String(r.note), file: String(r.file || '') })),
+    items: itemsOf_(me)
   };
 }
 function sync_(me, b) {
@@ -123,6 +132,9 @@ function sync_(me, b) {
     if (!canSee_(me, e.br)) throw new Error('Not allowed for branch ' + e.br);
     if (!SECS_.includes(e.sec) || !isFinite(e.amt) || !/^\d{4}-\d{2}-\d{2}$/.test(e.date) || !isFinite(e.id) || !String(e.cat || '').trim()) throw new Error('Invalid entry');
   }
+  for (const e of up) if (e.file && !/^[\w-]{10,}$/.test(String(e.file))) throw new Error('Invalid file');
+  const itemsUp = b.items || [];
+  for (const it of itemsUp) if (!canSee_(me, it.br) || !isFinite(it.entry) || !Array.isArray(it.lines) || it.lines.length > 200) throw new Error('Invalid items');
   for (const c of upC) if (!canSee_(me, c.br) || !SECS_.includes(c.sec) || !String(c.label || '').trim()) throw new Error('Invalid category');
 
   // categories
@@ -144,15 +156,17 @@ function sync_(me, b) {
   col.forEach((v, i) => { rowOf[v[0]] = i + 2; brOf[v[0]] = v[1]; });
   const add = [];
   for (const e of up) {
-    const vals = [e.id, e.br, e.date, e.sec, e.cat, Math.round(e.amt * 100) / 100, e.ref || '', e.note || '', now, who];
+    const vals = [e.id, e.br, e.date, e.sec, e.cat, Math.round(e.amt * 100) / 100, e.ref || '', e.note || '', now, who, e.file || ''];
     if (rowOf[e.id]) {
       if (!canSee_(me, brOf[e.id])) throw new Error('Not allowed');
-      sh.getRange(rowOf[e.id], 1, 1, 10).setValues([vals]);
+      sh.getRange(rowOf[e.id], 1, 1, 11).setValues([vals]);
     } else add.push(vals);
   }
-  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 10).setValues(add);
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 11).setValues(add);
+  if (up.some(e => e.file)) sh.getRange(1, 11).setValue('file');
   const rows = del.filter(id => rowOf[id] && canSee_(me, brOf[id])).map(id => rowOf[id]).sort((a, b) => b - a);
   rows.forEach(r => sh.deleteRow(r));
+  if (itemsUp.length || del.length) saveItems_(me, itemsUp, del);
   return { ok: true, up: up.length, del: rows.length };
 }
 
@@ -192,4 +206,136 @@ function resetUsers() {
   sh.getRange(2, 1, rows.length, 7).setValues(rows);
   sh.getRange(2, 5, rows.length, 1).setNumberFormat('General');
   sh.getRange(2, 5, rows.length, 1).setValues(rows.map(r => [r[4]]));
+}
+
+/* ---------- invoice photos + AI reading (Drive + Gemini) ---------- */
+const ITEM_CATS_ = ['Grocery', 'Drink', 'Liquor', 'Equipment', 'Other'];
+
+function itemsOf_(me) {
+  const by = {}, order = [];
+  read_('items').forEach(r => {
+    if (!canSee_(me, r.br)) return;
+    const k = String(r.entry);
+    if (!by[k]) { by[k] = { entry: Number(r.entry), br: r.br, date: String(r.date), supplier: String(r.supplier), lines: [] }; order.push(k); }
+    by[k].lines.push({ item: String(r.item), qty: r.qty === '' ? null : Number(r.qty), amt: Number(r.amt), cat: String(r.cat) });
+  });
+  return order.map(k => by[k]);
+}
+function saveItems_(me, itemsUp, delIds) {
+  const sh = SHEET_('items'), n = sh.getLastRow();
+  const drop = {};
+  (delIds || []).forEach(id => drop[id] = 1);
+  itemsUp.forEach(it => drop[it.entry] = 1);
+  if (n > 1) {
+    const col = sh.getRange(2, 1, n - 1, 2).getValues();   // entry, br
+    const rows = [];
+    col.forEach((v, i) => { if (drop[v[0]] && canSee_(me, v[1])) rows.push(i + 2); });
+    rows.sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+  }
+  const add = [];
+  itemsUp.forEach(it => it.lines.forEach(l => add.push([it.entry, it.br, it.date, String(it.supplier || ''), String(l.item || '').slice(0, 200), l.qty === null || l.qty === undefined || l.qty === '' ? '' : Number(l.qty), Math.round(Number(l.amt || 0) * 100) / 100, ITEM_CATS_.includes(l.cat) ? l.cat : 'Other'])));
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, 8).setValues(add);
+}
+function folder_(br) {
+  const p = P_(), id = p.getProperty('INV_' + br);
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
+  let root = null;
+  const rid = p.getProperty('INV_ROOT');
+  if (rid) { try { root = DriveApp.getFolderById(rid); } catch (e) {} }
+  if (!root) { root = DriveApp.createFolder('Sales Ledger Invoices'); p.setProperty('INV_ROOT', root.getId()); }
+  const f = root.createFolder(br);
+  p.setProperty('INV_' + br, f.getId());
+  return f;
+}
+const EXT_ = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+function invRead_(me, b) {
+  const br = String(b.br || '');
+  if (!canSee_(me, br) || !/^[A-Z]{2}$/.test(br)) throw new Error('Not allowed for branch ' + br);
+  const mime = String(b.mime || ''), data = String(b.data || '');
+  if (!EXT_[mime]) throw new Error('Use a JPG, PNG or PDF file.');
+  if (data.length > 9e6) throw new Error('The file is too large. Take the photo again or use a smaller file.');
+  const stamp = Utilities.formatDate(new Date(), 'Australia/Sydney', 'yyyyMMdd-HHmmss');
+  const file = folder_(br).createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, br + '_' + stamp + '.' + EXT_[mime]));
+  file.setDescription(br);
+  const out = { file: { id: file.getId(), name: file.getName() }, parsed: null, perr: '' };
+  try { out.parsed = gemini_(mime, data); } catch (err) { out.perr = String(err && err.message || err); }
+  if (out.parsed) {
+    const p = out.parsed, clean = x => String(x || '').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
+    const nm = [br, p.date || stamp, clean(p.supplier), clean(p.invoice_no)].filter(Boolean).join('_') + '.' + EXT_[mime];
+    try { file.setName(nm); out.file.name = nm; } catch (e) {}
+  }
+  return out;
+}
+function invImg_(me, b) {
+  const id = String(b.id || '');
+  if (!/^[\w-]{10,}$/.test(id)) throw new Error('Invalid file');
+  const f = DriveApp.getFileById(id), br = String(f.getDescription() || '');
+  if (!/^[A-Z]{2}$/.test(br) || !canSee_(me, br)) throw new Error('Not allowed');
+  return { mime: f.getMimeType(), name: f.getName(), data: Utilities.base64Encode(f.getBlob().getBytes()) };
+}
+function models_(key) {
+  const cache = CacheService.getScriptCache(), pref = P_().getProperty('GEMINI_MODEL');
+  let list = cache.get('gem_models');
+  list = list ? JSON.parse(list) : null;
+  if (!list) {
+    list = [];
+    try {
+      const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': key }, muteHttpExceptions: true });
+      if (r.getResponseCode() === 200) {
+        list = (JSON.parse(r.getContentText()).models || [])
+          .filter(m => (m.supportedGenerationMethods || []).indexOf('generateContent') >= 0)
+          .map(m => String(m.name).replace(/^models\//, ''))
+          .filter(n => /flash/.test(n) && !/image|tts|audio|live|embed|robotics|computer|native|dialog/.test(n))
+          .sort((a, b) => (/preview|exp/.test(a) ? 1 : 0) - (/preview|exp/.test(b) ? 1 : 0) || (/lite/.test(a) ? 1 : 0) - (/lite/.test(b) ? 1 : 0) || (a < b ? 1 : -1))
+          .slice(0, 5);
+      }
+    } catch (e) {}
+    if (!list.length) list = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+    cache.put('gem_models', JSON.stringify(list), 21600);
+  }
+  return pref ? [pref].concat(list.filter(x => x !== pref)) : list;
+}
+function gemini_(mime, b64) {
+  const key = P_().getProperty('GEMINI_KEY');
+  if (!key) throw new Error('Invoice reading is not set up yet.');
+  const T = { type: 'STRING' }, N = { type: 'NUMBER', nullable: true };
+  const body = {
+    contents: [{ parts: [{ text:
+      'You read supplier invoices and shop receipts for a sushi restaurant business in Australia. Copy the data exactly as printed; never guess. ' +
+      'Dates are Australian DD/MM/YYYY; output the date as YYYY-MM-DD (empty string if not visible). Amounts are AUD. "total" is the final amount payable including GST. ' +
+      '"items" has one entry per printed product line (name cleaned up but recognisable, quantity if shown, amount = line total as printed). ' +
+      'Give every item a category: Grocery (food ingredients, fish, rice, vegetables, sauces, supermarket goods), Drink (non-alcoholic drinks), Liquor (alcohol), Equipment (utensils, packaging, cleaning supplies, appliances, repairs), or Other. ' +
+      'Skip subtotal, GST, discount and payment lines (do not list them as items).' }, { inline_data: { mime_type: mime, data: b64 } }] }],
+    generationConfig: {
+      temperature: 0, responseMimeType: 'application/json',
+      responseSchema: { type: 'OBJECT', properties: {
+        supplier: T, date: T, invoice_no: T, total: N,
+        items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: T, qty: N, amount: N, category: { type: 'STRING', enum: ITEM_CATS_ } }, required: ['name', 'amount', 'category'] } }
+      }, required: ['supplier', 'date', 'invoice_no', 'total', 'items'] }
+    }
+  };
+  let last = '', limited = false;
+  for (const m of models_(key)) {
+    const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent', { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key }, payload: JSON.stringify(body), muteHttpExceptions: true });
+    const code = r.getResponseCode(), txt = r.getContentText();
+    if (code === 200) {
+      let o;
+      try { o = JSON.parse(JSON.parse(txt).candidates[0].content.parts[0].text); } catch (e) { last = 'unreadable answer'; continue; }
+      P_().setProperty('GEMINI_MODEL', m);
+      return norm_(o);
+    }
+    if (code === 429) limited = true;
+    try { last = code + ' ' + JSON.parse(txt).error.message; } catch (e) { last = String(code); }
+  }
+  if (limited) throw new Error('The free reading limit is used up for now. Enter this invoice by hand, or try again later.');
+  throw new Error('Could not read this invoice (' + String(last).slice(0, 140) + ').');
+}
+function norm_(o) {
+  const num = x => (x === null || x === undefined || x === '' || !isFinite(x)) ? null : Math.round(Number(x) * 100) / 100;
+  let date = String(o.date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) date = '';
+  return {
+    supplier: String(o.supplier || '').trim().slice(0, 80), date: date, invoice_no: String(o.invoice_no || '').trim().slice(0, 40), total: num(o.total),
+    items: (Array.isArray(o.items) ? o.items : []).slice(0, 150).map(i => ({ name: String(i.name || '').trim().slice(0, 120), qty: num(i.qty), amt: num(i.amount) || 0, cat: ITEM_CATS_.indexOf(i.category) >= 0 ? i.category : 'Other' })).filter(i => i.name)
+  };
 }
