@@ -562,10 +562,13 @@ function viewSheet(){
   const barRow = (cls, label, vals, tot, extra) => `<tr class="brow ${cls}"><td>${label}</td>${vals.map(v => `<td class="num">${v ? v.toFixed(2) : '–'}</td>`).join('')}<td class="num">${tot ? tot.toFixed(2) : '–'}</td><td class="num">${extra || ''}</td></tr>`;
   const lineRow = (name, es_by_day, ro, sec, label, cat, denom, indent) => {
     const tot = es_by_day.flat().reduce((a, e) => a + e.amt, 0);
-    return `<tr class="ln ${indent ? 'ind' : ''}"><td class="sub">${esc(name)}${cat && !cat.counted ? ' <span class="tag warn">not in total</span>' : ''}</td>${days.map((d, i) => cell(es_by_day[i], ro, d, sec, label)).join('')}<td class="num sub"><b>${tot ? tot.toFixed(2) : '–'}</b></td><td class="num">${pc(tot, denom)}</td></tr>`;
+    return `<tr class="ln ${indent ? 'ind' : ''}"><td class="sub">${esc(name)}</td>${days.map((d, i) => cell(es_by_day[i], ro, d, sec, label)).join('')}<td class="num sub"><b>${tot ? tot.toFixed(2) : '–'}</b></td><td class="num">${pc(tot, denom)}</td></tr>`;
   };
-  const sCats = S.cats[b].filter(x => x.sec === 'sales');
-  const salesLines = sCats.map(ct => lineRow(ct.label, days.map(d => E('sales', d, ct.label)), true, 'sales', ct.label, ct, t.sales)).join('');
+  const netUber = /uber.*(net|payout)/i, hasNet = S.cats[b].some(x => x.sec === 'sales' && netUber.test(x.label));
+  const rank = l => /^card/i.test(l) ? 0 : /^cash/i.test(l) ? 1 : netUber.test(l) ? 3 : /^uber$/i.test(l) ? 2 : 4;   // Card, Cash, Uber gross, Uber net, then the rest
+  const sCats = S.cats[b].filter(x => x.sec === 'sales').sort((x, y) => rank(x.label) - rank(y.label));
+  const salesName = l => netUber.test(l) ? 'Uber net' : (hasNet && /^uber$/i.test(l) ? 'Uber gross' : l);
+  const salesLines = sCats.map(ct => lineRow(salesName(ct.label), days.map(d => E('sales', d, ct.label)), true, 'sales', ct.label, ct, t.sales)).join('');
   const sumSalesWhere = f => sCats.filter(f).reduce((a, ct) => a + (ct.counted ? sumE(days.flatMap(d => E('sales', d, ct.label))) : 0), 0);
   const cardS = sumSalesWhere(x => /^card/i.test(x.label)), cashS = sumSalesWhere(x => /^cash/i.test(x.label)), delivS = sumSalesWhere(x => !/^(card|cash)/i.test(x.label));
   const dayOf = (sec) => days.map(d => sumE(E(sec, d).filter(e => catInfo(b, sec, e.cat).counted)));
