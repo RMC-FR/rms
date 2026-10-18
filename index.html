@@ -54,7 +54,13 @@ select,input[type=text],input[type=number],input[type=date],input[type=email]{ba
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.danger{color:var(--bad)}
-.wtbl tr.wfirst td{border-top:2px solid var(--line,#ddd)}.wtbl td{vertical-align:middle}.wtbl th,.wtbl td,.wtbl td.num{text-align:left}.wtbl th+th,.wtbl td+td{border-left:1px solid var(--line,#ddd)}.wtbl tr.tot td+td,.wtbl tr.wfirst td[colspan]+td{border-left:1px solid var(--line,#ddd)}.btn.sm{padding:3px 8px;font-size:12px}
+.wtbl tr.wfirst td{border-top:2px solid var(--line)}
+.wtbl td,.wtbl th{text-align:left;vertical-align:middle;border-left:1px solid var(--line);font-family:inherit;font-variant-numeric:tabular-nums}
+.wtbl td.num,.wtbl td b{font-family:inherit}
+.wtbl .emp{border-left:0}
+.wtbl .k{border-left:2px solid var(--muted)}
+.tag.t-full{background:rgba(31,122,90,.14);color:#1f7a5a}.tag.t-part{background:rgba(48,100,190,.14);color:#3064be}.tag.t-casual{background:rgba(196,120,20,.16);color:#b86e0a}
+:root[data-theme="dark"] .tag.t-full{color:#6fd0a8}:root[data-theme="dark"] .tag.t-part{color:#8fb4f5}:root[data-theme="dark"] .tag.t-casual{color:#f0b563}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
 .kpi small{display:block;color:var(--muted);font-size:12px}
@@ -918,14 +924,14 @@ function viewWageNew(b, ws, rows){
         let L = G.filter(g => w[g[1]] && w[g[2]]);
         if(!L.length) L = [['–', null, null]];
         const n = L.length, side = L.length > 1 && L.some(x => x[0] === 'Day rate');
-        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${side && g[0] === 'Day rate' ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}${w.restricted ? ' <span class="tag warn">admin only</span>' : ''}<br><span class="dim">${esc(w.mode)}</span></td>` : '')
-          + `<td>${g[0] === 'Day rate' ? (side ? 'Actual' : 'Fixed weekly') : g[0]}</td><td class="num">${g[1] ? w[g[1]] + (g[0] === 'Day rate' ? (w[g[1]] === 1 ? ' day' : ' days') : ' hr') : '–'}</td><td class="num">${g[1] ? money(w[g[2]]) : '–'}</td><td class="num">${g[1] ? money(r2(w[g[1]] * w[g[2]])) : '–'}</td>`
-          + (i === 0 ? `<td rowspan="${n}" class="num"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b></td><td rowspan="${n}" class="num"><b>${money(w.stp)}</b></td>` : '') + '</tr>').join('');
+        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${side && g[0] === 'Day rate' ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span></td>` : '')
+          + `<td>${g[0] === 'Day rate' ? (w.name === 'Robert' ? 'Actual' : 'Fixed weekly') : g[0]}</td><td class="num k">${g[1] ? w[g[1]] + (g[0] === 'Day rate' ? (w[g[1]] === 1 ? ' day' : ' days') : ' hr') : '–'}</td><td class="num">${g[1] ? money(w[g[2]]) : '–'}</td><td class="num">${g[1] ? money(r2(w[g[1]] * w[g[2]])) : '–'}</td>`
+          + (i === 0 ? `<td rowspan="${n}" class="num k"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b></td><td rowspan="${n}" class="num"><b>${money(w.stp)}</b></td>` : '') + '</tr>').join('');
       }).join('');
       return `<div class="card"><h2>Wages by employee <small>${esc(DATA[b].name)} · ${esc(award)} Award · wage cost = STP wage</small></h2><div class="scroll"><table class="wtbl">
-      <thead><tr><th>Employee</th><th>Pay type</th><th>Hours / days</th><th>Rate</th><th>Subtotal</th><th>Total hours</th><th>Wage cost</th></tr></thead><tbody>${body}
-      ${hid && !adm ? `<tr class="wfirst"><td colspan="6"><i>Other staff (admin only)</i></td><td class="num">${money(hid)}</td></tr>` : ''}
-      <tr class="tot"><td colspan="5">Total</td><td class="num">${Math.round(hrs * 100) / 100} hr</td><td class="num">${money(vis + hid)}</td></tr></tbody></table></div></div>`;
+      <thead><tr><th class="emp">Employee</th><th>Pay type</th><th class="k">Hours / days</th><th>Rate</th><th>Subtotal</th><th class="k">Total hours</th><th>Wage cost</th></tr></thead><tbody>${body}
+      ${hid && !adm ? `<tr class="wfirst"><td colspan="6" class="emp"><i>Other staff (admin only)</i></td><td class="num">${money(hid)}</td></tr>` : ''}
+      <tr class="tot"><td colspan="5" class="emp">Total</td><td class="num k">${Math.round(hrs * 100) / 100} hr</td><td class="num">${money(vis + hid)}</td></tr></tbody></table></div></div>`;
     })()}
     <div class="hint">Staff who work at more than one branch are counted at each branch only for the work done there.</div>`;
 }
