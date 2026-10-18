@@ -18,7 +18,8 @@ const HEAD_ = {
   users: ['username', 'name', 'role', 'br', 'must_change', 'salt', 'hash'],
   items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat'],
   wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note'],
-  deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note']
+  deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note'],
+  checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at']
 };
 
 function doGet() { return out_({ ok: true, service: 'sales-ledger' }); }
@@ -40,6 +41,7 @@ function route_(b) {
   const me = auth_(b.t);
   if (b.a === 'load') return load_(me);
   if (b.a === 'sync') return withLock_(() => sync_(me, b));
+  if (b.a === 'chk') return withLock_(() => chk_(me, b));
   if (b.a === 'chpw') return withLock_(() => chpw_(me, b));
   if (b.a === 'inv_read') return invRead_(me, b);
   if (b.a === 'inv_img') return invImg_(me, b);
@@ -124,6 +126,7 @@ function load_(me) {
     cats: read_('cats').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, sec: r.sec, label: r.label, counted: r.counted === true || r.counted === 'TRUE', grp: String(r.grp || '') })),
     entries: read_('entries').filter(r => canSee_(me, r.br)).map(r => ({ id: r.id, br: r.br, date: String(r.date), sec: r.sec, cat: String(r.cat), amt: Number(r.amt), ref: String(r.ref), note: String(r.note), file: String(r.file || '') })),
     items: itemsOf_(me),
+    checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: Number(r.amt) })) : [],
     wages: wagesOf_(me), hiddenWage: hiddenWage_(me), deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
 }
@@ -371,4 +374,19 @@ function metaFor_(me) {
   read_('wages').filter(isRestricted_).forEach(r => { bad[String(r.name).trim().toLowerCase()] = 1; });
   rows.forEach(r => { if (r.data && r.data.wages) r.data.wages = r.data.wages.filter(w => !bad[String(w.name).trim().toLowerCase()]); });
   return rows;
+}
+
+/** Admin-only invoice tick. Stores the amount that was verified, so a later edit of the amount shows the line as unchecked again. */
+function chk_(me, b) {
+  if (me.role !== 'admin') throw new Error('Only admins can check invoices');
+  const id = Number(b.id);
+  if (!isFinite(id)) throw new Error('Invalid entry');
+  const E = SHEET_('entries'), n = E.getLastRow(), ev = n > 1 ? E.getRange(2, 1, n - 1, 6).getValues() : [];
+  const ent = ev.find(v => Number(v[0]) === id);
+  if (!ent) throw new Error('Entry not found');
+  const sh = SHEET_('checks'), m = sh.getLastRow(), rows = [];
+  if (m > 1) sh.getRange(2, 1, m - 1, 1).getValues().forEach((v, i) => { if (Number(v[0]) === id) rows.push(i + 2); });
+  rows.sort((x, y) => y - x).forEach(r => sh.deleteRow(r));
+  if (b.on) sh.getRange(sh.getLastRow() + 1, 1, 1, 5).setValues([[id, ent[1], Number(ent[5]), me.username, new Date().toISOString()]]);
+  return { ok: true };
 }

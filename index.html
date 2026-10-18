@@ -165,6 +165,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .adminrow{display:flex;align-items:center;gap:12px;margin:0 0 10px;padding-top:2px}.cwbtn{display:inline-flex;align-items:center;gap:8px;background:#1f2933;color:#fff;border:0;border-radius:4px;padding:8px 14px;font-weight:600;cursor:pointer;letter-spacing:.01em}.cwbtn .cwsub{font-weight:500;font-size:11px;opacity:.65;border-left:1px solid rgba(255,255,255,.3);padding-left:8px}.cwbtn:hover{background:#2d3a47}.cwbtn[aria-pressed=true]{background:var(--accent)}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px}.bigpie{display:flex;flex-direction:column;gap:14px;align-items:center;padding:14px 16px 16px}.bigpie svg{flex:none}.leg{list-style:none;margin:0;padding:0;width:100%;font-size:13px}.leg li{display:grid;grid-template-columns:12px 1fr auto 52px;gap:8px;align-items:center;padding:3px 0}.leg em{font-style:normal;color:var(--muted);text-align:right}.leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leg .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.tick{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;margin-right:7px;padding:0;border:1.5px solid #b8c0cc;border-radius:4px;background:var(--surface);color:transparent;cursor:pointer;vertical-align:-3px;flex:none}.tick:hover{border-color:var(--accent)}.tick.on{background:var(--accent);border-color:var(--accent);color:#fff}.tick.static{cursor:default;margin-right:4px}.chkbar{padding:8px 16px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line)}.chkbar b{color:var(--fg)}
 .sheet th,.sheet td{padding:5px 8px}
 .sheet th+th,.sheet td+td{border-left:1px solid var(--line)}
 .sheet.sum{max-width:560px}
@@ -245,7 +246,7 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
   (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
-  S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || [];
+  S.checks = {}; (j.checks || []).forEach(c => S.checks[c.id] = c.amt); S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || [];
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
@@ -266,7 +267,7 @@ async function signIn(username, pw){
   await afterLogin();
 }
 async function signOut(){
-  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}, items:{}, wages:[], hiddenWage:{}, deductions:[]}; DATA = {}; BR = []; PROFILES = [];
+  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}, items:{}, wages:[], hiddenWage:{}, deductions:[], checks:{}}; DATA = {}; BR = []; PROFILES = [];
   UI.pw = false; UI.syncErr = null; UI.loginErr = '';
 }
 /* save(): sends only what changed since the last successful sync; a single queue keeps edits in order */
@@ -608,13 +609,34 @@ function entryForm(b, days){
     </div></div>`;
 }
 const redNeg = h => h.replace(/>(\s*[-−]\$?\d[\d,]*(?:\.\d+)?%?\s*)</g, '><span class="neg">$1</span><');
+const isTicked = e => S.checks && S.checks[e.id] !== undefined && Math.abs(S.checks[e.id] - e.amt) < 0.005;
+const tickBtn = e => user().role === 'admin' && e.sec === 'expense'
+  ? `<button type="button" class="tick ${isTicked(e) ? 'on' : ''}" data-act="chk" data-id="${e.id}" aria-pressed="${isTicked(e)}" title="${isTicked(e) ? 'Checked against the supplier invoice. Click to uncheck' : 'Click when this amount matches the supplier invoice'}"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.5"/></svg></button>` : '';
+function toggleTick(id){
+  const e = S.entries.find(x => x.id === id); if(!e || user().role !== 'admin') return;
+  const had = S.checks[id], on = !isTicked(e);
+  if(on) S.checks[id] = e.amt; else delete S.checks[id];
+  render();
+  UI.syncErr = null;
+  queue = queue.then(() => api('chk', {id, on})).catch(err => {
+    if(err.auth) return;
+    if(had === undefined) delete S.checks[id]; else S.checks[id] = had;
+    UI.syncErr = err.message || 'Could not save the check mark'; render();
+  });
+}
+function checkSummary(b, days){
+  if(user().role !== 'admin') return '';
+  const inv = entriesFor(b, days, ['expense']); if(!inv.length) return '';
+  const done = inv.filter(isTicked), sum = l => l.reduce((a, e) => a + e.amt, 0);
+  return `<div class="chkbar"><span class="tick on static"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.5"/></svg></span> <b>${done.length} of ${inv.length}</b> invoices checked · ${money(sum(done))} of ${money(sum(inv))}</div>`;
+}
 function viewSheet(){
   const b = UI.branch, c = calc(b, UI.week), days = c.days, t = c.t, imp = t.hasWage;
   const E = (sec, d, label) => S.entries.filter(e => e.br === b && e.date === d && e.sec === sec && (label === undefined || e.cat === label)).sort((x, y) => x.id - y.id);
   const sumE = es => es.reduce((a, e) => a + e.amt, 0);
   const cell = (es, ro, d, sec, label) => {
     if(!es.length) return ro ? '<td class="num dim">·</td>' : `<td class="num cell dim" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Click to add">·</td>`;
-    const lines = es.map(e => `<div class="inv ${ro ? '' : 'edit'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : [e.ref ? 'Invoice ' + e.ref : '', ro ? '' : 'Click to edit'].filter(Boolean).join(' · '))}">${e.amt.toFixed(2)}${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}${e.file ? '<small title="Photo attached"> 📎</small>' : ''}</div>`).join('');
+    const lines = es.map(e => `<div class="inv ${ro ? '' : 'edit'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : [e.ref ? 'Invoice ' + e.ref : '', ro ? '' : 'Click to edit'].filter(Boolean).join(' · '))}">${tickBtn(e)}${e.amt.toFixed(2)}${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}${e.file ? '<small title="Photo attached"> 📎</small>' : ''}</div>`).join('');
     return `<td class="num ${ro ? '' : 'cellp'}">${lines}${es.length > 1 ? `<div class="invsum">${sumE(es).toFixed(2)}</div>` : ''}${ro ? '' : `<button type="button" class="plus" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Add another" aria-label="Add another">+</button>`}</td>`;
   };
   const barRow = (cls, label, vals, tot, extra) => `<tr class="brow ${cls}"><td>${label}</td>${vals.map(v => `<td class="num">${v ? v.toFixed(2) : '–'}</td>`).join('')}<td class="num">${tot ? tot.toFixed(2) : '–'}</td><td class="num">${extra || ''}</td></tr>`;
@@ -648,7 +670,7 @@ function viewSheet(){
   const adjS = t.adjSales;
   const sums = [['Total sales', t.sales, ''], ['Card', cardS, pc(cardS, t.sales)], ['Cash', cashS, pc(cashS, t.sales)], ['Delivery', delivS, pc(delivS, t.sales)], ['Closing cash', t.closing, ''], ['Expense total', t.exp, pc(t.exp, t.sales)], ...(t.uberFee ? [['Uber fees', t.uberFee, pc(t.uberFee, t.sales)]] : []), ['Wage', imp ? t.wage : null, imp ? pc(t.wage, t.sales) : ''], ['Net sales', imp && t.hasExp ? t.net : null, imp ? pc(t.net, t.sales) : ''], ['E + W', imp ? t.exp + t.wage : null, imp ? pc(t.exp + t.wage, t.sales) : '']];
   return weekBar() + entryForm(b, days) + `
-    <div class="card"><h2>Weekly sheet <small>Sales come from the imported daily reports (read-only). Click an expense amount to edit it. Several invoices from one supplier on the same day are stacked in the cell and added up below them.</small></h2><div class="scroll"><table class="sheet">
+    <div class="card"><h2>Weekly sheet <small>Sales come from the imported daily reports (read-only). Click an expense amount to edit it. Several invoices from one supplier on the same day are stacked in the cell and added up below them.</small></h2>${checkSummary(b, days)}<div class="scroll"><table class="sheet">
       <thead><tr><th>Date</th>${days.map((d, i) => `<th class="r">${DOW[i]}<br>${fs2(d)}</th>`).join('')}<th class="r">Sub total</th><th class="r">%</th></tr></thead><tbody>
       ${barRow('s', 'SALES TOTAL', c.rows.map(r => r.sales), t.sales)}
       ${salesLines}${adjS ? `<tr class="ln"><td class="sub">Excel adjustment <span class="tag warn">read-only</span></td><td colspan="7"></td><td class="num sub"><b>${adjS.toFixed(2)}</b></td><td></td></tr>` : ''}
@@ -1056,6 +1078,7 @@ document.addEventListener('click', ev => {
   else if(a === 'impdiscard'){ UI.imp.reports.splice(+t.dataset.r, 1); if(!UI.imp.reports.length) UI.imp.reports = null; }
   else if(a === 'wk'){ const v = +t.dataset.v; UI.week = t.dataset.v === 'latest' ? latestWeek() : v === 0 ? DATA[BR[0]].dates[0] : addDays(UI.week, v); UI.editId = null; UI.draft = {}; }
   else if(a === 'add'){ UI.editId = null; UI.fSec = t.dataset.sec; UI.draft = {date:fd(t.dataset.d), cat:t.dataset.c}; UI.focusAmt = true; }
+  else if(a === 'chk'){ toggleTick(+t.dataset.id); return; }
   else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.inv = null; UI.confirmDel = null; UI.focusAmt = true; }
   else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; UI.inv = null; }
   else if(a === 'ivdel'){ readDraft(); UI.inv.items.splice(+t.dataset.i, 1); }
