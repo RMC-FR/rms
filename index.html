@@ -162,11 +162,13 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .login .btn{width:100%;padding:10px}
 .syncerr{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:6px;padding:8px 12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;justify-content:space-between}
 .acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px}.bigpie{display:flex;flex-direction:column;gap:14px;align-items:center;padding:14px 16px 16px}.bigpie svg{flex:none}.leg{list-style:none;margin:0;padding:0;width:100%;font-size:13px}.leg li{display:grid;grid-template-columns:12px 1fr auto 52px;gap:8px;align-items:center;padding:3px 0}.leg em{font-style:normal;color:var(--muted);text-align:right}.leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leg .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .sheet th,.sheet td{padding:5px 8px}
+.sheet th,.sheet td,.sheet td.num,.sheet th.r,.sheet .inv,.sheet .invsum{text-align:left;font-family:inherit;font-variant-numeric:tabular-nums}
 .sheet .brow td{font-weight:700}
 .sheet .brow.s td{background:var(--accent-soft)}.sheet .brow.e td{background:rgba(58,155,120,.16)}.sheet .brow.c td{background:rgba(226,171,92,.22)}.sheet .brow.t td{background:rgba(111,143,214,.16)}
 .sheet .ln.grp2 td{background:var(--surface2)}
-.sheet .ln.ind td.sub{padding-left:26px;font-size:12.5px;color:var(--muted)}
+.sheet .ln.ind td.sub:first-child{padding-left:26px;font-size:12.5px;color:var(--muted)}
 .sheet td.cellp{position:relative;vertical-align:top;padding-right:22px}
 .sheet .inv{line-height:1.35}.sheet .inv.edit{cursor:pointer;border-radius:4px;padding:0 2px}.sheet .inv.edit:hover{background:var(--accent-soft)}
 .sheet .inv small{display:block;font-size:10.5px;color:var(--muted);font-family:var(--sans)}
@@ -288,7 +290,8 @@ const user = () => ({role:ME.role, branch:ME.br, name:ME.name});
 const allowed = () => user().role === 'admin' ? BR : [user().branch];
 function ensureBranch(){
   if(user().role !== 'admin') UI.branch = allowed()[0];
-  else if(UI.branch === 'ALL' && UI.tab !== 'summary' && UI.tab !== 'cashwage') UI.branch = BR[0];
+  else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'access'].includes(UI.tab)) UI.tab = 'summary';
+  else if(UI.branch !== 'ALL' && UI.tab === 'cashwage') UI.tab = 'summary';
   if((UI.tab === 'access' || UI.tab === 'cashwage') && user().role !== 'admin') UI.tab = 'summary';
 }
 
@@ -332,7 +335,7 @@ function render(){
   const u = user();
   const chips = u.role === 'admin' ? ['ALL', ...BR].map(b =>
     `<button class="chip" data-act="branch" data-v="${b}" aria-pressed="${UI.branch === b}">${b === 'ALL' ? 'All branches' : b}</button>`).join('') : '';
-  const tabs = [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ['wage','Wages'], ...(u.role === 'admin' ? [['cashwage','Cash Wage'], ['access','Access']] : [])]
+  const tabs = (u.role === 'admin' && UI.branch === 'ALL' ? [['summary','Summary'], ['cashwage','Cash Wage'], ['access','Access']] : [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ['wage','Wages'], ...(u.role === 'admin' ? [['access','Access']] : [])])
     .map(([k, l]) => `<button class="tab" role="tab" data-act="tab" data-v="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('');
   $('#app').innerHTML = `
     <header class="top">
@@ -416,6 +419,36 @@ function miniPie(t){
   const mid = lead ? `<text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-size="15" font-weight="600" fill="var(--fg)" style="font-family:var(--mono)">${Math.round(lead[1] / t.sales * 100)}%</text>` : '';
   return `<svg class="mpie" viewBox="0 0 100 100" role="img" aria-label="Donut chart of sales split into ${sl.map(s => s[0]).join(', ')}">${paths}${mid}</svg>`;
 }
+const PAL = ['#3a9b78', '#6f8fd6', '#e2ab5c', '#c8685d', '#8b74c9', '#4fb3c4', '#b0a47a', '#8a9690'];
+function donut(sl, size, center){
+  const tot = sl.reduce((a, x) => a + x[1], 0); if(!(tot > 0)) return '<div class="empty" style="padding:24px 0">No data for this week</div>';
+  let a0 = -Math.PI / 2, paths = '';
+  const R = 47, r = 31, C = 50, pt = (rad, a) => [(C + rad * Math.cos(a)).toFixed(2), (C + rad * Math.sin(a)).toFixed(2)];
+  sl.forEach(([n, v, col]) => {
+    if(!(v > 0)) return;
+    const a1 = a0 + Math.min(v / tot, 0.99999) * 2 * Math.PI, big = a1 - a0 > Math.PI ? 1 : 0;
+    const [x0, y0] = pt(R, a0), [x1, y1] = pt(R, a1), [x2, y2] = pt(r, a1), [x3, y3] = pt(r, a0);
+    paths += `<path d="M${x0} ${y0}A${R} ${R} 0 ${big} 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 ${big} 0 ${x3} ${y3}Z" fill="${col}" stroke="var(--surface)" stroke-width="2" stroke-linejoin="round"><title>${esc(n)}: ${money(v)} (${(v / tot * 100).toFixed(1)}%)</title></path>`;
+    a0 = a1;
+  });
+  return `<div class="bigpie"><svg viewBox="0 0 100 100" width="${size}" height="${size}" role="img" style="font-family:inherit">${paths}<text x="50" y="50" text-anchor="middle" dominant-baseline="middle" font-size="11" font-weight="600" fill="var(--fg)">${center || ''}</text></svg>
+    <ul class="leg">${sl.filter(x => x[1] > 0).map(([n, v, col]) => `<li><i class="dot" style="background:${col}"></i><span>${esc(n)}</span><b>${money(v)}</b><em>${(v / tot * 100).toFixed(1)}%</em></li>`).join('')}</ul></div>`;
+}
+function branchCharts(b, c){
+  const t = c.t, days = c.days, nw = t.hasWage;
+  const sl1 = !(t.sales > 0) ? [] : nw && t.hasExp ? [['Net profit', Math.max(t.net, 0), 'var(--c-net)'], ['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], ['Uber fees', t.uberFee || 0, 'var(--c-fee)']] : [['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], ['Uber fees', t.uberFee || 0, 'var(--c-fee)']];
+  const grp = (es, keyf) => { const m = {}; es.forEach(e => { const k = keyf(e); m[k] = (m[k] || 0) + e.amt; }); const l = Object.entries(m).filter(x => x[1] > 0).sort((x, y) => y[1] - x[1]); const top = l.slice(0, 7), rest = l.slice(7).reduce((a, x) => a + x[1], 0); if(rest > 0) top.push(['Other', rest]); return top.map(([n, v], i) => [n, Math.round(v * 100) / 100, PAL[i % PAL.length]]); };
+  const sales = grp(entriesFor(b, days, ['sales']).filter(e => !NET_UBER.test(e.cat) && catInfo(b, e.sec, e.cat).counted), e => e.cat);
+  const exps = grp(entriesFor(b, days, ['expense', 'cash', 'card']).filter(e => catInfo(b, e.sec, e.cat).counted), e => e.sec === 'cash' ? grpOf(b, e.cat) : e.cat);
+  const tot = (l, k) => l.reduce((a, x) => a + x[1], 0);
+  const mid = t.sales > 0 && nw && t.hasExp ? Math.round(t.net / t.sales * 100) + '% net' : '';
+  return `<div class="kpis"><div class="kpi"><small>Total sales</small><strong>${money(t.sales)}</strong></div><div class="kpi"><small>Closing cash</small><strong>${money(t.closing)}</strong></div></div>
+  <div class="pgrid">
+    <div class="card"><h2>Where the sales went <small>% of total sales</small></h2>${donut(sl1.map(x => [x[0], Math.round(x[1] * 100) / 100, x[2]]), 150, mid)}</div>
+    <div class="card"><h2>Sales mix <small>by sales line</small></h2>${donut(sales, 150, money(tot(sales)).replace(/\.\d\d$/, ''))}</div>
+    <div class="card"><h2>Expenses <small>by group</small></h2>${donut(exps, 150, money(tot(exps)).replace(/\.\d\d$/, ''))}</div>
+  </div>`;
+}
 function viewSummary(){
   if(UI.branch === 'ALL'){
     const rs = BR.map(b => [b, calc(b, UI.week).t]);
@@ -432,7 +465,7 @@ function viewSummary(){
       </tbody></table></div></div>`;
   }
   const c = calc(UI.branch, UI.week);
-  return weekBar() + kpis(c.t, true) + `<div class="card"><h2>Daily summary</h2><div class="scroll"><table>
+  return weekBar() + (user().role === 'admin' ? branchCharts(UI.branch, c) : kpis(c.t, true)) + `<div class="card"><h2>Daily summary</h2><div class="scroll"><table>
     <thead><tr><th>Date</th><th class="r">Sales</th><th class="r">Expenses</th><th class="r">Closing cash</th></tr></thead><tbody>
     ${c.days.map((d, i) => `<tr><td>${DOW[i]} <span class="tag">${fs2(d)}</span></td><td class="num">${money(c.rows[i].sales)}</td><td class="num">${money(c.rows[i].exp)}</td><td class="num">${money(c.rows[i].closing)}</td></tr>`).join('')}
     ${c.t.adjSales || c.t.adjExp ? `<tr><td>Excel adjustment <span class="tag warn">read-only</span></td><td class="num">${money(c.t.adjSales)}</td><td class="num">${money(c.t.adjExp)}</td><td></td></tr>` : ''}
@@ -908,9 +941,10 @@ function impChange(t){
 }
 const wHours = w => (w.ordH || 0) + (w.satH || 0) + (w.sunH || 0) + (w.otH || 0);
 const wBasis = w => [['Ord', w.ordH, w.ordR], ['Sat', w.satH, w.satR], ['Sun', w.sunH, w.sunR], ['OT', w.otH, w.otR]].filter(x => x[1]).map(x => `<div>${x[0]} ${x[1]} h × ${(+x[2]).toFixed(2)}</div>`).join('') + (w.dayN ? `<div>${w.dayN} days × ${(+w.dayR).toFixed(0)} (day rate)</div>` : '');
+const TOP_STAFF = ['Oyundulam', 'Bhuwaneshwor'];   // listed first in their branch's wage table
 function viewWageNew(b, ws, rows){
   const adm = ME.role === 'admin', hid = S.hiddenWage[b + '|' + ws] || 0, c = calc(b, ws), award = (rows[0] || {}).award || '';
-  const dayStaff = w => (w.dayN && w.dayR ? 0 : 1), sorted = [...rows].sort((x, y) => dayStaff(x) - dayStaff(y) || (x.restricted ? 1 : 0) - (y.restricted ? 1 : 0) || (y.stp || 0) - (x.stp || 0));
+  const dayStaff = w => (w.dayN && w.dayR) || TOP_STAFF.includes(w.name) ? 0 : 1, sorted = [...rows].sort((x, y) => dayStaff(x) - dayStaff(y) || (x.restricted ? 1 : 0) - (y.restricted ? 1 : 0) || (y.stp || 0) - (x.stp || 0));
   const vis = rows.reduce((a, w) => a + (w.stp || 0), 0), hrs = rows.reduce((a, w) => a + wHours(w), 0);
   return weekBar() + `<div class="kpis">
     <div class="kpi"><small>Wage cost</small><strong>${money(c.t.wage)}</strong><br><em>${pct(c.t.wp)} of sales</em></div>
@@ -996,7 +1030,7 @@ function readDraft(){
 }
 document.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
-  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
+  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'access'].includes(UI.tab) : UI.tab === 'cashwage') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
   else if(a === 'tab'){ UI.tab = t.dataset.v; UI.editId = null; UI.draft = {}; UI.confirmDel = null; }
   else if(a === 'day'){ const v = t.dataset.v; UI.day = v === '0' ? todayLocal() : v === 'last' ? DATA[UI.branch === 'ALL' ? BR[0] : UI.branch].dates[6] : addDays(UI.day, +v); }
   else if(a === 'pickday'){ UI.day = t.dataset.v; window.scrollTo(0, 0); }
