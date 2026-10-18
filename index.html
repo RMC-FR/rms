@@ -60,8 +60,8 @@ select,input[type=text],input[type=number],input[type=date],input[type=email]{ba
 .wtbl td.num,.wtbl td b{font-family:inherit}
 .wtbl .emp{border-left:0}
 .wtbl .k{border-left:3px solid var(--line)}
-.tag.t-full{background:rgba(31,122,90,.14);color:#1f7a5a}.tag.t-part{background:rgba(122,90,248,.14);color:#6b4bea}.tag.t-casual{background:rgba(196,120,20,.16);color:#b86e0a}
-:root[data-theme="dark"] .tag.t-full{color:#6fd0a8}:root[data-theme="dark"] .tag.t-part{color:#b3a1fb}:root[data-theme="dark"] .tag.t-casual{color:#f0b563}
+.tag.t-full{background:rgba(111,147,201,.18);color:#3f67a8}.tag.t-part{background:rgba(230,194,110,.28);color:#8a6a12}.tag.t-casual{background:rgba(232,144,138,.22);color:#b4544d}
+:root[data-theme="dark"] .tag.t-full{color:#9db9e6}:root[data-theme="dark"] .tag.t-part{color:#ecce82}:root[data-theme="dark"] .tag.t-casual{color:#f2aaa4}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
 .kpi small{display:block;color:var(--muted);font-size:12px}
@@ -166,6 +166,8 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .adminrow{display:flex;align-items:center;gap:12px;margin:0 0 10px;padding-top:2px}.cwbtn{display:inline-flex;align-items:center;gap:8px;background:#1f2933;color:#fff;border:0;border-radius:4px;padding:8px 14px;font-weight:600;cursor:pointer;letter-spacing:.01em}.cwbtn .cwsub{font-weight:500;font-size:11px;opacity:.65;border-left:1px solid rgba(255,255,255,.3);padding-left:8px}.cwbtn:hover{background:#2d3a47}.cwbtn[aria-pressed=true]{background:var(--accent)}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px}.bigpie{display:flex;flex-direction:column;gap:14px;align-items:center;padding:14px 16px 16px}.bigpie svg{flex:none}.leg{list-style:none;margin:0;padding:0;width:100%;font-size:13px}.leg li{display:grid;grid-template-columns:12px 1fr auto 52px;gap:8px;align-items:center;padding:3px 0}.leg em{font-style:normal;color:var(--muted);text-align:right}.leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leg .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .sheet th,.sheet td{padding:5px 8px}
+.sheet th+th,.sheet td+td{border-left:1px solid var(--line)}
+.sheet.sum{max-width:560px}
 .sheet th,.sheet td,.sheet td.num,.sheet th.r,.sheet .inv,.sheet .invsum{text-align:left;font-family:inherit;font-variant-numeric:tabular-nums}
 .sheet .brow td{font-weight:700}
 .sheet .brow.s td{background:var(--accent-soft)}.sheet .brow.e td{background:rgba(0,184,217,.12)}.sheet .brow.c td{background:rgba(226,171,92,.22)}.sheet .brow.t td{background:rgba(111,143,214,.16)}
@@ -350,7 +352,7 @@ function render(){
     ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? viewSheet() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? redNeg(viewSheet()) : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
   if(UI.focusReason && $('#m-reason')){ $('#m-reason').focus(); UI.focusReason = false; }
   if(UI.focusAmt && $('#f-amt')){ $('#f-amt').focus(); UI.focusAmt = false; }
 }
@@ -602,6 +604,7 @@ function entryForm(b, days){
       <div class="hint" id="hint">${hintHtml()}</div>
     </div></div>`;
 }
+const redNeg = h => h.replace(/>(\s*[-−]\$?\d[\d,]*(?:\.\d+)?%?\s*)</g, '><span class="neg">$1</span><');
 function viewSheet(){
   const b = UI.branch, c = calc(b, UI.week), days = c.days, t = c.t, imp = t.hasWage;
   const E = (sec, d, label) => S.entries.filter(e => e.br === b && e.date === d && e.sec === sec && (label === undefined || e.cat === label)).sort((x, y) => x.id - y.id);
@@ -657,9 +660,8 @@ function viewSheet(){
       ${barRow('t', 'Closing cash', c.rows.map(r => r.closing), t.closing)}
       </tbody></table></div></div>
     <div class="card"><h2>Week summary <small>${fd(UI.week)} – ${fd(addDays(UI.week, 6))}</small></h2><div class="scroll"><table class="sheet sum">
-      <thead><tr>${sums.map(x => `<th class="r">${x[0]}</th>`).join('')}</tr></thead><tbody>
-      <tr>${sums.map(x => `<td class="num"><b>${x[1] === null ? '–' : money(x[1])}</b></td>`).join('')}</tr>
-      <tr>${sums.map(x => `<td class="num sm">${x[2] || ''}</td>`).join('')}</tr></tbody></table></div></div>`;
+      <thead><tr><th>Item</th><th>Amount</th><th>% of sales</th></tr></thead><tbody>
+      ${sums.map(x => `<tr><td>${x[0]}</td><td class="num"><b>${x[1] === null ? '–' : money(x[1])}</b></td><td class="num sm">${x[2] || ''}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
 const dayTotal = (b, d) => S.entries.filter(e => e.br === b && e.date === d && e.sec === 'sales' && catInfo(b, 'sales', e.cat).counted).reduce((a, e) => a + e.amt, 0);
