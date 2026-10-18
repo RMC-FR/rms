@@ -353,7 +353,7 @@ function render(){
     ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? redNeg(viewSheet()) : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
   const tw = document.createTreeWalker($('#app'), NodeFilter.SHOW_TEXT), negs = [];
   while(tw.nextNode()){ const n = tw.currentNode, p = n.parentElement; if(p && !/^(SCRIPT|STYLE|TEXTAREA|OPTION|BUTTON|TITLE)$/.test(p.tagName) && /^\s*[-−–]\s*\$?\d[\d,]*(\.\d+)?\s*%?\s*$/.test(n.nodeValue)) negs.push(p); }
   negs.forEach(p => p.classList.add('neg'));
@@ -608,6 +608,7 @@ function entryForm(b, days){
       <div class="hint" id="hint">${hintHtml()}</div>
     </div></div>`;
 }
+const sheetBlank = h => h.replace(/>\s*[–·]\s*</g, '><');   // no figure = empty cell, no dash placeholder
 const redNeg = h => h.replace(/>(\s*[-−]\$?\d[\d,]*(?:\.\d+)?%?\s*)</g, '><span class="neg">$1</span><');
 const isTicked = e => S.checks && S.checks[e.id] !== undefined && Math.abs(S.checks[e.id] - e.amt) < 0.005;
 const tickBtn = e => user().role === 'admin' && e.sec === 'expense'
@@ -628,7 +629,7 @@ function checkSummary(b, days){
   if(user().role !== 'admin') return '';
   const inv = entriesFor(b, days, ['expense']); if(!inv.length) return '';
   const done = inv.filter(isTicked), sum = l => l.reduce((a, e) => a + e.amt, 0);
-  return `<div class="chkbar"><span class="tick on static"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.5"/></svg></span> <b>${done.length} of ${inv.length}</b> invoices checked · ${money(sum(done))} of ${money(sum(inv))}</div>`;
+  return `<div class="chkbar"><span class="tick ${done.length === inv.length ? 'on' : ''} static"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.5"/></svg></span> <b>${done.length} of ${inv.length}</b> invoices checked · ${money(sum(done))} of ${money(sum(inv))}</div>`;
 }
 function viewSheet(){
   const b = UI.branch, c = calc(b, UI.week), days = c.days, t = c.t, imp = t.hasWage;
