@@ -54,7 +54,7 @@ select,input[type=text],input[type=number],input[type=date],input[type=email]{ba
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
 .btn.primary:hover{filter:brightness(1.08)}
 .btn.danger{color:var(--bad)}
-.btn.sm{padding:3px 8px;font-size:12px}
+.wtbl th.grpH{border-bottom:1px solid var(--line,#ddd);border-left:1px solid var(--line,#ddd)}.wtbl th.sub{font-weight:500;font-size:11px}.wtbl td:nth-child(n+3){white-space:nowrap}.btn.sm{padding:3px 8px;font-size:12px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
 .kpi small{display:block;color:var(--muted);font-size:12px}
@@ -911,11 +911,17 @@ function viewWageNew(b, ws, rows){
     <div class="kpi"><small>Staff paid</small><strong>${rows.filter(w => w.stp > 0).length}${hid && !adm ? ' + admin only' : ''}</strong></div>
     <div class="kpi"><small>Total hours${hid && !adm ? ' (listed staff)' : ''}</small><strong>${Math.round(hrs * 100) / 100} h</strong></div>
     <div class="kpi"><small>Award</small><strong style="font-size:15px">${esc(award || '–')}</strong></div></div>
-    <div class="card"><h2>Wages by employee <small>${esc(DATA[b].name)} · ${esc(award)} Award · wage cost = STP wage</small></h2><div class="scroll"><table>
-      <thead><tr><th>Employee</th><th>Type</th><th>Hours × rate</th><th class="r">Hours</th><th class="r">Wage cost</th></tr></thead><tbody>
-      ${sorted.map(w => `<tr><td>${esc(w.name)}${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}${w.restricted ? ' <span class="tag warn">admin only</span>' : ''}</td><td>${esc(w.mode)}</td><td>${wBasis(w)}</td><td class="num">${wHours(w) || '–'}</td><td class="num">${money(w.stp)}</td></tr>`).join('')}
-      ${hid && !adm ? `<tr><td colspan="4"><i>Other staff (admin only)</i></td><td class="num">${money(hid)}</td></tr>` : ''}
-      <tr class="tot"><td colspan="4">Total wage cost</td><td class="num">${money(vis + hid)}</td></tr></tbody></table></div></div>
+    ${(() => {
+      const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']].filter(g => rows.some(w => w[g[1]] || w[g[2]]));
+      const cell = (v, m) => `<td class="num">${v ? (m ? money(v) : v) : '<span class="dim">–</span>'}</td>`;
+      const cols = 2 + G.length * 2 + 2;
+      return `<div class="card"><h2>Wages by employee <small>${esc(DATA[b].name)} · ${esc(award)} Award · wage cost = STP wage</small></h2><div class="scroll"><table class="wtbl">
+      <thead><tr><th rowspan="2">Employee</th><th rowspan="2">Type</th>${G.map(g => `<th colspan="2" class="grpH" style="text-align:center">${g[0]}</th>`).join('')}<th rowspan="2" class="r">Total hours</th><th rowspan="2" class="r">Wage cost</th></tr>
+      <tr>${G.map(g => `<th class="r sub">${g[0] === 'Day rate' ? 'Days' : 'Hours'}</th><th class="r sub">Rate</th>`).join('')}</tr></thead><tbody>
+      ${sorted.map(w => `<tr><td>${esc(w.name)}${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}${w.restricted ? ' <span class="tag warn">admin only</span>' : ''}</td><td>${esc(w.mode)}</td>${G.map(g => cell(w[g[1]], false) + cell(w[g[2]], true)).join('')}<td class="num">${wHours(w) || '–'}</td><td class="num">${money(w.stp)}</td></tr>`).join('')}
+      ${hid && !adm ? `<tr><td colspan="${cols - 1}"><i>Other staff (admin only)</i></td><td class="num">${money(hid)}</td></tr>` : ''}
+      <tr class="tot"><td colspan="${cols - 2}">Total</td><td class="num">${Math.round(hrs * 100) / 100}</td><td class="num">${money(vis + hid)}</td></tr></tbody></table></div></div>`;
+    })()}
     <div class="hint">Staff who work at more than one branch are counted at each branch only for the work done there.</div>`;
 }
 function viewCashWage(){
