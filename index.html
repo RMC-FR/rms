@@ -7,16 +7,16 @@
 :root{
   --bg:#f8f9fa; --surface:#ffffff; --surface2:#f4f6f8; --line:#ebeef1; --fg:#1b1f23; --muted:#7d8794;
   --accent:#006aff; --accent-fg:#ffffff; --accent-soft:#e6f0ff;
-  --c-net:#6bb394; --c-exp:#e6c26e; --c-wage:#6f93c9; --c-fee:#e8908a;
-  --p1:#6f93c9; --p2:#6bb394; --p3:#e6c26e; --p4:#e8908a; --p5:#a3bbdf; --p6:#a6d0bc; --p7:#f0d9a2; --p8:#f1b8b4;
+  --c-net:#3fb68b; --c-exp:#f2b84b; --c-wage:#4c82f7; --c-fee:#f1706a;
+  --p1:#4c82f7; --p2:#3fb68b; --p3:#f2b84b; --p4:#f1706a; --p5:#8fb2fa; --p6:#8ad4b6; --p7:#f7d88f; --p8:#f7a9a4;
   --good:#0f8a5f; --warn:#9a6a00; --bad:#d92d20; --bad-soft:#fde8e6; --warn-soft:#fdf1d6;
   --sans:Aptos,'Aptos Display','Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif; --mono:Aptos,'Aptos Display','Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#a3acb8;
   --accent:#4c97ff; --accent-fg:#04122b; --accent-soft:#14284a;
-  --c-net:#7cc4a4; --c-exp:#ecce82; --c-wage:#85a6d8; --c-fee:#ef9f99;
-  --p1:#85a6d8; --p2:#7cc4a4; --p3:#ecce82; --p4:#ef9f99; --p5:#5f80b3; --p6:#589b7d; --p7:#bf9f4f; --p8:#c2706a;
+  --c-net:#52c79c; --c-exp:#f5c363; --c-wage:#6b9bfa; --c-fee:#f58580;
+  --p1:#6b9bfa; --p2:#52c79c; --p3:#f5c363; --p4:#f58580; --p5:#4066b8; --p6:#2f8a69; --p7:#b58a2f; --p8:#b24c47;
   --good:#4cc79a; --warn:#e0b44d; --bad:#f58a80; --bad-soft:#3a2220; --warn-soft:#38300f; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#a3acb8;
@@ -60,8 +60,8 @@ select,input[type=text],input[type=number],input[type=date],input[type=email]{ba
 .wtbl td.num,.wtbl td b{font-family:inherit}
 .wtbl .emp{border-left:0}
 .wtbl .k{border-left:3px solid var(--line)}
-.tag.t-full{background:rgba(111,147,201,.18);color:#3f67a8}.tag.t-part{background:rgba(230,194,110,.28);color:#8a6a12}.tag.t-casual{background:rgba(232,144,138,.22);color:#b4544d}
-:root[data-theme="dark"] .tag.t-full{color:#9db9e6}:root[data-theme="dark"] .tag.t-part{color:#ecce82}:root[data-theme="dark"] .tag.t-casual{color:#f2aaa4}
+.tag.t-full{background:rgba(0,106,255,.12);color:#0061ec}.tag.t-part{background:rgba(230,194,110,.28);color:#8a6a12}.tag.t-casual{background:rgba(232,144,138,.22);color:#b4544d}
+:root[data-theme="dark"] .tag.t-full{background:rgba(76,151,255,.2);color:#7db1ff}:root[data-theme="dark"] .tag.t-part{color:#ecce82}:root[data-theme="dark"] .tag.t-casual{color:#f2aaa4}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
 .kpi small{display:block;color:var(--muted);font-size:12px}
@@ -353,6 +353,9 @@ function render(){
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
     ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? redNeg(viewSheet()) : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
+  const tw = document.createTreeWalker($('#app'), NodeFilter.SHOW_TEXT), negs = [];
+  while(tw.nextNode()){ const n = tw.currentNode, p = n.parentElement; if(p && !/^(SCRIPT|STYLE|TEXTAREA|OPTION|BUTTON|TITLE)$/.test(p.tagName) && /^\s*[-−–]\s*\$?\d[\d,]*(\.\d+)?\s*%?\s*$/.test(n.nodeValue)) negs.push(p); }
+  negs.forEach(p => p.classList.add('neg'));
   if(UI.focusReason && $('#m-reason')){ $('#m-reason').focus(); UI.focusReason = false; }
   if(UI.focusAmt && $('#f-amt')){ $('#f-amt').focus(); UI.focusAmt = false; }
 }
