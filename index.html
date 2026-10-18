@@ -921,11 +921,18 @@ function viewWageNew(b, ws, rows){
       const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']];
       const r2 = n => Math.round(n * 100) / 100;
       const body = sorted.map(w => {
-        let L = G.filter(g => w[g[1]] && w[g[2]]);
-        if(!L.length) L = [['–', null, null]];
-        const n = L.length, side = L.length > 1 && L.some(x => x[0] === 'Day rate');
-        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${side && g[0] === 'Day rate' ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span></td>` : '')
-          + `<td class="k">${g[0] === 'Day rate' ? (w.name === 'Robert' ? 'Actual' : 'Fixed weekly') : g[0]}</td><td class="num">${g[1] ? w[g[1]] + (g[0] === 'Day rate' ? (w[g[1]] === 1 ? ' day' : ' days') : ' hr') : '–'}</td><td class="num">${g[1] ? money(w[g[2]]) : '–'}</td><td class="num">${g[1] ? money(r2(w[g[1]] * w[g[2]])) : '–'}</td>`
+        const fixed = !!(w.dayN && w.dayR) && w.name !== 'Robert';
+        let L = [];
+        if(fixed){
+          L.push({label:'Fixed weekly', q:w.ordH, u:'hr', r:w.ordR, sub:w.stp});
+          L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:true});
+        } else {
+          G.forEach(g => { if(w[g[1]] && w[g[2]]) L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:g[0] === 'Day rate' ? (w[g[1]] === 1 ? 'day' : 'days') : 'hr', r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:g[0] === 'Day rate' && L.length > 0}); });
+          if(!L.length) L.push({label:'–'});
+        }
+        const n = L.length, d = '<span class="dim">–</span>';
+        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span></td>` : '')
+          + `<td class="k">${g.label}</td><td class="num">${g.q ? g.q + ' ' + g.u : d}</td><td class="num">${g.r ? money(g.r) : d}</td><td class="num">${g.sub != null ? money(g.sub) : d}</td>`
           + (i === 0 ? `<td rowspan="${n}" class="num k"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b></td><td rowspan="${n}" class="num"><b>${money(w.stp)}</b></td>` : '') + '</tr>').join('');
       }).join('');
       return `<div class="card"><h2>Wages by employee <small>${esc(DATA[b].name)} · ${esc(award)} Award · wage cost = STP wage</small></h2><div class="scroll"><table class="wtbl">
