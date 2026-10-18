@@ -924,8 +924,8 @@ function viewWageNew(b, ws, rows){
         const fixed = !!(w.dayN && w.dayR) && w.name !== 'Robert';
         let L = [];
         if(fixed){
-          L.push({label:'Fixed weekly', q:w.ordH, u:'hr', r:w.ordR, sub:w.stp});
-          L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:true});
+          if(w.ordH) L.push({label:'Fixed weekly', q:w.ordH, u:'hr', r:w.ordR, sub:w.stp});
+          L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:L.length > 0});
         } else {
           G.forEach(g => { if(w[g[1]] && w[g[2]]) L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:g[0] === 'Day rate' ? (w[g[1]] === 1 ? 'day' : 'days') : 'hr', r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:g[0] === 'Day rate' && L.length > 0}); });
           if(!L.length) L.push({label:'–'});
