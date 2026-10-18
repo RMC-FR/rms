@@ -576,7 +576,7 @@ function ivSumHtml(){
 }
 function photoModal(m){
   const it = S.items[m.id], en = S.entries.find(e => e.id === m.id);
-  const body = !en || (!en.file) ? '' : m.loading ? '<p>Loading…</p>' : m.err ? `<div class="err">${esc(m.err)}</div>` : m.mime === 'application/pdf' ? `<p><a href="${m.url}" target="_blank" rel="noopener">Open the PDF</a></p>` : `<img class="invimg" alt="Invoice" src="${m.url}">`;
+  const body = !en || !en.file || m.canEdit !== undefined ? '' : m.loading ? '<p>Loading…</p>' : m.err ? `<div class="err">${esc(m.err)}</div>` : m.mime === 'application/pdf' ? `<p><a href="${m.url}" target="_blank" rel="noopener">Open the PDF</a></p>` : `<img class="invimg" alt="Invoice" src="${m.url}">`;
   return `<div class="mback"><div class="modal wide" role="dialog" aria-modal="true"><h2 style="color:var(--fg)">Invoice ${en ? esc(en.cat) + ' · ' + fd(en.date) : ''}</h2>${body}
     ${it ? `<div class="scroll"><table class="itbl ro"><thead><tr><th>Item</th><th>Qty</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>${it.lines.map(l => `<tr><td>${esc(l.item)}</td><td>${l.qty ?? ''}</td><td>${esc(l.cat)}</td><td class="num">${(+l.amt).toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3"><b>Items total</b></td><td class="num"><b>${it.lines.reduce((a, l) => a + (+l.amt || 0), 0).toFixed(2)}</b></td></tr>${en ? `<tr><td colspan="3">Recorded amount</td><td class="num">${en.amt.toFixed(2)}</td></tr>` : ''}</tfoot></table></div>` : (en ? '<p class="dim" style="margin:10px 0">No item lines are saved for this invoice yet.' + (m.canEdit ? ' Open <b>Edit entry</b> and attach the invoice photo or PDF: the lines are read automatically.' : '') + '</p>' : '')}
     <div class="row">${m.canEdit ? '<button class="btn" data-act="medit">Edit entry</button>' : ''}<button class="btn primary" data-act="mclose">Close</button></div></div></div>`;
@@ -1088,9 +1088,7 @@ document.addEventListener('click', ev => {
   else if(a === 'mclose'){ UI.modal = null; }
   else if(a === 'vinv'){
     const en = S.entries.find(e => e.id === +t.dataset.id); if(!en) return;
-    UI.modal = {kind:'photo', id:en.id, canEdit:t.dataset.w === '1', loading:!!en.file};
-    if(en.file) api('inv_img', {id:en.file}).then(j => { const bin = atob(j.data), u8 = Uint8Array.from(bin, c => c.charCodeAt(0)); Object.assign(UI.modal, {loading:false, mime:j.mime, url:URL.createObjectURL(new Blob([u8], {type:j.mime}))}); })
-      .catch(e => { Object.assign(UI.modal, {loading:false, err:e.message}); }).finally(render);
+    UI.modal = {kind:'photo', id:en.id, canEdit:t.dataset.w === '1'};
   }
   else if(a === 'medit'){ UI.editId = UI.modal.id; UI.modal = null; UI.draft = {}; UI.inv = null; UI.confirmDel = null; UI.focusAmt = true; }
   else if(a === 'vphoto'){
