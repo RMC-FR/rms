@@ -8,7 +8,7 @@ const P_ = () => PropertiesService.getScriptProperties();
 const SHEET_ = n => {
   const ss = SpreadsheetApp.openById(P_().getProperty('SSID'));
   let sh = ss.getSheetByName(n);
-  if (!sh && HEAD_[n]) { sh = ss.insertSheet(n); sh.getRange(1, 1, 1, HEAD_[n].length).setValues([HEAD_[n]]).setFontWeight('bold'); sh.setFrozenRows(1); }
+  if (!sh && HEAD_[n]) { sh = ss.insertSheet(n); sh.getRange(1, 1, 1, HEAD_[n].length).setValues([HEAD_[n]]).setFontWeight('bold'); sh.setFrozenRows(1); if (n === 'wages' || n === 'deductions') sh.getRange('A:A').setNumberFormat('@'); if (n === 'deductions') sh.getRange('E:E').setNumberFormat('@'); }
   return sh;
 };
 const HEAD_ = {
@@ -16,7 +16,9 @@ const HEAD_ = {
   cats: ['br', 'sec', 'label', 'counted', 'grp'],
   meta: ['br', 'json'],
   users: ['username', 'name', 'role', 'br', 'must_change', 'salt', 'hash'],
-  items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat']
+  items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat'],
+  wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note'],
+  deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note']
 };
 
 function doGet() { return out_({ ok: true, service: 'sales-ledger' }); }
@@ -118,10 +120,11 @@ function load_(me) {
   const profiles = (me.role === 'admin' ? users : users.filter(x => x.username === me.username)).map(x => ({ id: x.username, ...x }));
   return {
     me: pub_(me), profiles,
-    meta: read_('meta').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, data: JSON.parse(r.json) })),
+    meta: metaFor_(me),
     cats: read_('cats').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, sec: r.sec, label: r.label, counted: r.counted === true || r.counted === 'TRUE', grp: String(r.grp || '') })),
     entries: read_('entries').filter(r => canSee_(me, r.br)).map(r => ({ id: r.id, br: r.br, date: String(r.date), sec: r.sec, cat: String(r.cat), amt: Number(r.amt), ref: String(r.ref), note: String(r.note), file: String(r.file || '') })),
-    items: itemsOf_(me)
+    items: itemsOf_(me),
+    wages: wagesOf_(me), hiddenWage: hiddenWage_(me), deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
 }
 function sync_(me, b) {
@@ -342,3 +345,30 @@ function norm_(o) {
 
 /** Run once from the editor to grant Drive + external-request permissions. */
 function authorize() { DriveApp.getRootFolder(); UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': P_().getProperty('GEMINI_KEY') || '' }, muteHttpExceptions: true }); Logger.log('authorized'); }
+
+/* ---------- wages: restricted staff are only ever sent to admins ---------- */
+const isRestricted_ = r => r.restricted === true || r.restricted === 'TRUE';
+function wagesOf_(me) {
+  return read_('wages').filter(r => canSee_(me, r.br) && (me.role === 'admin' || !isRestricted_(r))).map(r => {
+    const o = { week: String(r.week), br: String(r.br), name: String(r.name), nick: String(r.nick), mode: String(r.mode), award: String(r.award), restricted: isRestricted_(r), note: String(r.note) };
+    ['ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid'].forEach(k => o[k] = r[k] === '' ? null : Number(r[k]));
+    return o;
+  });
+}
+/** Managers only get the combined cost of their restricted staff (needed for wage % of sales), never names or amounts per person. */
+function hiddenWage_(me) {
+  if (me.role === 'admin') return [];
+  const by = {};
+  read_('wages').filter(r => r.br === me.br && isRestricted_(r)).forEach(r => { const k = r.br + '|' + r.week; by[k] = (by[k] || 0) + Number(r.stp || 0); });
+  return Object.keys(by).map(k => ({ br: k.split('|')[0], week: k.split('|')[1], cost: Math.round(by[k] * 100) / 100 }));
+}
+
+/** Legacy Excel wage rows: managers must not see restricted staff (names or amounts). */
+function metaFor_(me) {
+  const rows = read_('meta').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, data: JSON.parse(r.json) }));
+  if (me.role === 'admin') return rows;
+  const bad = {};
+  read_('wages').filter(isRestricted_).forEach(r => { bad[String(r.name).trim().toLowerCase()] = 1; });
+  rows.forEach(r => { if (r.data && r.data.wages) r.data.wages = r.data.wages.filter(w => !bad[String(w.name).trim().toLowerCase()]); });
+  return rows;
+}
