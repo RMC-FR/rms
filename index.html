@@ -162,6 +162,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .login .btn{width:100%;padding:10px}
 .syncerr{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:6px;padding:8px 12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;justify-content:space-between}
 .acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.adminrow{display:flex;align-items:center;gap:12px;margin:0 0 10px;padding-top:2px}.adminrow .chip.cw{border-style:dashed}.adminrow .dim{font-size:12px}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px}.bigpie{display:flex;flex-direction:column;gap:14px;align-items:center;padding:14px 16px 16px}.bigpie svg{flex:none}.leg{list-style:none;margin:0;padding:0;width:100%;font-size:13px}.leg li{display:grid;grid-template-columns:12px 1fr auto 52px;gap:8px;align-items:center;padding:3px 0}.leg em{font-style:normal;color:var(--muted);text-align:right}.leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leg .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .sheet th,.sheet td{padding:5px 8px}
 .sheet th,.sheet td,.sheet td.num,.sheet th.r,.sheet .inv,.sheet .invsum{text-align:left;font-family:inherit;font-variant-numeric:tabular-nums}
@@ -291,7 +292,7 @@ const allowed = () => user().role === 'admin' ? BR : [user().branch];
 function ensureBranch(){
   if(user().role !== 'admin') UI.branch = allowed()[0];
   else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'access'].includes(UI.tab)) UI.tab = 'summary';
-  else if(UI.branch !== 'ALL' && UI.tab === 'cashwage') UI.tab = 'summary';
+  else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'access')) UI.tab = 'summary';
   if((UI.tab === 'access' || UI.tab === 'cashwage') && user().role !== 'admin') UI.tab = 'summary';
 }
 
@@ -335,7 +336,7 @@ function render(){
   const u = user();
   const chips = u.role === 'admin' ? ['ALL', ...BR].map(b =>
     `<button class="chip" data-act="branch" data-v="${b}" aria-pressed="${UI.branch === b}">${b === 'ALL' ? 'All branches' : b}</button>`).join('') : '';
-  const tabs = (u.role === 'admin' && UI.branch === 'ALL' ? [['summary','Summary'], ['cashwage','Cash Wage'], ['access','Access']] : [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ['wage','Wages'], ...(u.role === 'admin' ? [['access','Access']] : [])])
+  const tabs = (u.role === 'admin' && UI.branch === 'ALL' ? [['summary','Summary'], ['access','Access']] : [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ['wage','Wages']])
     .map(([k, l]) => `<button class="tab" role="tab" data-act="tab" data-v="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('');
   $('#app').innerHTML = `
     <header class="top">
@@ -345,6 +346,7 @@ function render(){
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
+    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="chip cw" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}">Cash Wage</button><span class="dim">Admin only · all branches</span></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
     ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? viewSheet() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
@@ -1030,7 +1032,7 @@ function readDraft(){
 }
 document.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
-  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'access'].includes(UI.tab) : UI.tab === 'cashwage') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
+  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
   else if(a === 'tab'){ UI.tab = t.dataset.v; UI.editId = null; UI.draft = {}; UI.confirmDel = null; }
   else if(a === 'day'){ const v = t.dataset.v; UI.day = v === '0' ? todayLocal() : v === 'last' ? DATA[UI.branch === 'ALL' ? BR[0] : UI.branch].dates[6] : addDays(UI.day, +v); }
   else if(a === 'pickday'){ UI.day = t.dataset.v; window.scrollTo(0, 0); }
