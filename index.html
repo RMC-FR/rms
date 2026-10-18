@@ -910,7 +910,7 @@ const wHours = w => (w.ordH || 0) + (w.satH || 0) + (w.sunH || 0) + (w.otH || 0)
 const wBasis = w => [['Ord', w.ordH, w.ordR], ['Sat', w.satH, w.satR], ['Sun', w.sunH, w.sunR], ['OT', w.otH, w.otR]].filter(x => x[1]).map(x => `<div>${x[0]} ${x[1]} h × ${(+x[2]).toFixed(2)}</div>`).join('') + (w.dayN ? `<div>${w.dayN} days × ${(+w.dayR).toFixed(0)} (day rate)</div>` : '');
 function viewWageNew(b, ws, rows){
   const adm = ME.role === 'admin', hid = S.hiddenWage[b + '|' + ws] || 0, c = calc(b, ws), award = (rows[0] || {}).award || '';
-  const sorted = [...rows].sort((x, y) => (x.restricted ? 1 : 0) - (y.restricted ? 1 : 0) || (y.stp || 0) - (x.stp || 0));
+  const dayStaff = w => (w.dayN && w.dayR ? 0 : 1), sorted = [...rows].sort((x, y) => dayStaff(x) - dayStaff(y) || (x.restricted ? 1 : 0) - (y.restricted ? 1 : 0) || (y.stp || 0) - (x.stp || 0));
   const vis = rows.reduce((a, w) => a + (w.stp || 0), 0), hrs = rows.reduce((a, w) => a + wHours(w), 0);
   return weekBar() + `<div class="kpis">
     <div class="kpi"><small>Wage cost</small><strong>${money(c.t.wage)}</strong><br><em>${pct(c.t.wp)} of sales</em></div>
