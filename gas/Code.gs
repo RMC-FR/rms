@@ -214,6 +214,22 @@ function resetUsers() {
   sh.getRange(2, 5, rows.length, 1).setValues(rows.map(r => [r[4]]));
 }
 
+/** Adds (or resets) the admin account "danny". A random temporary password is written to the execution log;
+ *  danny must change it at first login. Existing accounts and data are untouched. */
+function addAdminDanny() {
+  const sh = SHEET_('users');
+  const pw = Utilities.getUuid().replace(/-/g, '').slice(0, 10);
+  const salt = Utilities.getUuid();
+  const row = ['danny', 'Danny', 'admin', '', true, salt, hashPw_(pw, salt)];
+  const n = sh.getLastRow();
+  let at = 0;
+  if (n > 1) sh.getRange(2, 1, n - 1, 1).getValues().forEach((v, i) => { if (v[0] === 'danny') at = i + 2; });
+  if (!at) at = n + 1;
+  sh.getRange(at, 1, 1, 7).setNumberFormat('@').setValues([row]);
+  sh.getRange(at, 5).setNumberFormat('General').setValue(true);
+  Logger.log('danny created. Temporary password: ' + pw);
+}
+
 /* ---------- invoice photos + AI reading (Drive + Gemini) ---------- */
 const ITEM_CATS_ = ['Grocery', 'Drink', 'Liquor', 'Equipment', 'Other'];
 
