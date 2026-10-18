@@ -576,10 +576,10 @@ function ivSumHtml(){
 }
 function photoModal(m){
   const it = S.items[m.id], en = S.entries.find(e => e.id === m.id);
-  const body = m.loading ? '<p>Loading…</p>' : m.err ? `<div class="err">${esc(m.err)}</div>` : m.mime === 'application/pdf' ? `<p><a href="${m.url}" target="_blank" rel="noopener">Open the PDF</a></p>` : `<img class="invimg" alt="Invoice" src="${m.url}">`;
+  const body = !en || (!en.file) ? '' : m.loading ? '<p>Loading…</p>' : m.err ? `<div class="err">${esc(m.err)}</div>` : m.mime === 'application/pdf' ? `<p><a href="${m.url}" target="_blank" rel="noopener">Open the PDF</a></p>` : `<img class="invimg" alt="Invoice" src="${m.url}">`;
   return `<div class="mback"><div class="modal wide" role="dialog" aria-modal="true"><h2 style="color:var(--fg)">Invoice ${en ? esc(en.cat) + ' · ' + fd(en.date) : ''}</h2>${body}
-    ${it ? `<div class="scroll"><table class="itbl ro"><thead><tr><th>Item</th><th>Qty</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>${it.lines.map(l => `<tr><td>${esc(l.item)}</td><td>${l.qty ?? ''}</td><td>${esc(l.cat)}</td><td class="num">${(+l.amt).toFixed(2)}</td></tr>`).join('')}</tbody></table></div>` : ''}
-    <div class="row"><button class="btn primary" data-act="mclose">Close</button></div></div></div>`;
+    ${it ? `<div class="scroll"><table class="itbl ro"><thead><tr><th>Item</th><th>Qty</th><th>Category</th><th class="r">Amount</th></tr></thead><tbody>${it.lines.map(l => `<tr><td>${esc(l.item)}</td><td>${l.qty ?? ''}</td><td>${esc(l.cat)}</td><td class="num">${(+l.amt).toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3"><b>Items total</b></td><td class="num"><b>${it.lines.reduce((a, l) => a + (+l.amt || 0), 0).toFixed(2)}</b></td></tr>${en ? `<tr><td colspan="3">Recorded amount</td><td class="num">${en.amt.toFixed(2)}</td></tr>` : ''}</tfoot></table></div>` : (en ? '<p class="dim">No item lines saved for this invoice.</p>' : '')}
+    <div class="row">${m.canEdit ? '<button class="btn" data-act="medit">Edit entry</button>' : ''}<button class="btn primary" data-act="mclose">Close</button></div></div></div>`;
 }
 function entryForm(b, days){
   const secs = ['expense', 'cash', 'card', 'transfer', 'disc'];
@@ -637,7 +637,7 @@ function viewSheet(){
   const sumE = es => es.reduce((a, e) => a + e.amt, 0);
   const cell = (es, ro, d, sec, label) => {
     if(!es.length) return ro ? '<td class="num dim">·</td>' : `<td class="num cell dim" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Click to add">·</td>`;
-    const lines = es.map(e => `<div class="inv ${ro ? '' : 'edit'} ${e.id === UI.editId ? 'editing' : ''}" ${ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : [e.ref ? 'Invoice ' + e.ref : '', ro ? '' : 'Click to edit'].filter(Boolean).join(' · '))}">${tickBtn(e)}${e.amt.toFixed(2)}${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}${e.file ? '<small title="Photo attached"> 📎</small>' : ''}</div>`).join('');
+    const lines = es.map(e => { const det = !!(S.items[e.id] || e.file); return `<div class="inv ${ro && !det ? '' : 'edit'} ${e.id === UI.editId ? 'editing' : ''}" ${det ? `data-act="vinv" data-id="${e.id}" data-w="${ro ? 0 : 1}"` : ro ? '' : `data-act="edit" data-id="${e.id}"`} title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : [e.ref ? 'Invoice ' + e.ref : '', det ? 'Click to see the items' : ro ? '' : 'Click to edit'].filter(Boolean).join(' · '))}">${tickBtn(e)}${e.amt.toFixed(2)}${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}${e.file ? '<small title="Photo attached"> 📎</small>' : ''}</div>`; }).join('');
     return `<td class="num ${ro ? '' : 'cellp'}">${lines}${es.length > 1 ? `<div class="invsum">${sumE(es).toFixed(2)}</div>` : ''}${ro ? '' : `<button type="button" class="plus" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Add another" aria-label="Add another">+</button>`}</td>`;
   };
   const barRow = (cls, label, vals, tot, extra) => `<tr class="brow ${cls}"><td>${label}</td>${vals.map(v => `<td class="num">${v ? v.toFixed(2) : '–'}</td>`).join('')}<td class="num">${tot ? tot.toFixed(2) : '–'}</td><td class="num">${extra || ''}</td></tr>`;
@@ -1086,6 +1086,13 @@ document.addEventListener('click', ev => {
   else if(a === 'ivadd'){ readDraft(); UI.inv.items.push({item:'', qty:null, amt:0, cat:'Other'}); }
   else if(a === 'ivclear'){ readDraft(); UI.inv = null; }
   else if(a === 'mclose'){ UI.modal = null; }
+  else if(a === 'vinv'){
+    const en = S.entries.find(e => e.id === +t.dataset.id); if(!en) return;
+    UI.modal = {kind:'photo', id:en.id, canEdit:t.dataset.w === '1', loading:!!en.file};
+    if(en.file) api('inv_img', {id:en.file}).then(j => { const bin = atob(j.data), u8 = Uint8Array.from(bin, c => c.charCodeAt(0)); Object.assign(UI.modal, {loading:false, mime:j.mime, url:URL.createObjectURL(new Blob([u8], {type:j.mime}))}); })
+      .catch(e => { Object.assign(UI.modal, {loading:false, err:e.message}); }).finally(render);
+  }
+  else if(a === 'medit'){ UI.editId = UI.modal.id; UI.modal = null; UI.draft = {}; UI.inv = null; UI.confirmDel = null; UI.focusAmt = true; }
   else if(a === 'vphoto'){
     const en = S.entries.find(e => e.id === +t.dataset.id); if(!en || !en.file) return;
     UI.modal = {kind:'photo', id:en.id, loading:true};
