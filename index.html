@@ -5,21 +5,21 @@
 <style>
 /* Layout: ledger-style operations console. Top bar (demo account) > branch chips > tabs > working area. */
 :root{
-  --bg:#f5f6f7; --surface:#ffffff; --surface2:#f0f2f4; --line:#e3e6ea; --fg:#14171a; --muted:#5f6b78;
+  --bg:#f8f9fa; --surface:#ffffff; --surface2:#f4f6f8; --line:#ebeef1; --fg:#1b1f23; --muted:#7d8794;
   --accent:#006aff; --accent-fg:#ffffff; --accent-soft:#e6f0ff;
-  --c-net:#3b6fd8; --c-exp:#27364d; --c-wage:#93a6c0; --c-fee:#d3d9e2;
-  --p1:#3b6fd8; --p2:#27364d; --p3:#93a6c0; --p4:#2f9fb8; --p5:#5a6b85; --p6:#bcc8d8; --p7:#1b4fa8; --p8:#d3d9e2;
+  --c-net:#6bb394; --c-exp:#e6c26e; --c-wage:#6f93c9; --c-fee:#e8908a;
+  --p1:#6f93c9; --p2:#6bb394; --p3:#e6c26e; --p4:#e8908a; --p5:#a3bbdf; --p6:#a6d0bc; --p7:#f0d9a2; --p8:#f1b8b4;
   --good:#0f8a5f; --warn:#9a6a00; --bad:#d92d20; --bad-soft:#fde8e6; --warn-soft:#fdf1d6;
   --sans:Aptos,'Aptos Display','Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif; --mono:Aptos,'Aptos Display','Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#98a1ad;
+  --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#a3acb8;
   --accent:#4c97ff; --accent-fg:#04122b; --accent-soft:#14284a;
-  --c-net:#5b8def; --c-exp:#cbd5e1; --c-wage:#7a8ca8; --c-fee:#475569;
-  --p1:#5b8def; --p2:#cbd5e1; --p3:#7a8ca8; --p4:#3fb3cb; --p5:#a3b2c7; --p6:#4a5b75; --p7:#8db3f5; --p8:#334155;
+  --c-net:#7cc4a4; --c-exp:#ecce82; --c-wage:#85a6d8; --c-fee:#ef9f99;
+  --p1:#85a6d8; --p2:#7cc4a4; --p3:#ecce82; --p4:#ef9f99; --p5:#5f80b3; --p6:#589b7d; --p7:#bf9f4f; --p8:#c2706a;
   --good:#4cc79a; --warn:#e0b44d; --bad:#f58a80; --bad-soft:#3a2220; --warn-soft:#38300f; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#98a1ad;
+  --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#a3acb8;
   --accent:#4c97ff; --accent-fg:#04122b; --accent-soft:#14284a;
   --c-net:#5b8def; --c-exp:#cbd5e1; --c-wage:#7a8ca8; --c-fee:#475569;
   --p1:#5b8def; --p2:#cbd5e1; --p3:#7a8ca8; --p4:#3fb3cb; --p5:#a3b2c7; --p6:#4a5b75; --p7:#8db3f5; --p8:#334155;
@@ -106,7 +106,7 @@ td.dim{color:var(--line)}
 .bcard .big{font-family:var(--mono);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
 .bcard .big small{display:block;font-family:var(--sans);font-size:11.5px;font-weight:400;color:var(--muted)}
 .bcard dl{display:grid;grid-template-columns:1fr auto auto;gap:5px 8px;margin:0;font-size:12.5px;align-items:baseline}
-.bcard dt{color:var(--muted)}.bcard dd{margin:0;font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.bcard dt{color:var(--muted)}.bcard dd{margin:0;font-family:var(--mono);text-align:left;font-variant-numeric:tabular-nums}
 .bcard dd.p{color:var(--muted);min-width:40px}
 .bcard .go{font-size:12px;color:var(--accent);font-weight:700}
 .daynav{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
@@ -163,7 +163,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .login .btn{width:100%;padding:10px}
 .syncerr{background:var(--bad-soft);color:var(--bad);border:1px solid var(--bad);border-radius:6px;padding:8px 12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;justify-content:space-between}
 .acct{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.adminrow{display:flex;align-items:center;gap:12px;margin:0 0 10px;padding-top:2px}.adminrow .chip.cw{border-style:dashed}.adminrow .dim{font-size:12px}
+.adminrow{display:flex;align-items:center;gap:12px;margin:0 0 10px;padding-top:2px}.cwbtn{display:inline-flex;align-items:center;gap:8px;background:#1f2933;color:#fff;border:0;border-radius:4px;padding:8px 14px;font-weight:600;cursor:pointer;letter-spacing:.01em}.cwbtn .cwsub{font-weight:500;font-size:11px;opacity:.65;border-left:1px solid rgba(255,255,255,.3);padding-left:8px}.cwbtn:hover{background:#2d3a47}.cwbtn[aria-pressed=true]{background:var(--accent)}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px}.bigpie{display:flex;flex-direction:column;gap:14px;align-items:center;padding:14px 16px 16px}.bigpie svg{flex:none}.leg{list-style:none;margin:0;padding:0;width:100%;font-size:13px}.leg li{display:grid;grid-template-columns:12px 1fr auto 52px;gap:8px;align-items:center;padding:3px 0}.leg em{font-style:normal;color:var(--muted);text-align:right}.leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leg .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .sheet th,.sheet td{padding:5px 8px}
 .sheet th,.sheet td,.sheet td.num,.sheet th.r,.sheet .inv,.sheet .invsum{text-align:left;font-family:inherit;font-variant-numeric:tabular-nums}
@@ -347,7 +347,7 @@ function render(){
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
-    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="chip cw" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}">Cash Wage</button><span class="dim">Admin only · all branches</span></div>` : ''}
+    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
     ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? viewSheet() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
