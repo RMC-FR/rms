@@ -168,7 +168,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .tick{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;margin-right:7px;padding:0;border:1.5px solid #b8c0cc;border-radius:4px;background:var(--surface);color:transparent;cursor:pointer;vertical-align:-3px;flex:none}.tick:hover{border-color:var(--accent)}.tick.on{background:var(--accent);border-color:var(--accent);color:#fff}.tick.static{cursor:default;margin-right:4px}.chkbar{padding:8px 16px;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line)}.chkbar b{color:var(--fg)}
 .sheet th,.sheet td{padding:5px 8px}
 .sheet th+th,.sheet td+td{border-left:1px solid var(--line)}
-.sheet.sum{max-width:560px}
+.sheet.sum{max-width:none}
 .sheet th,.sheet td,.sheet td.num,.sheet th.r,.sheet .inv,.sheet .invsum{text-align:left;font-family:inherit;font-variant-numeric:tabular-nums}
 .sheet .brow td{font-weight:700}
 .sheet .brow.s td{background:var(--accent-soft)}.sheet .brow.e td{background:rgba(0,184,217,.12)}.sheet .brow.c td{background:rgba(226,171,92,.22)}.sheet .brow.t td{background:rgba(111,143,214,.16)}
@@ -685,7 +685,7 @@ function viewSheet(){
       ${dcRows.flat().length ? simple('Cash discrepancy', dcRows, 'disc') : ''}
       ${barRow('t', 'Closing cash', c.rows.map(r => r.closing), t.closing)}
       </tbody></table></div></div>
-    <div class="card"><h2>Week summary <small>${fd(UI.week)} – ${fd(addDays(UI.week, 6))}</small></h2><div class="scroll"><table class="sheet sum">
+    <div class="card" style="max-width:520px"><h2>Week summary <small>${fd(UI.week)} – ${fd(addDays(UI.week, 6))}</small></h2><div class="scroll"><table class="sheet sum">
       <thead><tr><th>Item</th><th>Amount</th><th>% of sales</th></tr></thead><tbody>
       ${sums.map(x => `<tr><td>${x[0]}</td><td class="num"><b>${x[1] === null ? '–' : money(x[1])}</b></td><td class="num sm">${x[2] || ''}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
