@@ -7,19 +7,22 @@
 :root{
   --bg:#f5f6f7; --surface:#ffffff; --surface2:#f0f2f4; --line:#e3e6ea; --fg:#14171a; --muted:#5f6b78;
   --accent:#006aff; --accent-fg:#ffffff; --accent-soft:#e6f0ff;
-  --c-net:#006aff; --c-exp:#ffb020; --c-wage:#7a5af8; --c-fee:#a3acb9;
+  --c-net:#3b6fd8; --c-exp:#27364d; --c-wage:#93a6c0; --c-fee:#d3d9e2;
+  --p1:#3b6fd8; --p2:#27364d; --p3:#93a6c0; --p4:#2f9fb8; --p5:#5a6b85; --p6:#bcc8d8; --p7:#1b4fa8; --p8:#d3d9e2;
   --good:#0f8a5f; --warn:#9a6a00; --bad:#d92d20; --bad-soft:#fde8e6; --warn-soft:#fdf1d6;
   --sans:Aptos,'Aptos Display','Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif; --mono:Aptos,'Aptos Display','Segoe UI Variable Text','Segoe UI',system-ui,-apple-system,'Helvetica Neue',Arial,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#98a1ad;
   --accent:#4c97ff; --accent-fg:#04122b; --accent-soft:#14284a;
-  --c-net:#4c97ff; --c-exp:#ffc04d; --c-wage:#9b82fa; --c-fee:#6f7886;
+  --c-net:#5b8def; --c-exp:#cbd5e1; --c-wage:#7a8ca8; --c-fee:#475569;
+  --p1:#5b8def; --p2:#cbd5e1; --p3:#7a8ca8; --p4:#3fb3cb; --p5:#a3b2c7; --p6:#4a5b75; --p7:#8db3f5; --p8:#334155;
   --good:#4cc79a; --warn:#e0b44d; --bad:#f58a80; --bad-soft:#3a2220; --warn-soft:#38300f; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0f1114; --surface:#181b20; --surface2:#20242b; --line:#2c323b; --fg:#eceef1; --muted:#98a1ad;
   --accent:#4c97ff; --accent-fg:#04122b; --accent-soft:#14284a;
-  --c-net:#4c97ff; --c-exp:#ffc04d; --c-wage:#9b82fa; --c-fee:#6f7886;
+  --c-net:#5b8def; --c-exp:#cbd5e1; --c-wage:#7a8ca8; --c-fee:#475569;
+  --p1:#5b8def; --p2:#cbd5e1; --p3:#7a8ca8; --p4:#3fb3cb; --p5:#a3b2c7; --p6:#4a5b75; --p7:#8db3f5; --p8:#334155;
   --good:#4cc79a; --warn:#e0b44d; --bad:#f58a80; --bad-soft:#3a2220; --warn-soft:#38300f; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5;padding-inline:16px;padding-block:0 48px}
@@ -419,7 +422,7 @@ function miniPie(t){
   const mid = lead ? `<text x="50" y="52" text-anchor="middle" dominant-baseline="middle" font-size="15" font-weight="600" fill="var(--fg)" style="font-family:var(--mono)">${Math.round(lead[1] / t.sales * 100)}%</text>` : '';
   return `<svg class="mpie" viewBox="0 0 100 100" role="img" aria-label="Donut chart of sales split into ${sl.map(s => s[0]).join(', ')}">${paths}${mid}</svg>`;
 }
-const PAL = ['#006aff', '#00b8d9', '#7a5af8', '#ffb020', '#f04e5e', '#36b37e', '#8993a4', '#b3bac5'];
+const PAL = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)', 'var(--p5)', 'var(--p6)', 'var(--p7)', 'var(--p8)'];
 function donut(sl, size, center){
   const tot = sl.reduce((a, x) => a + x[1], 0); if(!(tot > 0)) return '<div class="empty" style="padding:24px 0">No data for this week</div>';
   let a0 = -Math.PI / 2, paths = '';
