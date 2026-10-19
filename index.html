@@ -1072,21 +1072,31 @@ function viewWageNew(b, ws, rows){
           L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:L.length > 0});
         } else {
           G.forEach(g => { if(w[g[1]] && w[g[2]]) L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:g[0] === 'Day rate' ? (w[g[1]] === 1 ? 'day' : 'days') : 'hr', r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:g[0] === 'Day rate' && L.length > 0}); });
-          if(!L.length && !hasCashW(w)) L.push({label:'–'});
+          if(!L.length) L.push({label:'–'});
         }
-        if(w.cashH) L.push({label:'Cash', q:w.cashH, u:'hr', r:w.cashR, sub:r2(w.cashH * w.cashR)});
-        if(w.rent) L.push({label:'Rent', sub:w.rent});
         if(!L.length) L.push({label:'–'});
         const n = L.length, d = '<span class="dim">–</span>';
         return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span></td>` : '')
           + `<td class="k">${g.label}</td><td class="num">${g.q ? g.q + ' ' + g.u : d}</td><td class="num">${g.r ? money(g.r) : d}</td><td class="num">${g.sub != null ? money(g.sub) : d}</td>`
-          + (i === 0 ? `<td rowspan="${n}" class="num k"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b></td>${hasCash ? `<td rowspan="${n}" class="num k">${w.realH ? w.realH + ' hr' : '–'}</td><td rowspan="${n}" class="num">${money(w.stp)}</td><td rowspan="${n}" class="num">${hasCashW(w) ? money(cashPay(w)) : '–'}</td>` : ''}<td rowspan="${n}" class="num"><b>${money((w.stp || 0) + cashPay(w))}</b></td>` : '') + '</tr>').join('');
+          + (i === 0 ? `<td rowspan="${n}" class="num k"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b></td><td rowspan="${n}" class="num"><b>${money(w.stp)}</b></td>` : '') + '</tr>').join('');
       }).join('');
-      return `<div class="card"><h2>Wages by employee <small>${esc(DATA[b].name)} · ${esc(award)} Award · wage cost = ${hasCash ? 'STP wage + cash part' : 'STP wage'}</small></h2><div class="scroll"><table class="wtbl">
-      <thead><tr><th class="emp">Employee</th><th class="k">Pay type</th><th>Hours / days</th><th>Rate</th><th>Subtotal</th><th class="k">Total hours</th>${hasCash ? '<th class="k">Real hours</th><th>STP wage</th><th>Cash part</th>' : ''}<th>${hasCash ? 'Total wage' : 'Wage cost'}</th></tr></thead><tbody>${body}
-      ${hid && !adm ? `<tr class="wfirst"><td colspan="${hasCash ? 9 : 6}" class="emp"><i>Other staff (admin only)</i></td><td class="num">${money(hid)}</td></tr>` : ''}
-      <tr class="tot"><td colspan="5" class="emp">Total</td><td class="num">${Math.round(hrs * 100) / 100} hr</td>${hasCash ? `<td></td><td class="num">${money(stpTot)}</td><td class="num">${money(cashTot)}</td>` : ''}<td class="num">${money(vis + hid)}</td></tr></tbody></table></div></div>`;
+      return `<div class="card"><h2>Wages by employee <small>${esc(DATA[b].name)} · ${esc(award)} Award · ${hasCash ? 'STP part' : 'wage cost = STP wage'}</small></h2><div class="scroll"><table class="wtbl">
+      <thead><tr><th class="emp">Employee</th><th class="k">Pay type</th><th>Hours / days</th><th>Rate</th><th>Subtotal</th><th class="k">Total hours</th><th>${hasCash ? 'STP wage' : 'Wage cost'}</th></tr></thead><tbody>${body}
+      ${hid && !adm ? `<tr class="wfirst"><td colspan="6" class="emp"><i>Other staff (admin only)</i></td><td class="num">${money(hid)}</td></tr>` : ''}
+      <tr class="tot"><td colspan="5" class="emp">Total</td><td class="num">${Math.round(hrs * 100) / 100} hr</td><td class="num">${money(hasCash ? stpTot + hid : vis + hid)}</td></tr></tbody></table></div></div>`;
     })()}
+    ${hasCash ? (() => {
+      const cs = [...rows].filter(hasCashW).sort((x, y) => modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0)), sg = n => (n < 0 ? '−' : '') + money(Math.abs(n));
+      const crow = w => `<tr><td class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${w.realH ? w.realH + ' hr' : '–'}</td><td class="num">${w.cashH ? w.cashH + ' hr' : '–'}</td><td class="num">${w.cashR ? money(w.cashR) : '–'}</td><td class="num">${w.cashH ? money(Math.round(w.cashH * w.cashR * 100) / 100) : '–'}</td><td class="num ${w.rent < 0 ? 'neg' : ''}">${w.rent ? sg(w.rent) : '–'}</td><td class="num ${cashPay(w) < 0 ? 'neg' : ''}"><b>${cashPay(w) ? sg(cashPay(w)) : '–'}</b></td></tr>`;
+      const sumRows = [...rows].sort((x, y) => modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0));
+      return `<div class="card"><h2>Cash part <small>Cash hours × cash rate, less rent</small></h2><div class="scroll"><table class="wtbl">
+        <thead><tr><th class="emp">Employee</th><th>Real hours</th><th>Cash hours</th><th>Cash rate</th><th>Cash</th><th>Rent</th><th>Cash total</th></tr></thead><tbody>${cs.map(crow).join('')}
+        <tr class="tot"><td colspan="6" class="emp">Total</td><td class="num">${sg(cashTot)}</td></tr></tbody></table></div></div>
+      <div class="card"><h2>Total wage <small>STP part + cash part = wage cost</small></h2><div class="scroll"><table class="wtbl">
+        <thead><tr><th class="emp">Employee</th><th>STP wage</th><th>Cash total</th><th>Total wage</th></tr></thead><tbody>${sumRows.map(w => `<tr><td class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${money(w.stp)}</td><td class="num ${cashPay(w) < 0 ? 'neg' : ''}">${hasCashW(w) ? sg(cashPay(w)) : '–'}</td><td class="num"><b>${money((w.stp || 0) + cashPay(w))}</b></td></tr>`).join('')}
+        ${hid && !adm ? `<tr><td class="emp"><i>Other staff (admin only)</i></td><td colspan="2"></td><td class="num">${money(hid)}</td></tr>` : ''}
+        <tr class="tot"><td class="emp">Total</td><td class="num">${money(stpTot)}</td><td class="num">${sg(cashTot)}</td><td class="num">${money(vis + hid)}</td></tr></tbody></table></div></div>`;
+    })() : ''}
     <div class="hint">Staff who work at more than one branch are counted at each branch only for the work done there.</div>`;
 }
 function viewCashWage(){
