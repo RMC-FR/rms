@@ -19,7 +19,9 @@ const HEAD_ = {
   items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat'],
   wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note'],
   deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note'],
-  checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at']
+  checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at'],
+  payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
+  payers: ['entity', 'branches', 'bsb', 'acct']
 };
 
 function doGet() { return out_({ ok: true, service: 'sales-ledger' }); }
@@ -126,8 +128,17 @@ function load_(me) {
     cats: read_('cats').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, sec: r.sec, label: r.label, counted: r.counted === true || r.counted === 'TRUE', grp: String(r.grp || '') })),
     entries: read_('entries').filter(r => canSee_(me, r.br)).map(r => ({ id: r.id, br: r.br, date: String(r.date), sec: r.sec, cat: String(r.cat), amt: Number(r.amt), ref: String(r.ref), note: String(r.note), file: String(r.file || '') })),
     items: itemsOf_(me),
+    pay: me.role === 'admin' ? payInfo_() : null,
     checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: Number(r.amt) })) : [],
     wages: wagesOf_(me), hiddenWage: hiddenWage_(me), deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
+  };
+}
+/* Supplier bank details and the owner's paying accounts (admin only). The sheet is the only place they live; they are never in this file or the public repo. */
+function payInfo_() {
+  const s = v => String(v === null || v === undefined ? '' : v).replace(/\s+/g, ' ').trim();
+  return {
+    payees: read_('payees').filter(r => s(r.supplier)).map(r => ({ br: s(r.br), supplier: s(r.supplier), name: s(r.account_name), bsb: s(r.bsb), acct: s(r.acct), mode: s(r.ref_mode), ref: s(r.fixed_ref), biller: s(r.bpay_biller), crn: s(r.bpay_crn), note: s(r.note) })),
+    payers: read_('payers').filter(r => s(r.entity)).map(r => ({ entity: s(r.entity), branches: s(r.branches).split(',').map(x => x.trim()).filter(Boolean), bsb: s(r.bsb), acct: s(r.acct) }))
   };
 }
 function sync_(me, b) {
