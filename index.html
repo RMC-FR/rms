@@ -1104,12 +1104,12 @@ const CASH_BR = {BO:'Bowral', GN:'Glenorie', LE:'Leichhardt'};   // branches whe
 const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day week; every day beyond 5 is paid in cash at the day rate
 function viewCashWage(){
   const ws = UI.week, rows = S.wages.filter(w => w.week === ws && w.restricted && !CASH_BR[w.br]), P = {};   // branches whose cash is shown on its own below
-  rows.forEach(w => { const p = P[w.name] = P[w.name] || {name:w.name, nick:w.nick, st:[], stp:0, real:0, paid:0, hasPaid:false, days:0, rate:0}; if(DAY_STAFF.includes(w.name) && w.dayN){ p.days += w.dayN; p.rate = w.dayR || p.rate; } if(w.br !== 'ADM') p.st.push(`${w.br} ${money(w.stp)}`); p.stp += w.stp || 0; p.cp = (p.cp || 0) + cashPay(w); p.real += (w.stpReal ?? w.stp) || 0; if(w.paid){ p.paid += w.paid; p.hasPaid = true; } });
+  rows.forEach(w => { const p = P[w.name] = P[w.name] || {name:w.name, nick:w.nick, st:[], stp:0, real:0, paid:0, hasPaid:false, days:0, rate:0}; if(DAY_STAFF.includes(w.name) && w.dayN){ p.days += w.dayN; p.rate = w.dayR || p.rate; } if(w.br !== 'ADM') p.st.push(`${w.br} ${money(w.stp)}`); p.stp += w.stp || 0; p.cp = (p.cp || 0) + cashPay(w); if(w.cashH){ p.ch = (p.ch || 0) + w.cashH; p.cr = w.cashR; } p.real += (w.stpReal ?? w.stp) || 0; if(w.paid){ p.paid += w.paid; p.hasPaid = true; } });
   const bf = n => 0;   // deductions are no longer applied (old rows in the sheet are ignored)
   const list = Object.values(P).sort((x, y) => y.stp - x.stp), r2 = n => Math.round(n * 100) / 100;
   const sg = n => (n < 0 ? '−' : '') + money(Math.abs(n));
   const body = list.filter(p => DAY_STAFF.includes(p.name) ? true : p.hasPaid ? r2(p.paid - p.real) > 0 : p.cp > 0).map(p => { const dr = DAY_STAFF.includes(p.name), cash = dr ? r2(Math.max(p.days - 5, 0) * p.rate) : p.hasPaid ? r2(p.paid - p.real) : p.cp > 0 ? r2(p.cp) : null, b0 = r2(bf(p.name)), pay = Math.max(r2((cash || 0) + b0), 0);
-    return `<tr><td>${esc(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}</td><td>${p.st.join(' · ')}</td><td class="num">${money(p.real)}</td><td class="num">${dr ? p.days + (p.days === 1 ? ' day' : ' days') : p.hasPaid ? money(p.paid) : '–'}</td><td class="num ${cash < 0 ? 'neg' : ''}">${cash === null ? '–' : sg(cash)}</td><td class="num ${b0 < 0 ? 'neg' : ''}">${b0 ? sg(b0) : '–'}</td><td class="num pay">${pay ? money(pay) : '–'}</td></tr>`; }).join('');
+    return `<tr><td>${esc(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}</td><td>${p.st.join(' · ')}</td><td class="num">${money(p.real)}</td><td class="num">${dr ? p.days + (p.days === 1 ? ' day' : ' days') : p.hasPaid ? money(p.paid) : '–'}</td><td class="num">${p.ch ? p.ch + ' hr' : '–'}</td><td class="num">${p.cr ? money(p.cr) : '–'}</td><td class="num ${cash < 0 ? 'neg' : ''}">${cash === null ? '–' : sg(cash)}</td><td class="num ${b0 < 0 ? 'neg' : ''}">${b0 ? sg(b0) : '–'}</td><td class="num pay">${pay ? money(pay) : '–'}</td></tr>`; }).join('');
   const ded = [...S.deductions].sort((x, y) => (y.apply_week > x.apply_week ? 1 : -1));
   const cashCard = (b, name) => {
   const bo = S.wages.filter(w => w.week === ws && w.br === b && cashPay(w) > 0).sort((x, y) => modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0));
@@ -1121,7 +1121,7 @@ function viewCashWage(){
   };
   const boHtml = Object.keys(CASH_BR).map(b => cashCard(b, CASH_BR[b])).join('');
   return weekBar() + boHtml + `<div class="card"><h2>Cash Wage <small>Admin only. Staff marked "C", and staff who work at more than one branch (Bowral and Glenorie are listed above)</small></h2><div class="scroll"><table>
-    <thead><tr><th>Employee</th><th>Branches (wage cost)</th><th class="r">STP wage</th><th class="r">Paid (day rate) / days</th><th class="r">Cash this week</th><th class="r">Brought forward</th><th class="r">Cash to pay</th></tr></thead><tbody>${body || '<tr><td colspan="7" class="dim">No admin-only wage data for this week yet.</td></tr>'}</tbody></table></div></div>
+    <thead><tr><th>Employee</th><th>Branches (wage cost)</th><th class="r">STP wage</th><th class="r">Paid (day rate) / days</th><th class="r">Cash hours</th><th class="r">Cash rate</th><th class="r">Cash this week</th><th class="r">Brought forward</th><th class="r">Cash to pay</th></tr></thead><tbody>${body || '<tr><td colspan="9" class="dim">No admin-only wage data for this week yet.</td></tr>'}</tbody></table></div></div>
     <div class="hint">Cash this week = paid (day rate) − STP wage. For Jinheum, Jaeyoon and Youngjae it is the days worked beyond 5 × the day rate. </div>`;
 }
 function viewWage(){
