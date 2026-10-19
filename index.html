@@ -1104,7 +1104,7 @@ const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day
 function viewCashWage(){
   const ws = UI.week, rows = S.wages.filter(w => w.week === ws && w.restricted && !CASH_BR[w.br]), P = {};   // branches whose cash is shown on its own below
   rows.forEach(w => { const p = P[w.name] = P[w.name] || {name:w.name, nick:w.nick, st:[], stp:0, real:0, paid:0, hasPaid:false, days:0, rate:0}; if(DAY_STAFF.includes(w.name) && w.dayN){ p.days += w.dayN; p.rate = w.dayR || p.rate; } p.st.push(`${w.br} ${money(w.stp)}`); p.stp += w.stp || 0; p.real += (w.stpReal ?? w.stp) || 0; if(w.paid){ p.paid += w.paid; p.hasPaid = true; } });
-  const bf = n => S.deductions.filter(d => d.apply_week === ws && d.status === 'open' && d.name === n).reduce((a, d) => a + d.amount, 0);
+  const bf = n => 0;   // deductions are no longer applied (old rows in the sheet are ignored)
   const list = Object.values(P).sort((x, y) => y.stp - x.stp), r2 = n => Math.round(n * 100) / 100;
   const sg = n => (n < 0 ? '−' : '') + money(Math.abs(n));
   const body = list.map(p => { const dr = DAY_STAFF.includes(p.name), cash = dr ? r2(Math.max(p.days - 5, 0) * p.rate) : p.hasPaid ? r2(p.paid - p.real) : null, b0 = r2(bf(p.name)), pay = Math.max(r2((cash || 0) + b0), 0);
