@@ -304,7 +304,7 @@ function ensureBranch(){
 /* calculations */
 const catInfo = (b, sec, label) => (S.cats[b].find(c => c.sec === sec && c.label === label) || {counted:true});
 const entriesFor = (b, days, secs) => S.entries.filter(e => e.br === b && days.includes(e.date) && (!secs || secs.includes(e.sec)));
-const NET_UBER = /uber.*(net|payout)/i;
+const NET_UBER = /(uber|door ?dash).*(net|payout)/i;   // delivery payout lines (Uber / Doordash net): a result, not a sales line
 const wageRows = (b, ws) => S.wages.filter(w => w.br === b && w.week === ws);
 function wageFor(b, ws, d, imp){
   const rows = wageRows(b, ws), hid = S.hiddenWage[b + '|' + ws] || 0;
@@ -312,10 +312,10 @@ function wageFor(b, ws, d, imp){
   return {has:imp, total:imp && d.wageSummary ? d.wageSummary.total : 0};
 }
 function calc(b, ws){
-  const days = weekDays(ws), d = DATA[b], rows = days.map(() => ({sales:0, exp:0, cashSales:0, cashExp:0, transfer:0, disc:0, uberG:0, uberN:0}));
+  const days = weekDays(ws), d = DATA[b], rows = days.map(() => ({sales:0, exp:0, cashSales:0, cashExp:0, transfer:0, disc:0, uberG:0, uberN:0, doorG:0, doorN:0}));
   for(const e of entriesFor(b, days)){
     const r = rows[days.indexOf(e.date)], ok = catInfo(b, e.sec, e.cat).counted;
-    if(e.sec === 'sales'){ if(ok) r.sales += e.amt; if(e.cat === 'Cash Sales') r.cashSales += e.amt; if(/^uber$/i.test(e.cat)) r.uberG += e.amt; else if(NET_UBER.test(e.cat)) r.uberN += e.amt; }
+    if(e.sec === 'sales'){ if(ok) r.sales += e.amt; if(e.cat === 'Cash Sales') r.cashSales += e.amt; if(/^uber$/i.test(e.cat)) r.uberG += e.amt; else if(/^door ?dash$/i.test(e.cat)) r.doorG += e.amt; else if(NET_UBER.test(e.cat)){ if(/uber/i.test(e.cat)) r.uberN += e.amt; else r.doorN += e.amt; } }
     else if(e.sec === 'expense'){ if(ok) r.exp += e.amt; }
     else if(e.sec === 'cash'){ if(ok){ r.exp += e.amt; r.cashExp += e.amt; } }
     else if(e.sec === 'card'){ if(ok) r.exp += e.amt; }
@@ -323,12 +323,12 @@ function calc(b, ws){
     else if(e.sec === 'disc'){ r.disc += e.amt; }
   }
   rows.forEach(r => r.closing = r.cashSales - r.cashExp - r.transfer + r.disc);
-  const uberFee = rows.reduce((a, r) => a + (r.uberN > 0 ? Math.max(r.uberG - r.uberN, 0) : 0), 0);   // Uber discounts + fees = gross − net payout, only for days that have a payout
+  const feeOf = (g, n) => rows.reduce((a, r) => a + (r[n] > 0 ? Math.max(r[g] - r[n], 0) : 0), 0), uberF = feeOf('uberG', 'uberN'), doorF = feeOf('doorG', 'doorN'), uberFee = uberF + doorF;   // platform discounts + fees = gross − net payout, only for days that have a payout
   const imp = ws === d.dates[0], sum = k => rows.reduce((a, r) => a + r[k], 0);
   const gross = entriesFor(b, days, ['sales']).filter(e => !NET_UBER.test(e.cat)).reduce((a, e) => a + e.amt, 0);   // the Uber net payout is a result, not a sales line
   const t = {sales:sum('sales') + (imp ? d.adjSales : 0), exp:sum('exp') + (imp ? d.adjExp : 0), closing:sum('closing'),
     adjSales:imp ? d.adjSales : 0, adjExp:imp ? d.adjExp : 0, wage:wageFor(b, ws, d, imp).total, hasWage:wageFor(b, ws, d, imp).has};
-  t.hasExp = !!(imp ? true : entriesFor(b, days, ['expense', 'cash', 'card']).length); t.gross = gross; t.ep = t.sales ? t.exp / t.sales : NaN; t.wp = t.sales ? t.wage / t.sales : NaN; t.uberFee = Math.round(uberFee * 100) / 100; t.fp = t.sales ? t.uberFee / t.sales : NaN; t.net = t.sales - t.uberFee - t.exp - t.wage; t.np = t.sales ? t.net / t.sales : NaN;
+  t.hasExp = !!(imp ? true : entriesFor(b, days, ['expense', 'cash', 'card']).length); t.gross = gross; t.ep = t.sales ? t.exp / t.sales : NaN; t.wp = t.sales ? t.wage / t.sales : NaN; t.uberFee = Math.round(uberFee * 100) / 100; t.feeLbl = uberF > 0 && doorF > 0 ? 'Delivery fees' : doorF > 0 ? 'Doordash fees' : uberF > 0 ? 'Uber fees' : ''; t.fp = t.sales ? t.uberFee / t.sales : NaN; t.net = t.sales - t.uberFee - t.exp - t.wage; t.np = t.sales ? t.net / t.sales : NaN;
   return {rows, days, t};
 }
 
@@ -390,7 +390,7 @@ function kpis(t, cash){
   return `<div class="kpis">
     <div class="kpi"><small>Total sales</small><strong>${money(t.sales)}</strong>${t.adjSales ? `<br><em>incl. Excel delivery adj. ${money(t.adjSales)}</em>` : ''}</div>
     <div class="kpi"><small>Gross sales</small><strong>${money(t.gross)}</strong><br><em>all lines, delivery before fees</em></div>
-    <div class="kpi"><small>Net profit</small><strong class="${t.net < 0 ? 'neg' : ''}">${nw && t.hasExp ? money(t.net) : '–'}</strong><br><em>${nw && t.hasExp ? pct(t.np) + ' of sales' + (t.uberFee ? ' · after Uber fees ' + money(t.uberFee) : '') : 'needs expenses and wages'}</em></div>
+    <div class="kpi"><small>Net profit</small><strong class="${t.net < 0 ? 'neg' : ''}">${nw && t.hasExp ? money(t.net) : '–'}</strong><br><em>${nw && t.hasExp ? pct(t.np) + ' of sales' + (t.uberFee ? ' · after ' + (t.feeLbl || 'delivery fees') + ' ' + money(t.uberFee) : '') : 'needs expenses and wages'}</em></div>
     <div class="kpi"><small>Expenses</small><strong>${t.hasExp ? money(t.exp) : '–'}</strong><br><em>${t.hasExp ? pct(t.ep) + ' of sales' : 'No expense data for this week'}</em></div>
     <div class="kpi"><small>Wages</small><strong>${nw ? money(t.wage) : '–'}</strong><br><em>${nw ? pct(t.wp) + ' of sales' : 'No wage data for this week'}</em></div>
     ${cash ? `<div class="kpi"><small>Closing cash</small><strong>${money(t.closing)}</strong></div>` : ''}</div>`;
@@ -405,12 +405,12 @@ function branchCard(b, t){
       <dt><i class="dot" style="background:var(--c-net)"></i>Net profit</dt><dd class="${t.net < 0 ? 'neg' : ''}">${nw && t.hasExp ? money(t.net) : '–'}</dd><dd class="p">${nw && t.hasExp ? pct(t.np) : ''}</dd>
       <dt><i class="dot" style="background:var(--c-exp)"></i>Expenses</dt><dd>${t.hasExp ? money(t.exp) : '–'}</dd><dd class="p">${t.hasExp ? pct(t.ep) : ''}</dd>
       <dt><i class="dot" style="background:var(--c-wage)"></i>Wages</dt><dd>${nw ? money(t.wage) : '–'}</dd><dd class="p">${nw ? pct(t.wp) : ''}</dd>
-      ${t.uberFee ? `<dt><i class="dot" style="background:var(--c-fee)"></i>Uber fees</dt><dd>${money(t.uberFee)}</dd><dd class="p">${pct(t.fp)}</dd>` : ''}
+      ${t.uberFee ? `<dt><i class="dot" style="background:var(--c-fee)"></i>${t.feeLbl || 'Delivery fees'}</dt><dd>${money(t.uberFee)}</dd><dd class="p">${pct(t.fp)}</dd>` : ''}
     </dl></div><span class="go">Open branch ›</span></button>`;
 }
 function miniPie(t){
   if(!t.hasExp || !(t.sales > 0)) return '';
-  const full = t.hasWage, fee = t.uberFee || 0, net = t.sales - fee - t.exp - t.wage, feeS = fee > 0 ? [['Uber fees', fee, 'var(--c-fee)']] : [];
+  const full = t.hasWage, fee = t.uberFee || 0, net = t.sales - fee - t.exp - t.wage, feeS = fee > 0 ? [[t.feeLbl || 'Delivery fees', fee, 'var(--c-fee)']] : [];
   let sl;
   if(full && net >= 0) sl = [['Net profit', net, 'var(--c-net)'], ['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], ...feeS];
   else if(full) sl = [['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], ...feeS];
@@ -446,7 +446,7 @@ function donut(sl, size, center){
 }
 function branchCharts(b, c){
   const t = c.t, days = c.days, nw = t.hasWage;
-  const sl1 = !(t.sales > 0) ? [] : nw && t.hasExp ? [['Net profit', Math.max(t.net, 0), 'var(--c-net)'], ['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], ['Uber fees', t.uberFee || 0, 'var(--c-fee)']] : [['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], ['Uber fees', t.uberFee || 0, 'var(--c-fee)']];
+  const sl1 = !(t.sales > 0) ? [] : nw && t.hasExp ? [['Net profit', Math.max(t.net, 0), 'var(--c-net)'], ['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], [t.feeLbl || 'Delivery fees', t.uberFee || 0, 'var(--c-fee)']] : [['Expenses', t.exp, 'var(--c-exp)'], ['Wages', t.wage, 'var(--c-wage)'], [t.feeLbl || 'Delivery fees', t.uberFee || 0, 'var(--c-fee)']];
   const grp = (es, keyf) => { const m = {}; es.forEach(e => { const k = keyf(e); m[k] = (m[k] || 0) + e.amt; }); const l = Object.entries(m).filter(x => x[1] > 0).sort((x, y) => y[1] - x[1]); const top = l.slice(0, 7), rest = l.slice(7).reduce((a, x) => a + x[1], 0); if(rest > 0) top.push(['Other', rest]); return top.map(([n, v], i) => [n, Math.round(v * 100) / 100, PAL[i % PAL.length]]); };
   const sales = grp(entriesFor(b, days, ['sales']).filter(e => !NET_UBER.test(e.cat) && catInfo(b, e.sec, e.cat).counted), e => e.cat);
   const exps = grp(entriesFor(b, days, ['expense', 'cash', 'card']).filter(e => catInfo(b, e.sec, e.cat).counted), e => e.sec === 'cash' ? grpOf(b, e.cat) : e.cat);
@@ -463,9 +463,10 @@ function viewSummary(){
   if(UI.branch === 'ALL'){
     const rs = BR.map(b => [b, calc(b, UI.week).t]);
     const T = rs.reduce((a, [, t]) => ({hasExp:a.hasExp || t.hasExp, gross:a.gross + t.gross, sales:a.sales + t.sales, exp:a.exp + t.exp, wage:a.wage + t.wage, closing:a.closing + t.closing, hasWage:a.hasWage || t.hasWage, adjSales:a.adjSales + t.adjSales, uberFee:a.uberFee + t.uberFee}), {hasExp:false, gross:0, sales:0, exp:0, wage:0, closing:0, hasWage:false, adjSales:0, uberFee:0});
+    { const fl = [...new Set(rs.map(([, t]) => t.feeLbl).filter(Boolean))]; T.feeLbl = fl.length === 1 ? fl[0] : fl.length ? 'Delivery fees' : ''; }
     T.ep = T.exp / T.sales; T.wp = T.wage / T.sales; T.net = T.sales - T.uberFee - T.exp - T.wage; T.np = T.net / T.sales;
     return weekBar() + kpis(T) + `<div class="bgrid">${rs.map(([b, t]) => branchCard(b, t)).join('')}</div>
-      <div class="hint" style="margin:-4px 0 16px">Total sales follows the Excel Sales Total (delivery counted net). Gross sales adds up every sales line, with delivery before fees. Net profit = total sales − Uber fees (Uber gross − Uber net, where a payout is recorded) − expenses − wages.</div><div class="card"><h2>Branch comparison <small>Select a branch to open it</small></h2><div class="scroll"><table>
+      <div class="hint" style="margin:-4px 0 16px">Total sales follows the Excel Sales Total (delivery counted net). Gross sales adds up every sales line, with delivery before fees. Net profit = total sales − delivery fees (Uber / Doordash gross − net, where a payout is recorded) − expenses − wages.</div><div class="card"><h2>Branch comparison <small>Select a branch to open it</small></h2><div class="scroll"><table>
       <thead><tr><th>Branch</th><th class="r">Sales</th><th class="r">Expenses</th><th class="r">Exp %</th><th class="r">Wages</th><th class="r">Wage %</th><th class="r">E+W %</th><th class="r">Net</th></tr></thead><tbody>
       ${rs.map(([b, t]) => `<tr><td><button class="btn sm" data-act="branch" data-v="${b}">${b}</button> ${esc(DATA[b].name.replace(/\s*\(.*\)/, ''))}</td>
         <td class="num">${money(t.sales)}</td><td class="num">${t.hasExp ? money(t.exp) : '–'}</td><td class="num">${t.hasExp ? pct(t.ep) : '–'}</td>
@@ -718,10 +719,10 @@ function viewSheet(){
     const tot = es_by_day.flat().reduce((a, e) => a + e.amt, 0);
     return `<tr class="ln ${indent ? 'ind' : ''}"><td class="sub">${esc(name)}</td>${days.map((d, i) => cell(es_by_day[i], ro, d, sec, label)).join('')}<td class="num sub"><b>${tot ? tot.toFixed(2) : '–'}</b></td><td class="num">${pc(tot, denom)}</td></tr>`;
   };
-  const netUber = /uber.*(net|payout)/i, hasNet = S.cats[b].some(x => x.sec === 'sales' && netUber.test(x.label));
-  const rank = l => /^card/i.test(l) ? 0 : /^cash/i.test(l) ? 1 : netUber.test(l) ? 3 : /^uber$/i.test(l) ? 2 : 4;   // Card, Cash, Uber gross, Uber net, then the rest
+  const netUber = NET_UBER, hasNetOf = p => S.cats[b].some(x => x.sec === 'sales' && netUber.test(x.label) && p.test(x.label));
+  const rank = l => /^card/i.test(l) ? 0 : /^cash/i.test(l) ? 1 : /^uber$/i.test(l) ? 2 : /uber/i.test(l) && netUber.test(l) ? 3 : /^door ?dash$/i.test(l) ? 3.2 : netUber.test(l) ? 3.4 : 4;   // Card, Cash, Uber gross, Uber net, then the rest
   const sCats = S.cats[b].filter(x => x.sec === 'sales').sort((x, y) => rank(x.label) - rank(y.label));
-  const salesName = l => netUber.test(l) ? 'Uber net' : (hasNet && /^uber$/i.test(l) ? 'Uber gross' : l);
+  const salesName = l => netUber.test(l) ? (/uber/i.test(l) ? 'Uber net' : 'Doordash net') : (/^uber$/i.test(l) && hasNetOf(/uber/i) ? 'Uber gross' : /^door ?dash$/i.test(l) && hasNetOf(/door/i) ? 'Doordash gross' : l);
   const salesLines = sCats.map(ct => lineRow(salesName(ct.label), days.map(d => E('sales', d, ct.label)), true, 'sales', ct.label, ct, t.sales)).join('');
   const sumSalesWhere = f => sCats.filter(f).reduce((a, ct) => a + (ct.counted ? sumE(days.flatMap(d => E('sales', d, ct.label))) : 0), 0);
   const cardS = sumSalesWhere(x => /^card/i.test(x.label)), cashS = sumSalesWhere(x => /^cash/i.test(x.label)), delivS = sumSalesWhere(x => !/^(card|cash)/i.test(x.label));
@@ -742,7 +743,7 @@ function viewSheet(){
   const trRows = days.map(d => E('transfer', d)), dcRows = days.map(d => E('disc', d));
   const simple = (name, by, sec) => `<tr class="ln"><td class="sub">${name}</td>${days.map((d, i) => cell(by[i], false, d, sec, by[i][0] ? by[i][0].cat : (S.cats[b].find(x => x.sec === sec) || {}).label)).join('')}<td class="num sub"><b>${fx(by.flat().reduce((a, e) => a + e.amt, 0))}</b></td><td></td></tr>`;
   const adjS = t.adjSales;
-  const sums = [['Total sales', t.sales, ''], ['Card', cardS, pc(cardS, t.sales)], ['Cash', cashS, pc(cashS, t.sales)], ['Delivery', delivS, pc(delivS, t.sales)], ['Closing cash', t.closing, ''], ['Expense total', t.exp, pc(t.exp, t.sales)], ...(t.uberFee ? [['Uber fees', t.uberFee, pc(t.uberFee, t.sales)]] : []), ['Wage', imp ? t.wage : null, imp ? pc(t.wage, t.sales) : ''], ['Net sales', imp && t.hasExp ? t.net : null, imp ? pc(t.net, t.sales) : ''], ['E + W', imp ? t.exp + t.wage : null, imp ? pc(t.exp + t.wage, t.sales) : '']];
+  const sums = [['Total sales', t.sales, ''], ['Card', cardS, pc(cardS, t.sales)], ['Cash', cashS, pc(cashS, t.sales)], ['Delivery', delivS, pc(delivS, t.sales)], ['Closing cash', t.closing, ''], ['Expense total', t.exp, pc(t.exp, t.sales)], ...(t.uberFee ? [[t.feeLbl || 'Delivery fees', t.uberFee, pc(t.uberFee, t.sales)]] : []), ['Wage', imp ? t.wage : null, imp ? pc(t.wage, t.sales) : ''], ['Net sales', imp && t.hasExp ? t.net : null, imp ? pc(t.net, t.sales) : ''], ['E + W', imp ? t.exp + t.wage : null, imp ? pc(t.exp + t.wage, t.sales) : '']];
   return weekBar() + entryForm(b, days) + `
     <div class="card"><h2>Weekly sheet <small>Sales come from the imported daily reports (read-only). Click an expense amount to edit it. Several invoices from one supplier on the same day are stacked in the cell and added up below them.</small></h2>${checkSummary(b, days)}<div class="scroll"><table class="sheet">
       <thead><tr><th>Date</th>${days.map((d, i) => `<th class="r">${DOW[i]}<br>${fs2(d)}</th>`).join('')}<th class="r">Sub total</th><th class="r">%</th></tr></thead><tbody>
