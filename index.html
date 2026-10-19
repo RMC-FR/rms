@@ -1107,7 +1107,7 @@ function viewCashWage(){
   const bf = n => 0;   // deductions are no longer applied (old rows in the sheet are ignored)
   const list = Object.values(P).sort((x, y) => y.stp - x.stp), r2 = n => Math.round(n * 100) / 100;
   const sg = n => (n < 0 ? '−' : '') + money(Math.abs(n));
-  const body = list.filter(p => DAY_STAFF.includes(p.name) ? p.days > 5 : p.hasPaid ? r2(p.paid - p.real) > 0 : p.cp > 0).map(p => { const dr = DAY_STAFF.includes(p.name), cash = dr ? r2(Math.max(p.days - 5, 0) * p.rate) : p.hasPaid ? r2(p.paid - p.real) : p.cp > 0 ? r2(p.cp) : null, b0 = r2(bf(p.name)), pay = Math.max(r2((cash || 0) + b0), 0);
+  const body = list.filter(p => DAY_STAFF.includes(p.name) ? true : p.hasPaid ? r2(p.paid - p.real) > 0 : p.cp > 0).map(p => { const dr = DAY_STAFF.includes(p.name), cash = dr ? r2(Math.max(p.days - 5, 0) * p.rate) : p.hasPaid ? r2(p.paid - p.real) : p.cp > 0 ? r2(p.cp) : null, b0 = r2(bf(p.name)), pay = Math.max(r2((cash || 0) + b0), 0);
     return `<tr><td>${esc(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}</td><td>${p.st.join(' · ')}</td><td class="num">${money(p.real)}</td><td class="num">${dr ? p.days + (p.days === 1 ? ' day' : ' days') : p.hasPaid ? money(p.paid) : '–'}</td><td class="num ${cash < 0 ? 'neg' : ''}">${cash === null ? '–' : sg(cash)}</td><td class="num ${b0 < 0 ? 'neg' : ''}">${b0 ? sg(b0) : '–'}</td><td class="num"><b>${pay ? money(pay) : '–'}</b></td></tr>`; }).join('');
   const ded = [...S.deductions].sort((x, y) => (y.apply_week > x.apply_week ? 1 : -1));
   const cashCard = (b, name) => {
