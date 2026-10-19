@@ -91,6 +91,7 @@ td.zero{color:var(--line)}
 .hint{font-size:12.5px;color:var(--muted);margin-top:10px}
 .hint b{color:var(--fg);font-family:var(--mono)}
 .neg{color:var(--bad)}
+.pay{color:var(--accent);font-weight:700}
 .day{display:flex;justify-content:space-between;align-items:baseline;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--line);font-weight:700}
 .day span:last-child{font-family:var(--mono)}
 .ent{table-layout:fixed;min-width:640px}.ent td:nth-child(1){width:32%}.ent td:nth-child(2){width:15%}.ent td:nth-child(4){width:14%}.ent td:nth-child(5){width:15%}.ent td{overflow:hidden;text-overflow:ellipsis}
@@ -1108,15 +1109,15 @@ function viewCashWage(){
   const list = Object.values(P).sort((x, y) => y.stp - x.stp), r2 = n => Math.round(n * 100) / 100;
   const sg = n => (n < 0 ? '−' : '') + money(Math.abs(n));
   const body = list.filter(p => DAY_STAFF.includes(p.name) ? true : p.hasPaid ? r2(p.paid - p.real) > 0 : p.cp > 0).map(p => { const dr = DAY_STAFF.includes(p.name), cash = dr ? r2(Math.max(p.days - 5, 0) * p.rate) : p.hasPaid ? r2(p.paid - p.real) : p.cp > 0 ? r2(p.cp) : null, b0 = r2(bf(p.name)), pay = Math.max(r2((cash || 0) + b0), 0);
-    return `<tr><td>${esc(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}</td><td>${p.st.join(' · ')}</td><td class="num">${money(p.real)}</td><td class="num">${dr ? p.days + (p.days === 1 ? ' day' : ' days') : p.hasPaid ? money(p.paid) : '–'}</td><td class="num ${cash < 0 ? 'neg' : ''}">${cash === null ? '–' : sg(cash)}</td><td class="num ${b0 < 0 ? 'neg' : ''}">${b0 ? sg(b0) : '–'}</td><td class="num"><b>${pay ? money(pay) : '–'}</b></td></tr>`; }).join('');
+    return `<tr><td>${esc(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}</td><td>${p.st.join(' · ')}</td><td class="num">${money(p.real)}</td><td class="num">${dr ? p.days + (p.days === 1 ? ' day' : ' days') : p.hasPaid ? money(p.paid) : '–'}</td><td class="num ${cash < 0 ? 'neg' : ''}">${cash === null ? '–' : sg(cash)}</td><td class="num ${b0 < 0 ? 'neg' : ''}">${b0 ? sg(b0) : '–'}</td><td class="num pay">${pay ? money(pay) : '–'}</td></tr>`; }).join('');
   const ded = [...S.deductions].sort((x, y) => (y.apply_week > x.apply_week ? 1 : -1));
   const cashCard = (b, name) => {
   const bo = S.wages.filter(w => w.week === ws && w.br === b && cashPay(w) > 0).sort((x, y) => modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0));
     const boCash = Math.round(bo.reduce((a, w) => a + cashPay(w), 0) * 100) / 100, boStp = bo.reduce((a, w) => a + (w.stp || 0), 0);
     return bo.length ? `<div class="card"><h2>${esc(name)} <small>Only staff with cash to pay are listed. The cash part is counted in ${esc(name)}'s wage cost and is visible to its manager</small></h2><div class="scroll"><table>
-      <thead><tr><th>Employee</th><th class="r">Cash hours</th><th class="r">Cash rate</th><th class="r">Cash</th><th class="r">Rent</th><th class="r">Cash to pay</th><th class="r">STP wage</th><th class="r">Total wage</th></tr></thead><tbody>
-      ${bo.map(w => `<tr><td>${esc(w.name)}${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${w.cashH || '–'}</td><td class="num">${w.cashR ? money(w.cashR) : '–'}</td><td class="num">${w.cashH ? money(Math.round(w.cashH * w.cashR * 100) / 100) : '–'}</td><td class="num ${w.rent < 0 ? 'neg' : ''}">${w.rent ? sg(w.rent) : '–'}</td><td class="num ${cashPay(w) < 0 ? 'neg' : ''}"><b>${cashPay(w) ? sg(cashPay(w)) : '–'}</b></td><td class="num">${money(w.stp)}</td><td class="num">${money((w.stp || 0) + cashPay(w))}</td></tr>`).join('')}
-      <tr class="tot"><td colspan="5">Total</td><td class="num">${sg(boCash)}</td><td class="num">${money(boStp)}</td><td class="num">${money(boStp + boCash)}</td></tr></tbody></table></div></div>` : '';
+      <thead><tr><th>Employee</th><th class="r">Cash hours</th><th class="r">Cash rate</th><th class="r">Cash</th><th class="r">Rent</th><th class="r">STP wage</th><th class="r">Total wage</th><th class="r">Cash to pay</th></tr></thead><tbody>
+      ${bo.map(w => `<tr><td>${esc(w.name)}${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${w.cashH || '–'}</td><td class="num">${w.cashR ? money(w.cashR) : '–'}</td><td class="num">${w.cashH ? money(Math.round(w.cashH * w.cashR * 100) / 100) : '–'}</td><td class="num ${w.rent < 0 ? 'neg' : ''}">${w.rent ? sg(w.rent) : '–'}</td><td class="num">${money(w.stp)}</td><td class="num">${money((w.stp || 0) + cashPay(w))}</td><td class="num pay">${cashPay(w) ? sg(cashPay(w)) : '–'}</td></tr>`).join('')}
+      <tr class="tot"><td colspan="5">Total</td><td class="num">${money(boStp)}</td><td class="num">${money(boStp + boCash)}</td><td class="num pay">${sg(boCash)}</td></tr></tbody></table></div></div>` : '';
   };
   const boHtml = Object.keys(CASH_BR).map(b => cashCard(b, CASH_BR[b])).join('');
   return weekBar() + boHtml + `<div class="card"><h2>Cash Wage <small>Admin only. Staff marked "C", and staff who work at more than one branch (Bowral and Glenorie are listed above)</small></h2><div class="scroll"><table>
