@@ -616,7 +616,7 @@ function payPlan(m){
 function buildAba(payer, txns, dateIso, desc, remitter){
   const pad = (s, n) => String(s).slice(0, n).padEnd(n, ' '), num = (v, n) => String(v).padStart(n, '0');
   const ddmmyy = dateIso.slice(8, 10) + dateIso.slice(5, 7) + dateIso.slice(2, 4);
-  const pbsb = payer.bsb, pacc = String(payer.acct).replace(/\D/g, '').padStart(9, ' ');
+  const pbsb = payer.bsb, pacc = String(String(payer.acct).replace(/\D/g, '').padStart(6, '0')).padStart(9, ' ');
   const L = ['0' + ' '.repeat(17) + '01' + 'WBC' + ' '.repeat(7) + pad(abaTxt(payer.entity.toUpperCase(), 26), 26) + '000000' + pad(abaTxt(desc, 12), 12) + ddmmyy + ' '.repeat(40)];
   let tot = 0;
   txns.forEach(t => { const c = Math.round(t.amt * 100); tot += c;
@@ -642,7 +642,7 @@ function payModal(m){
   const oth = pl.other.map(o => `<div class="hint">${o.kind === 'bpay' ? `<b>${esc(o.supplier)}</b>: pay by BPAY. Biller code ${esc(o.py.biller)}, CRN ${esc(o.py.crn)}, ${money(o.amt)}${o.n > 1 ? ' (' + o.n + ' invoices)' : ''}.` : `<b>${esc(o.supplier)}</b>: no bank details saved (${money(o.amt)}). Add them to the payees sheet to include them.`}</div>`).join('');
   const missing = pl.groups.filter(g => g.kind === 'nodata' && !g.invs.some(e => m.sel[e.id])).length;
   return `<div class="mback"><div class="modal wide" role="dialog" aria-modal="true" style="max-width:760px"><h2 style="color:var(--fg)">Pay run · ${esc(BRN[m.br] || m.br)} · ${fs2(days[0])} – ${fs2(days[6])}</h2>
-    <p>${pl.payer ? `Paid from <b>${esc(pl.payer.entity)}</b> (${esc(pl.payer.bsb)} ${esc(pl.payer.acct)}). Download the file, then in Westpac Online Banking go to Payments &gt; File imports &gt; Import new file &gt; Direct Entry/Pay Anyone (ABA).` : '<span class="warn">No paying account is saved for this branch (payers sheet).</span>'}</p>
+    <p>${pl.payer ? `Paid from <b>${esc(pl.payer.entity)}</b> (${esc(pl.payer.bsb)} ${esc(String(pl.payer.acct).padStart(6, '0'))}). Download the file, then in Westpac Online Banking go to Payments &gt; File imports &gt; Import new file &gt; Direct Entry/Pay Anyone (ABA).` : '<span class="warn">No paying account is saved for this branch (payers sheet).</span>'}</p>
     <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(m.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span><button class="btn" type="button" data-act="payall">Select all</button><button class="btn" type="button" data-act="paychk">Only checked</button></div>
     ${pl.groups.length ? `<table class="pay"><thead><tr><th></th><th>Date</th><th title="Checked against the supplier invoice">Chk</th><th colspan="2">Reference</th><th class="num">Amount</th></tr></thead><tbody>${rows}</tbody></table>` : '<p>No invoices this week.</p>'}
     ${oth}${bad ? `<div class="hint warn">${bad} payment${bad > 1 ? 's' : ''} need fixing (${esc([...new Set(pl.txns.filter(t => t.err).map(t => t.err))].join(', '))}) before the file can be downloaded.</div>` : ''}
