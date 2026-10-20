@@ -1100,7 +1100,7 @@ function viewWageNew(b, ws, rows){
     })() : ''}
     <div class="hint">Staff who work at more than one branch are counted at each branch only for the work done there.</div>`;
 }
-const CASH_BR = {BO:'Bowral', GN:'Glenorie', LE:'Leichhardt'};   // branches where the cash part is part of the wage cost and visible to the manager
+const CASH_BR = {BO:'Bowral', GN:'Glenorie', LE:'Leichhardt', CT:'Campbelltown'};   // branches where the cash part is part of the wage cost and visible to the manager
 const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day week; every day beyond 5 is paid in cash at the day rate
 function viewCashWage(){
   const ws = UI.week, rows = S.wages.filter(w => w.week === ws && w.restricted && !CASH_BR[w.br]), P = {};   // branches whose cash is shown on its own below
@@ -1120,7 +1120,7 @@ function viewCashWage(){
       <tr class="tot"><td colspan="5">Total</td><td class="num">${money(boStp)}</td><td class="num">${money(boStp + boCash)}</td><td class="num pay">${sg(boCash)}</td></tr></tbody></table></div></div>` : '';
   };
   const boHtml = Object.keys(CASH_BR).map(b => cashCard(b, CASH_BR[b])).join('');
-  return weekBar() + boHtml + `<div class="card"><h2>Cash Wage <small>Admin only. Staff marked "C", and staff who work at more than one branch (Bowral and Glenorie are listed above)</small></h2><div class="scroll"><table>
+  return weekBar() + boHtml + `<div class="card"><h2>Cash Wage <small>Admin only. Staff marked "C", and staff who work at more than one branch (branches with their own cash card are listed above)</small></h2><div class="scroll"><table>
     <thead><tr><th>Employee</th><th>Branches (wage cost)</th><th class="r">STP wage</th><th class="r">Paid (day rate) / days</th><th class="r">Cash hours</th><th class="r">Cash rate</th><th class="r">Cash this week</th><th class="r">Brought forward</th><th class="r">Cash to pay</th></tr></thead><tbody>${body || '<tr><td colspan="9" class="dim">No admin-only wage data for this week yet.</td></tr>'}</tbody></table></div></div>
     <div class="hint">Cash this week = paid (day rate) − STP wage. For Jinheum, Jaeyoon and Youngjae it is the days worked beyond 5 × the day rate. </div>`;
 }
