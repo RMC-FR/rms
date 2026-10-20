@@ -947,7 +947,8 @@ function analyze(r){
   if(!r.date) checks.push(['bd', 'The date is missing or not valid. Enter it as DD/MM/YYYY.']);
   return {suggest, cashRec, co, checks, hasCash:!!cashLine};
 }
-function viewImport(){
+function viewImport(){ return viewReportImport() + uberCard(); }
+function viewReportImport(){
   const reps = UI.imp.reports;
   const input = `<div class="card imp"><h2>Import a report <small>Paste the KakaoTalk report text or upload a .txt file. Nothing is saved until you confirm.</small></h2><div class="pad">
     <textarea id="imp-text" placeholder="Paste the report here…" aria-label="Report text">${esc(UI.imp.text)}</textarea>
@@ -988,6 +989,68 @@ function viewImport(){
       ${r.ignored.length || r.totalRep !== null || r.closingRep !== null ? `<div class="hint">Not recorded: ${[r.totalRep !== null ? 'Sales total ' + money(r.totalRep) + ' (used to check)' : '', r.closingRep !== null ? 'Closing amount ' + money(r.closingRep) + ' (used to check)' : '', ...r.ignored.map(esc)].filter(Boolean).join(' · ')}</div>` : ''}
       <div class="row"><button class="btn primary" data-act="impsave" data-r="${ri}" ${canSave ? '' : 'disabled'}>Save to ledger</button><button class="btn" data-act="impdiscard" data-r="${ri}">Discard</button></div></div></div>`;
   }).join('');
+}
+/* ---------- Uber Eats CSV: only the daily Gross and Net payout are recorded; the file itself is not kept ---------- */
+function csvRows(text){
+  const rows = []; let row = [], f = '', q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){ if(c === '"'){ if(text[i + 1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if(c === '"') q = true;
+    else if(c === ','){ row.push(f); f = ''; }
+    else if(c === '\n' || c === '\r'){ if(c === '\r' && text[i + 1] === '\n') i++; row.push(f); f = ''; if(row.some(x => x !== '')) rows.push(row); row = []; }
+    else f += c;
+  }
+  row.push(f); if(row.some(x => x !== '')) rows.push(row);
+  return rows;
+}
+function parseUber(text, br){
+  const rows = csvRows(text.replace(/^﻿/, '')), norm = x => String(x).trim().toLowerCase();
+  const hi = rows.findIndex(r => r.some(x => norm(x) === 'order date') && r.some(x => norm(x) === 'sales (incl. gst)') && r.some(x => norm(x) === 'total payout (including gst)'));
+  if(hi < 0) return {br, err:'This does not look like an Uber Eats orders CSV (the columns "Order date", "Sales (incl. GST)" and "Total payout (including GST)" were not found).'};
+  const h = rows[hi].map(norm), ix = k => h.indexOf(k), iD = ix('order date'), iG = ix('sales (incl. gst)'), iP = ix('total payout (including gst)'), iS = ix('order status'), iO = ix('order id'), iN = ix('store name');
+  const by = {}, skipped = []; let store = '';
+  for(const r of rows.slice(hi + 1)){
+    if(!r[iO] || !r[iO].trim()) continue;   // adjustments without an order (e.g. rounding)
+    if(!store && iN >= 0) store = r[iN] || '';
+    const m = String(r[iD] || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(!m) continue;
+    const y = m[3].length === 2 ? '20' + m[3] : m[3], date = `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+    const g = parseFloat(r[iG]) || 0, n = parseFloat(r[iP]) || 0, st = (r[iS] || '').trim();
+    if(st !== 'Completed'){ skipped.push({date, st, n}); continue; }
+    const o = by[date] = by[date] || {date, orders:0, g:0, n:0}; o.orders++; o.g += g; o.n += n;
+  }
+  const days = Object.values(by).sort((a, b) => a.date < b.date ? -1 : 1).map(o => ({...o, g:Math.round(o.g * 100) / 100, n:Math.round(o.n * 100) / 100}));
+  return {br, store, days, skipped, err:days.length ? '' : 'No completed orders were found in this file.'};
+}
+function uberCard(){
+  const u = UI.uber, b = UI.branch;
+  const head = `<div class="card imp"><h2>Import Uber Eats CSV <small>Upload the orders CSV from Uber Eats Manager. Only the daily Gross and Net payout are recorded. The file is not kept.</small></h2><div class="pad">
+    <div class="row"><span class="btn fileb primary">Upload Uber CSV<input type="file" id="uber-file" accept=".csv,text/csv"></span>${u ? '<button class="btn" data-act="ubdiscard">Clear</button>' : ''}</div>
+    <div class="hint">Gross = Sales incl. GST before offers and fees. Net = total payout after discounts and fees. Completed orders only, grouped by order date. It replaces the Uber and Uber net payout lines of those days in ${esc(DATA[b] ? DATA[b].name : b)}.</div>`;
+  if(!u) return head + '</div></div>';
+  if(u.err) return head + `<div class="err" style="margin-top:10px">${esc(u.err)}</div></div></div>`;
+  const rows = u.days.map(d => {
+    const ex = S.entries.find(e => e.br === u.br && e.date === d.date && e.sec === 'sales' && e.cat === 'Uber'), exn = S.entries.find(e => e.br === u.br && e.date === d.date && e.sec === 'sales' && e.cat === 'Uber net payout');
+    return `<tr><td>${fd(d.date)}</td><td class="num">${d.orders}</td><td class="num">${money(d.g)}</td><td class="num">${money(d.n)}</td><td class="num">${money(d.g - d.n)}</td><td class="num" style="color:var(--muted)">${ex || exn ? 'replaces ' + [ex ? money(ex.amt) : '–', exn ? money(exn.amt) : '–'].join(' / ') : 'new'}</td></tr>`;
+  }).join('');
+  const tg = u.days.reduce((a, d) => a + d.g, 0), tn = u.days.reduce((a, d) => a + d.n, 0), orders = u.days.reduce((a, d) => a + d.orders, 0);
+  return head + `<div class="scroll" style="margin-top:10px"><table class="rtable"><thead><tr><th>Date</th><th class="r">Orders</th><th class="r">Gross</th><th class="r">Net payout</th><th class="r">Fees</th><th></th></tr></thead><tbody>${rows}<tr class="tot"><td>Total</td><td class="num">${orders}</td><td class="num">${money(tg)}</td><td class="num">${money(tn)}</td><td class="num">${money(tg - tn)}</td><td></td></tr></tbody></table></div>
+    <div class="hint">Store in file: ${esc(u.store || '–')} → recorded for <b>${esc(DATA[u.br] ? DATA[u.br].name : u.br)}</b>.${u.skipped.length ? ' Not recorded (not completed): ' + u.skipped.map(s => `${fd(s.date)} ${esc(s.st || 'other')} ${money(s.n)}`).join(', ') + '.' : ''}</div>
+    <div class="row"><button class="btn primary" data-act="ubsave">Save to ledger</button><button class="btn" data-act="ubdiscard">Discard</button></div></div></div>`;
+}
+function uberSave(){
+  const u = UI.uber; if(!u || !u.days) return;
+  const b = u.br;
+  for(const [label, counted] of [['Uber', true], ['Uber net payout', false]]) if(!S.cats[b].some(c => c.sec === 'sales' && c.label === label)) S.cats[b].push({sec:'sales', label, counted});
+  for(const d of u.days){
+    const ex = S.entries.find(e => e.br === b && e.date === d.date && e.sec === 'sales' && e.cat === 'Uber');
+    const note = ex && ex.note && /^Uber CSV gross/.test(ex.note) ? ex.note : 'Uber CSV gross (sales incl. GST, before offers and fees)' + (ex ? '; was ' + ex.amt.toFixed(2) + ' (after offers)' : '');
+    S.entries = S.entries.filter(e => !(e.br === b && e.date === d.date && e.sec === 'sales' && (e.cat === 'Uber' || e.cat === 'Uber net payout')));
+    S.entries.push({id:nid(), br:b, date:d.date, sec:'sales', cat:'Uber', amt:d.g, ref:'', note});
+    S.entries.push({id:nid(), br:b, date:d.date, sec:'sales', cat:'Uber net payout', amt:d.n, ref:'', note:'Uber CSV: payout after discounts and fees'});
+  }
+  save(); flash(`Uber gross and net saved for ${u.days.length} day${u.days.length > 1 ? 's' : ''}`);
+  UI.uber = null; UI.week = monday(u.days[0].date);
 }
 function closingMismatch(r){
   const a = analyze(r); if(r.closingRep === null || !a.hasCash) return null;
@@ -1204,6 +1267,8 @@ document.addEventListener('click', ev => {
   }
   else if(a === 'del'){ const id = +t.dataset.id; if(UI.confirmDel === id){ S.entries = S.entries.filter(e => e.id !== id); UI.confirmDel = null; UI.editId = null; UI.draft = {}; save(); flash('Entry deleted'); } else { UI.confirmDel = id; } }
   else if(a === 'theme'){ const n = getTheme() === 'dark' ? 'light' : 'dark'; try{ localStorage.setItem('rms-theme', n); }catch(e){} document.documentElement.dataset.theme = n; }
+  else if(a === 'ubsave'){ uberSave(); }
+  else if(a === 'ubdiscard'){ UI.uber = null; }
   else if(a === 'logout'){ signOut().then(render); return; }
   else if(a === 'pw'){ UI.pw = true; UI.pwErr = ''; }
   else if(a === 'pwcancel'){ UI.pw = false; }
@@ -1216,6 +1281,10 @@ document.addEventListener('change', ev => {
   const t = ev.target;
   if(false){}
   else if(t.dataset.act === 'fsec'){ readDraft(); UI.fSec = t.value; render(); }
+  else if(t.id === 'uber-file'){
+    const f = t.files && t.files[0]; if(!f) return; const br = UI.branch;
+    const rd = new FileReader(); rd.onload = () => { UI.uber = parseUber(String(rd.result || ''), br); render(); }; rd.readAsText(f); return;
+  }
   else if(t.id === 'imp-file'){
     const f = t.files && t.files[0]; if(!f) return;
     const rd = new FileReader(); rd.onload = () => { UI.imp.text = String(rd.result || ''); UI.imp.reports = parseReports(UI.imp.text); render(); }; rd.readAsText(f); return;
