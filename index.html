@@ -1004,52 +1004,74 @@ function csvRows(text){
   row.push(f); if(row.some(x => x !== '')) rows.push(row);
   return rows;
 }
+const PLAT = {uber:{name:'Uber Eats', g:'Uber', n:'Uber net payout', file:'Uber CSV'}, dd:{name:'DoorDash', g:'Doordash', n:'Doordash net payout', file:'DoorDash CSV'}};
 function parseUber(text, br){
   const rows = csvRows(text.replace(/^﻿/, '')), norm = x => String(x).trim().toLowerCase();
-  const hi = rows.findIndex(r => r.some(x => norm(x) === 'order date') && r.some(x => norm(x) === 'sales (incl. gst)') && r.some(x => norm(x) === 'total payout (including gst)'));
-  if(hi < 0) return {br, err:'This does not look like an Uber Eats orders CSV (the columns "Order date", "Sales (incl. GST)" and "Total payout (including GST)" were not found).'};
-  const h = rows[hi].map(norm), ix = k => h.indexOf(k), iD = ix('order date'), iG = ix('sales (incl. gst)'), iP = ix('total payout (including gst)'), iS = ix('order status'), iO = ix('order id'), iN = ix('store name');
-  const by = {}, skipped = []; let store = '';
-  for(const r of rows.slice(hi + 1)){
-    if(!r[iO] || !r[iO].trim()) continue;   // adjustments without an order (e.g. rounding)
-    if(!store && iN >= 0) store = r[iN] || '';
-    const m = String(r[iD] || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(!m) continue;
-    const y = m[3].length === 2 ? '20' + m[3] : m[3], date = `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
-    const g = parseFloat(r[iG]) || 0, n = parseFloat(r[iP]) || 0, st = (r[iS] || '').trim();
-    if(st !== 'Completed'){ skipped.push({date, st, n}); continue; }
-    const o = by[date] = by[date] || {date, orders:0, g:0, n:0}; o.orders++; o.g += g; o.n += n;
+  const has = (r, k) => r.some(x => norm(x) === k);
+  const hu = rows.findIndex(r => has(r, 'order date') && has(r, 'sales (incl. gst)') && has(r, 'total payout (including gst)'));
+  const hd = rows.findIndex(r => has(r, 'transaction type') && has(r, 'net total') && (has(r, 'subtotal including gst') || has(r, 'subtotal')));
+  if(hu < 0 && hd < 0) return {br, err:'This does not look like an Uber Eats orders CSV or a DoorDash transactions CSV. For DoorDash use the "Detailed transactions" (or "Simplified transactions") report.'};
+  const by = {}, skipped = []; let store = '', extra = 0;
+  const add = (date, g, n, isOrder) => { const o = by[date] = by[date] || {date, orders:0, g:0, n:0}; if(isOrder) o.orders++; o.g += g; o.n += n; };
+  let plat;
+  if(hu >= 0){
+    plat = PLAT.uber;
+    const h = rows[hu].map(norm), ix = k => h.indexOf(k), iD = ix('order date'), iG = ix('sales (incl. gst)'), iP = ix('total payout (including gst)'), iS = ix('order status'), iO = ix('order id'), iN = ix('store name');
+    for(const r of rows.slice(hu + 1)){
+      if(!r[iO] || !r[iO].trim()) continue;   // adjustments without an order (e.g. rounding)
+      if(!store && iN >= 0) store = r[iN] || '';
+      const m = String(r[iD] || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(!m) continue;
+      const y = m[3].length === 2 ? '20' + m[3] : m[3], date = `${y}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+      const g = parseFloat(r[iG]) || 0, n = parseFloat(r[iP]) || 0, st = (r[iS] || '').trim();
+      if(st !== 'Completed'){ skipped.push({date, st, n}); continue; }
+      add(date, g, n, true);
+    }
+  } else {
+    plat = PLAT.dd;
+    const h = rows[hd].map(norm), ix = k => h.indexOf(k), iD = ix('timestamp local date') >= 0 ? ix('timestamp local date') : ix('timestamp local time'), iT = ix('transaction type'), iN = ix('net total'), iE = ix('error charges'), iAj = ix('adjustments'), iSt = ix('final order status'), iName = ix('store name');
+    const iG = ix('subtotal including gst') >= 0 ? ix('subtotal including gst') : ix('subtotal'), iTax = ix('subtotal including gst') >= 0 ? -1 : ix('tax (subtotal)');
+    for(const r of rows.slice(hd + 1)){
+      const date = String(r[iD] || '').slice(0, 10); if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if(!store && iName >= 0) store = r[iName] || '';
+      const type = (r[iT] || '').trim(), n = parseFloat(r[iN]) || 0, st = iSt >= 0 ? (r[iSt] || '').trim() : '';
+      if(type === 'Order'){
+        const g = (parseFloat(r[iG]) || 0) + (iTax >= 0 ? parseFloat(r[iTax]) || 0 : 0);
+        if(/cancel|refus|reject|fail/i.test(st) && !g && !n){ skipped.push({date, st, n}); continue; }
+        add(date, g, n, g > 0);
+      } else { add(date, 0, n, false); extra += n; skipped.push({date, st:type + (r[iE] && parseFloat(r[iE]) ? ' (error charge)' : ''), n, inNet:true}); }
+    }
   }
   const days = Object.values(by).sort((a, b) => a.date < b.date ? -1 : 1).map(o => ({...o, g:Math.round(o.g * 100) / 100, n:Math.round(o.n * 100) / 100}));
-  return {br, store, days, skipped, err:days.length ? '' : 'No completed orders were found in this file.'};
+  return {br, store, plat, days, skipped, err:days.length ? '' : 'No completed orders were found in this file.'};
 }
 function uberCard(){
   const u = UI.uber, b = UI.branch;
-  const head = `<div class="card imp"><h2>Import Uber Eats CSV <small>Upload the orders CSV from Uber Eats Manager. Only the daily Gross and Net payout are recorded. The file is not kept.</small></h2><div class="pad">
-    <div class="row"><span class="btn fileb primary">Upload Uber CSV<input type="file" id="uber-file" accept=".csv,text/csv"></span>${u ? '<button class="btn" data-act="ubdiscard">Clear</button>' : ''}</div>
-    <div class="hint">Gross = Sales incl. GST before offers and fees. Net = total payout after discounts and fees. Completed orders only, grouped by order date. It replaces the Uber and Uber net payout lines of those days in ${esc(DATA[b] ? DATA[b].name : b)}.</div>`;
+  const head = `<div class="card imp"><h2>Import delivery CSV <small>Uber Eats (orders CSV) or DoorDash (Detailed transactions CSV). Only the daily Gross and Net payout are recorded. The file is not kept.</small></h2><div class="pad">
+    <div class="row"><span class="btn fileb primary">Upload Uber / DoorDash CSV<input type="file" id="uber-file" accept=".csv,text/csv"></span>${u ? '<button class="btn" data-act="ubdiscard">Clear</button>' : ''}</div>
+    <div class="hint">Gross = sales incl. GST before offers and fees. Net = payout after discounts and fees (DoorDash: error charges and adjustments are included). Grouped by order date. It replaces the Uber / Doordash gross and net payout lines of those days in ${esc(DATA[b] ? DATA[b].name : b)}. The platform is detected from the file.</div>`;
   if(!u) return head + '</div></div>';
   if(u.err) return head + `<div class="err" style="margin-top:10px">${esc(u.err)}</div></div></div>`;
   const rows = u.days.map(d => {
-    const ex = S.entries.find(e => e.br === u.br && e.date === d.date && e.sec === 'sales' && e.cat === 'Uber'), exn = S.entries.find(e => e.br === u.br && e.date === d.date && e.sec === 'sales' && e.cat === 'Uber net payout');
+    const ex = S.entries.find(e => e.br === u.br && e.date === d.date && e.sec === 'sales' && e.cat === u.plat.g), exn = S.entries.find(e => e.br === u.br && e.date === d.date && e.sec === 'sales' && e.cat === u.plat.n);
     return `<tr><td>${fd(d.date)}</td><td class="num">${d.orders}</td><td class="num">${money(d.g)}</td><td class="num">${money(d.n)}</td><td class="num">${money(d.g - d.n)}</td><td class="num" style="color:var(--muted)">${ex || exn ? 'replaces ' + [ex ? money(ex.amt) : '–', exn ? money(exn.amt) : '–'].join(' / ') : 'new'}</td></tr>`;
   }).join('');
   const tg = u.days.reduce((a, d) => a + d.g, 0), tn = u.days.reduce((a, d) => a + d.n, 0), orders = u.days.reduce((a, d) => a + d.orders, 0);
   return head + `<div class="scroll" style="margin-top:10px"><table class="rtable"><thead><tr><th>Date</th><th class="r">Orders</th><th class="r">Gross</th><th class="r">Net payout</th><th class="r">Fees</th><th></th></tr></thead><tbody>${rows}<tr class="tot"><td>Total</td><td class="num">${orders}</td><td class="num">${money(tg)}</td><td class="num">${money(tn)}</td><td class="num">${money(tg - tn)}</td><td></td></tr></tbody></table></div>
-    <div class="hint">Store in file: ${esc(u.store || '–')} → recorded for <b>${esc(DATA[u.br] ? DATA[u.br].name : u.br)}</b>.${u.skipped.length ? ' Not recorded (not completed): ' + u.skipped.map(s => `${fd(s.date)} ${esc(s.st || 'other')} ${money(s.n)}`).join(', ') + '.' : ''}</div>
+    <div class="hint"><b>${esc(u.plat.name)}</b> file, store: ${esc(u.store || '–')} → recorded for <b>${esc(DATA[u.br] ? DATA[u.br].name : u.br)}</b>.${u.skipped.filter(s => !s.inNet).length ? ' Not recorded (not completed): ' + u.skipped.filter(s => !s.inNet).map(s => `${fd(s.date)} ${esc(s.st || 'other')} ${money(s.n)}`).join(', ') + '.' : ''}${u.skipped.some(s => s.inNet) ? ' Included in net (not orders): ' + u.skipped.filter(s => s.inNet).map(s => `${fd(s.date)} ${esc(s.st)} ${money(s.n)}`).join(', ') + '.' : ''}</div>
     <div class="row"><button class="btn primary" data-act="ubsave">Save to ledger</button><button class="btn" data-act="ubdiscard">Discard</button></div></div></div>`;
 }
 function uberSave(){
   const u = UI.uber; if(!u || !u.days) return;
-  const b = u.br;
-  for(const [label, counted] of [['Uber', true], ['Uber net payout', false]]) if(!S.cats[b].some(c => c.sec === 'sales' && c.label === label)) S.cats[b].push({sec:'sales', label, counted});
+  const b = u.br, P = u.plat;
+  for(const [label, counted] of [[P.g, true], [P.n, false]]) if(!S.cats[b].some(c => c.sec === 'sales' && c.label === label)) S.cats[b].push({sec:'sales', label, counted});
   for(const d of u.days){
-    const ex = S.entries.find(e => e.br === b && e.date === d.date && e.sec === 'sales' && e.cat === 'Uber');
-    const note = ex && ex.note && /^Uber CSV gross/.test(ex.note) ? ex.note : 'Uber CSV gross (sales incl. GST, before offers and fees)' + (ex ? '; was ' + ex.amt.toFixed(2) + ' (after offers)' : '');
-    S.entries = S.entries.filter(e => !(e.br === b && e.date === d.date && e.sec === 'sales' && (e.cat === 'Uber' || e.cat === 'Uber net payout')));
-    S.entries.push({id:nid(), br:b, date:d.date, sec:'sales', cat:'Uber', amt:d.g, ref:'', note});
-    S.entries.push({id:nid(), br:b, date:d.date, sec:'sales', cat:'Uber net payout', amt:d.n, ref:'', note:'Uber CSV: payout after discounts and fees'});
+    const ex = S.entries.find(e => e.br === b && e.date === d.date && e.sec === 'sales' && e.cat === P.g);
+    const note = ex && ex.note && ex.note.startsWith(P.file + ' gross') ? ex.note : P.file + ' gross (sales incl. GST, before offers and fees)' + (ex ? '; was ' + ex.amt.toFixed(2) + (/Uber/.test(P.file) ? ' (after offers)' : ' (as in the daily report)') : '');
+    S.entries = S.entries.filter(e => !(e.br === b && e.date === d.date && e.sec === 'sales' && (e.cat === P.g || e.cat === P.n)));
+    S.entries.push({id:nid(), br:b, date:d.date, sec:'sales', cat:P.g, amt:d.g, ref:'', note});
+    S.entries.push({id:nid(), br:b, date:d.date, sec:'sales', cat:P.n, amt:d.n, ref:'', note:P.file + ': payout after discounts and fees'});
   }
-  save(); flash(`Uber gross and net saved for ${u.days.length} day${u.days.length > 1 ? 's' : ''}`);
+  save(); flash(`${P.name} gross and net saved for ${u.days.length} day${u.days.length > 1 ? 's' : ''}`);
   UI.uber = null; UI.week = monday(u.days[0].date);
 }
 function closingMismatch(r){
