@@ -604,7 +604,7 @@ function payPlan(m){
   const txns = [], other = [];
   groups.forEach(g => {
     const py = g.payee, on = g.invs.filter(e => m.sel[e.id]);
-    g.kind = !py ? 'nodata' : py.biller && !py.bsb ? 'bpay' : (!py.bsb || !py.acct) ? 'nodata' : py.mode === 'fixed' ? 'bulk' : 'each';
+    g.kind = !py ? 'nodata' : py.biller ? 'bpay' : (!py.bsb || !py.acct) ? 'nodata' : py.mode === 'fixed' ? 'bulk' : 'each';
     if(!on.length) return;
     if(g.kind === 'bulk') txns.push({supplier:g.name, name:py.name || g.name, bsb:py.bsb, acct:py.acct, ref:py.ref, amt:on.reduce((a, e) => a + e.amt, 0), ids:on.map(e => e.id), edit:false});
     else if(g.kind === 'each') on.forEach(e => txns.push({supplier:g.name, name:py.name || g.name, bsb:py.bsb, acct:py.acct, ref:e.ref, amt:e.amt, ids:[e.id], edit:true}));
