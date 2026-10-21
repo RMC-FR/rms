@@ -1302,10 +1302,10 @@ const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day
 const ABN_OF = {WT:'AKLE', BO:'AKLE', TM:'AKLE', LE:'KBMI', GN:'SZGN', CT:'T81CT'}, ABN_LIST = ['AKLE', 'KBMI', 'SZGN', 'T81CT'];   // WT, BO and TM are paid from the AKLE account; every other branch is its own account
 function viewStpPay(){
   const ws = UI.week, r2 = n => Math.round(n * 100) / 100, pay = S.pay || {payees:[], payers:[]};
-  const entOf = b => ABN_OF[b] || b;
+  const entOf = w => DAY_STAFF.includes(w.name) ? 'AKLE' : ABN_OF[w.br] || w.br;   // Jinheum, Jaeyoon and Youngjae are always paid from AKLE, wherever they worked
   const G = {};
   S.wages.filter(w => w.week === ws && (w.stp || 0) > 0).forEach(w => {
-    const ent = entOf(w.br), g = G[ent] = G[ent] || {ent, brs:[], P:{}};
+    const ent = entOf(w), g = G[ent] = G[ent] || {ent, brs:[], P:{}};
     if(!g.brs.includes(w.br)) g.brs.push(w.br);
     const k = String(w.name).trim().toLowerCase(), p = g.P[k] = g.P[k] || {name:w.name, nick:w.nick, rows:[], stp:0};
     p.rows.push(w); p.stp += w.stp || 0;
