@@ -297,9 +297,9 @@ const user = () => ({role:ME.role, branch:ME.br, name:ME.name});
 const allowed = () => user().role === 'admin' ? BR : [user().branch];
 function ensureBranch(){
   if(user().role !== 'admin') UI.branch = allowed()[0];
-  else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'access'].includes(UI.tab)) UI.tab = 'summary';
-  else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'access')) UI.tab = 'summary';
-  if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
+  else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'stppay', 'access'].includes(UI.tab)) UI.tab = 'summary';
+  else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'access')) UI.tab = 'summary';
+  if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
   if(UI.branch === 'ALL' && UI.tab === 'invpay') UI.tab = 'summary';
 }
 
@@ -353,10 +353,10 @@ function render(){
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
-    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button></div>` : ''}
+    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="stppay" aria-pressed="${UI.tab === 'stppay'}">STP wages for payment<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : UI.tab === 'stppay' ? viewStpPay() : viewAccess()}`;
   const tw = document.createTreeWalker($('#app'), NodeFilter.SHOW_TEXT), negs = [];
   while(tw.nextNode()){ const n = tw.currentNode, p = n.parentElement; if(p && !/^(SCRIPT|STYLE|TEXTAREA|OPTION|BUTTON|TITLE)$/.test(p.tagName) && /^\s*[-−–]\s*\$?\d[\d,]*(\.\d+)?\s*%?\s*$/.test(n.nodeValue)) negs.push(p); }
   negs.forEach(p => p.classList.add('neg'));
@@ -1294,6 +1294,27 @@ function viewWageNew(b, ws, rows){
 }
 const CASH_BR = {BO:'Bowral', GN:'Glenorie', LE:'Leichhardt', CT:'Campbelltown'};   // branches where the cash part is part of the wage cost and visible to the manager
 const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day week; every day beyond 5 is paid in cash at the day rate
+
+/* STP wages for payment (admin): one list per paying bank account / ABN, staff merged across branches, alphabetical by first name */
+const ABN_FALLBACK = {WT:'AKLE', BO:'AKLE', TM:'AKLE'};   // WT, BO and TM are paid from the AKLE account; every other branch is its own account
+function viewStpPay(){
+  const ws = UI.week, r2 = n => Math.round(n * 100) / 100, pay = S.pay || {payees:[], payers:[]};
+  const entOf = b => { const p = pay.payers.find(x => x.branches.includes(b)); return p ? p.entity : ABN_FALLBACK[b] || (BRN[b] || b); };
+  const G = {};
+  S.wages.filter(w => w.week === ws && (w.stp || 0) > 0).forEach(w => {
+    const ent = entOf(w.br), g = G[ent] = G[ent] || {ent, brs:[], P:{}};
+    if(!g.brs.includes(w.br)) g.brs.push(w.br);
+    const k = String(w.name).trim().toLowerCase(), p = g.P[k] = g.P[k] || {name:w.name, nick:w.nick, br:[], stp:0};
+    if(!p.br.includes(w.br)) p.br.push(w.br); p.stp += w.stp || 0;
+  });
+  const gs = Object.values(G).sort((a, b) => a.ent.localeCompare(b.ent));
+  const cards = gs.map(g => { const L = Object.values(g.P).sort((x, y) => x.name.localeCompare(y.name, 'en', {sensitivity:'base'})), tot = r2(L.reduce((a, p) => a + p.stp, 0));
+    return `<div class="card"><h2>${esc(g.ent)} <small>${g.brs.map(b => esc(b)).join(', ')} · ${L.length} staff · ${money(tot)}</small></h2><div class="scroll"><table>
+      <thead><tr><th>Employee</th><th>Branch</th><th class="r">STP wage</th></tr></thead><tbody>
+      ${L.map(p => `<tr><td>${esc(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}</td><td>${p.br.map(esc).join(', ')}</td><td class="num pay">${money(r2(p.stp))}</td></tr>`).join('')}
+      <tr class="tot"><td colspan="2">Total</td><td class="num">${money(tot)}</td></tr></tbody></table></div></div>`; }).join('');
+  return weekBar() + (cards || `<div class="card"><div class="empty">No STP wages for this week yet.</div></div>`) + `<div class="hint">One list per paying account. Staff who work at several branches of the same account are merged into one line. Staff bank details are not stored yet, so this is a summary, not an ABA file.</div>`;
+}
 function viewCashWage(){
   const ws = UI.week, rows = S.wages.filter(w => w.week === ws && w.restricted && !CASH_BR[w.br]), P = {};   // branches whose cash is shown on its own below
   rows.forEach(w => { const p = P[w.name] = P[w.name] || {name:w.name, nick:w.nick, st:[], stp:0, real:0, paid:0, hasPaid:false, days:0, rate:0}; if(DAY_STAFF.includes(w.name) && w.dayN){ p.days += w.dayN; p.rate = w.dayR || p.rate; } if(w.br !== 'ADM') p.st.push(`${w.br} ${money(w.stp)}`); p.stp += w.stp || 0; p.cp = (p.cp || 0) + cashPay(w); if(w.cashH){ p.ch = (p.ch || 0) + w.cashH; p.cr = w.cashR; } p.real += (w.stpReal ?? w.stp) || 0; if(w.paid){ p.paid += w.paid; p.hasPaid = true; } });
@@ -1354,7 +1375,7 @@ function readDraft(){
 }
 document.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
-  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
+  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'stppay', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
   else if(a === 'tab'){ UI.tab = t.dataset.v; UI.editId = null; UI.draft = {}; UI.confirmDel = null; }
   else if(a === 'day'){ const v = t.dataset.v; UI.day = v === '0' ? todayLocal() : v === 'last' ? DATA[UI.branch === 'ALL' ? BR[0] : UI.branch].dates[6] : addDays(UI.day, +v); }
   else if(a === 'pickday'){ UI.day = t.dataset.v; window.scrollTo(0, 0); }
