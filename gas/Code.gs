@@ -21,7 +21,8 @@ const HEAD_ = {
   deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note'],
   checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at', 'phys', 'digital', 'acc'],
   payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
-  payers: ['entity', 'branches', 'bsb', 'acct']
+  payers: ['entity', 'branches', 'bsb', 'acct'],
+  digital: ['msg', 'att', 'date', 'supplier', 'inv_no', 'total', 'items', 'to', 'subject', 'from', 'file', 'mail_date', 'got', 'err']
 };
 
 function doGet() { return out_({ ok: true, service: 'sales-ledger' }); }
@@ -45,6 +46,7 @@ function route_(b) {
   if (b.a === 'sync') return withLock_(() => sync_(me, b));
   if (b.a === 'chk') return withLock_(() => chk_(me, b));
   if (b.a === 'inv') return withLock_(() => inv_(me, b));
+  if (b.a === 'mail') return withLock_(() => mail_(me, b));
   if (b.a === 'chpw') return withLock_(() => chpw_(me, b));
   if (b.a === 'inv_read') return invRead_(me, b);
   if (b.a === 'inv_img') return invImg_(me, b);
@@ -131,6 +133,7 @@ function load_(me) {
     items: itemsOf_(me),
     pay: me.role === 'admin' ? payInfo_() : null,
     checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: r.amt === '' ? null : Number(r.amt), phys: r.phys === true || r.phys === 'TRUE', digital: r.digital === '' || r.digital === null ? null : Number(r.digital), acc: r.acc === true || r.acc === 'TRUE' })) : [],
+    digital: me.role === 'admin' ? digitalOf_() : [],
     wages: wagesOf_(me), hiddenWage: hiddenWage_(me), deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
 }
@@ -374,8 +377,8 @@ function norm_(o) {
   };
 }
 
-/** Run once from the editor to grant Drive + external-request permissions. */
-function authorize() { DriveApp.getRootFolder(); UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': P_().getProperty('GEMINI_KEY') || '' }, muteHttpExceptions: true }); Logger.log('authorized'); }
+/** Run once from the editor to grant Drive, Gmail and external-request permissions. */
+function authorize() { DriveApp.getRootFolder(); GmailApp.getInboxUnreadCount(); UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', { headers: { 'x-goog-api-key': P_().getProperty('GEMINI_KEY') || '' }, muteHttpExceptions: true }); Logger.log('authorized'); }
 
 /* ---------- wages: restricted staff are only ever sent to admins ---------- */
 const isRestricted_ = r => r.restricted === true || r.restricted === 'TRUE';
@@ -437,3 +440,51 @@ function inv_(me, b) {
 }
 /** Older clients: invoice tick only. */
 function chk_(me, b) { return inv_(me, { id: b.id, tick: !!b.on }); }
+
+
+/* ---------- supplier invoices from the mailbox (admin only) ----------
+ * Reads PDF attachments of invoice emails in the Gmail account this script runs as (all branches' invoices arrive there),
+ * lets the same reader used for invoice photos extract supplier / number / date / total / lines, and stores one row per PDF
+ * in the digital sheet. The app compares these with the ledger. Nothing is sent or deleted in Gmail. */
+const MAIL_SKIP_ = 'statement OR reminder OR contract OR "sales order" OR "direct debit" OR employment OR "late letter" OR "safe check" OR rental';
+function mail_(me, b) {
+  if (me.role !== 'admin') throw new Error('Only admins can read the invoice mailbox');
+  const since = /^\d{4}\/\d{2}\/\d{2}$/.test(String(b.since || '')) ? b.since : '2026/10/05';
+  const sh = SHEET_('digital'), H = HEAD_.digital;
+  sh.getRange('A:E').setNumberFormat('@'); sh.getRange('L:L').setNumberFormat('@');
+  if (b.retry) {
+    const n0 = sh.getLastRow();
+    if (n0 > 1) { const e = sh.getRange(2, 14, n0 - 1, 1).getValues(); for (let i = e.length - 1; i >= 0; i--) if (String(e[i][0] || '')) sh.deleteRow(i + 2); }
+  }
+  const have = {}, n = sh.getLastRow();
+  if (n > 1) sh.getRange(2, 1, n - 1, 2).getValues().forEach(v => { have[v[0] + '|' + v[1]] = 1; });
+  const cap = Math.min(Math.max(+b.cap || 6, 1), 12), t0 = Date.now(), sinceMs = new Date(since.replace(/\//g, '-') + 'T00:00:00+10:00').getTime();
+  let added = 0, left = 0, errTxt = '', stop = false;
+  const threads = GmailApp.search('after:' + since + ' filename:pdf -in:sent -in:trash -in:spam -subject:(' + MAIL_SKIP_ + ')', 0, 100);
+  for (const th of threads) {
+    if (stop) { left++; continue; }
+    for (const msg of th.getMessages()) {
+      if (msg.getDate().getTime() < sinceMs) continue;
+      const atts = msg.getAttachments({ includeInlineImages: false, includeAttachments: true }).filter(a => /pdf/i.test(a.getContentType()) || /\.pdf$/i.test(a.getName()));
+      for (let i = 0; i < atts.length; i++) {
+        const key = msg.getId() + '|' + i;
+        if (have[key]) continue;
+        if (stop || added >= cap || Date.now() - t0 > 200000) { left++; stop = true; continue; }
+        let p = null, err = '';
+        try { p = gemini_('application/pdf', Utilities.base64Encode(atts[i].getBytes())); } catch (e) { err = String(e && e.message || e); }
+        if (!p && /limit is used up/i.test(err)) { errTxt = err; left++; stop = true; continue; }
+        const row = [msg.getId(), i, p ? p.date : '', p ? p.supplier : '', p ? p.invoice_no : '', p && p.total !== null ? p.total : '', p ? JSON.stringify(p.items) : '', String(msg.getTo()).slice(0, 300), String(msg.getSubject()).slice(0, 200), String(msg.getFrom()).slice(0, 120), atts[i].getName().slice(0, 120), Utilities.formatDate(msg.getDate(), 'Australia/Sydney', 'yyyy-MM-dd'), new Date().toISOString(), err.slice(0, 200)];
+        sh.getRange(sh.getLastRow() + 1, 1, 1, H.length).setValues([row]);
+        have[key] = 1; added++;
+      }
+    }
+  }
+  return { added, left, err: errTxt, total: Math.max(sh.getLastRow() - 1, 0) };
+}
+function digitalOf_() {
+  return read_('digital').filter(r => r.msg).slice(-500).map(r => {
+    let items = [];
+    try { items = JSON.parse(r.items || '[]'); } catch (e) {}
+    return { id: r.msg + '|' + r.att, date: String(r.date || ''), mail_date: String(r.mail_date || ''), supplier: String(r.supplier || ''), no: String(r.inv_no || ''), total: r.total === '' || r.total === null ? null : Number(r.total), items, to: String(r.to || ''), subject: String(r.subject || ''), file: String(r.file || ''), err: String(r.err || '') };
+  });
+}

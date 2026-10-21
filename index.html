@@ -143,7 +143,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .itbl td:nth-child(2){width:62px}.itbl td:nth-child(3){width:104px}.itbl td:nth-child(4){width:88px}.itbl td:nth-child(5){width:34px}.itbl.ro td{padding:5px 6px;border-top:1px solid var(--line)}
 .btn.sm{padding:4px 10px;font-size:12px}
 .modal.wide{max-width:680px}.invimg{max-width:100%;max-height:60vh;display:block;margin:0 auto 12px;border-radius:6px;border:1px solid var(--line)}
-.pay{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}.pay th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px}.pay td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:middle}.pay tr.grp td{background:var(--bg2,rgba(127,127,127,.08));font-weight:600}.pay input[type=text]{width:100%;min-width:0;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input.bad{border-color:var(--bad)}.pay .warn{color:var(--bad)}.pay tr.nophys td{background:var(--warn-soft);border-top-color:var(--warn)}.pay tr.nophys td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.pay tr.nophys td:nth-child(2){font-weight:700}.tag.nph{background:var(--bad);color:#fff;font-weight:600}.iprow{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:22px 0 14px;padding-top:16px;border-top:1px solid var(--line)}.iprow .btn.primary{padding:10px 22px}.pay input.dig{width:84px;text-align:right;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input[type=checkbox]{width:16px;height:16px}.pay td .tick{margin-right:0}.pay .num{text-align:right}.pay th.num{text-align:right}.paybox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.paybox label{display:flex;gap:6px;align-items:center;color:var(--muted)}.paybox input{padding:5px 8px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:120px}
+.pay{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}.pay th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px}.pay td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:middle}.pay tr.grp td{background:var(--bg2,rgba(127,127,127,.08));font-weight:600}.pay input[type=text]{width:100%;min-width:0;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input.bad{border-color:var(--bad)}.pay .warn{color:var(--bad)}.pay tr.nophys td{background:var(--warn-soft);border-top-color:var(--warn)}.pay tr.nophys td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.pay tr.nophys td:nth-child(2){font-weight:700}.tag.nph{background:var(--bad);color:#fff;font-weight:600}.mailbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}.mailbar small{color:var(--muted)}.pay tr.dgd td{border-top:0;padding-top:0;font-size:12px}.pay tr.dgd.bad td{background:var(--warn-soft)}.pay tr.dgd ul,.dgl{margin:3px 0 6px;padding-left:16px}.pay tr.dgd li span{display:inline-block;min-width:74px;font-weight:600;color:var(--muted)}.pay tr.dgd li.diff{color:var(--bad)}.pay tr.dgd li.diff span{color:var(--bad)}.dgsrc{color:var(--muted)}.dgok{color:var(--good)}.iprow{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:22px 0 14px;padding-top:16px;border-top:1px solid var(--line)}.iprow .btn.primary{padding:10px 22px}.pay input.dig{width:84px;text-align:right;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input[type=checkbox]{width:16px;height:16px}.pay td .tick{margin-right:0}.pay .num{text-align:right}.pay th.num{text-align:right}.paybox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.paybox label{display:flex;gap:6px;align-items:center;color:var(--muted)}.paybox input{padding:5px 8px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:120px}
 .mback{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
 .modal{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;max-width:520px;width:100%;max-height:calc(100% - 16px);overflow:auto;padding:18px 18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .modal h2{margin:0 0 6px;font-size:17px;color:var(--bad)}
@@ -248,7 +248,7 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
   (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
-  S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc}; }); S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || [];
+  S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || [];
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
@@ -636,12 +636,65 @@ function payDownload(m){
 /* ---------- Invoice payment (admin): compare with the supplier's digital invoice, mark the physical invoice, flag differences, download the ABA ---------- */
 const invOf = e => (S.inv && S.inv[e.id]) || {phys:false, digital:null, acc:false};
 const physOf = e => invOf(e).phys || !!e.file;
-function invStat(e){
-  const c = invOf(e);
-  if(c.digital !== null && Math.abs(c.digital - e.amt) > 0.004) return c.acc ? 'acc' : 'diff';
-  return isTicked(e) || (c.digital !== null) ? 'ok' : 'none';
+/* Digital invoices read from the mailbox: match each one to a ledger entry (invoice no., else supplier + total + date), then list every difference. */
+const dgKey = x => String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^INV/, '').replace(/^0+/, '');
+const dgSup = x => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const dgDays = (a, b) => Math.abs((Date.parse(a) - Date.parse(b)) / 864e5);
+function dgRefEq(a, b){ a = dgKey(a); b = dgKey(b); return !!a && !!b && (a === b || (Math.min(a.length, b.length) >= 5 && (a.endsWith(b) || b.endsWith(a)))); }
+function dgSupEq(cat, sup){ const a = dgSup(cat), b = dgSup(sup); if(!a || !b) return false; const n = Math.min(4, a.length, b.length); return b.includes(a.slice(0, n)) || a.includes(b.slice(0, n)); }
+function dgBuild(){
+  const m = {}, used = {}, docs = (S.digital || []).filter(d => !d.err && (d.no || d.total !== null)), ents = S.entries.filter(e => e.sec === 'expense' && e.date >= '2026-10-01').sort((a, b) => a.date < b.date ? -1 : 1);
+  ents.forEach(e => { if(!e.ref) return; const d = docs.find(x => !used[x.id] && dgRefEq(e.ref, x.no)); if(d){ m[e.id] = {d, how:'no'}; used[d.id] = 1; } });
+  ents.forEach(e => { if(m[e.id]) return; const d = docs.find(x => !used[x.id] && x.total !== null && Math.abs(x.total - e.amt) < 0.005 && dgDays(x.date || x.mail_date, e.date) <= 4 && dgSupEq(e.cat, x.supplier)); if(d){ m[e.id] = {d, how:'amt'}; used[d.id] = 1; } });
+  return {m, used};
 }
-const STAT = {ok:['Matched', 'ok'], diff:['Price differs', 'bad'], acc:['Difference accepted', 'wn'], none:['Not compared', '']};
+const dgMatch = e => ((S._dg || (S._dg = dgBuild())).m[e.id]) || null;
+const r2c = x => Math.round(x * 100) / 100, gstEq = (a, b) => Math.abs(a - b) < 0.015 || Math.abs(a * 1.1 - b) < 0.02 || Math.abs(a - b * 1.1) < 0.02;
+const wordsOf = x => new Set(String(x || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 1));
+function simW(a, b){ const A = wordsOf(a), B = wordsOf(b); if(!A.size || !B.size) return 0; let n = 0; A.forEach(w => { if(B.has(w)) n++; }); return n / (A.size + B.size - n); }
+/* every difference between a ledger entry and its digital invoice: sev 'diff' = needs a decision, 'note' = for information */
+function dgDiff(e, d){
+  const out = [], nm = x => esc(String(x || '').slice(0, 60)), q = x => x === null || x === undefined || x === '' ? '' : ' × ' + x, mo = x => '$' + Number(x).toFixed(2);
+  if(e.ref && d.no && !dgRefEq(e.ref, d.no)) out.push({sev:'diff', k:'Invoice no.', txt:`sheet <b>${esc(e.ref)}</b> / digital <b>${esc(d.no)}</b>`});
+  else if(!e.ref && d.no) out.push({sev:'note', k:'Invoice no.', txt:`missing in the sheet, digital is <b>${esc(d.no)}</b>`});
+  if(d.total !== null && Math.abs(d.total - e.amt) > 0.004) out.push({sev:'diff', k:'Total', txt:`sheet <b>${mo(e.amt)}</b> / digital <b>${mo(d.total)}</b> (${d.total > e.amt ? '+' : '−'}${mo(Math.abs(d.total - e.amt))})`});
+  if(d.date && dgDays(d.date, e.date) > 3) out.push({sev:'diff', k:'Date', txt:`sheet <b>${fd(e.date)}</b> / digital <b>${fd(d.date)}</b>`});
+  const it = S.items[e.id], L = it && it.lines ? it.lines.map(l => ({n:l.item, q:l.qty, a:Number(l.amt)})) : [], D = (d.items || []).map(l => ({n:l.name, q:l.qty, a:Number(l.amt)}));
+  if(!L.length && D.length) out.push({sev:'note', k:'Line items', txt:'no line items in the sheet to compare'});
+  else if(L.length && D.length){
+    const l2 = [...L], d2 = [...D];
+    for(let i = l2.length - 1; i >= 0; i--){ const j = d2.findIndex(x => gstEq(l2[i].a, x.a)); if(j >= 0){ l2.splice(i, 1); d2.splice(j, 1); } }
+    const pairs = [];
+    l2.slice().forEach(a => { let bi = -1, bs = 0.3; d2.forEach((b, j) => { const sc = simW(a.n, b.n); if(sc > bs){ bs = sc; bi = j; } }); if(bi >= 0){ pairs.push([a, d2[bi]]); d2.splice(bi, 1); l2.splice(l2.indexOf(a), 1); } });
+    pairs.forEach(([a, b]) => out.push({sev:'diff', k:'Item', txt:`<b>${nm(a.n)}</b>: sheet ${mo(a.a)}${q(a.q)} / digital ${mo(b.a)}${q(b.q)} (${b.a > a.a ? '+' : '−'}${mo(Math.abs(b.a - a.a))})`}));
+    l2.forEach(a => out.push({sev:'diff', k:'Sheet only', txt:`<b>${nm(a.n)}</b> ${mo(a.a)}${q(a.q)} is not on the digital invoice`}));
+    d2.forEach(b => out.push({sev:'diff', k:'Digital only', txt:`<b>${nm(b.n)}</b> ${mo(b.a)}${q(b.q)} is not in the sheet`}));
+  }
+  return out;
+}
+const dgHard = e => { const m = dgMatch(e); return m ? dgDiff(e, m.d).filter(x => x.sev === 'diff') : []; };
+function invStat(e){
+  const c = invOf(e), m = dgMatch(e), dig = c.digital !== null ? c.digital : (m && m.d.total !== null ? m.d.total : null);
+  if(dig !== null && Math.abs(dig - e.amt) > 0.004) return c.acc ? 'acc' : 'diff';
+  if(m && c.digital === null && dgHard(e).length) return c.acc ? 'acc' : 'det';
+  return isTicked(e) || dig !== null ? 'ok' : 'none';
+}
+const STAT = {ok:['Matched', 'ok'], diff:['Price differs', 'bad'], det:['Details differ', 'bad'], acc:['Difference accepted', 'wn'], none:['Not compared', '']};
+async function mailSync(retry){
+  if(UI.mail && UI.mail.busy) return;
+  UI.mail = {busy:true, msg:'Reading the mailbox…', n:0}; render();
+  try{
+    for(let i = 0; i < 40; i++){
+      const r = await api('mail', {since:'2026/10/05', cap:6, retry:retry && i === 0});
+      UI.mail.n += r.added; UI.mail.msg = `Read ${UI.mail.n} new PDF${UI.mail.n === 1 ? '' : 's'}${r.left ? ', ' + r.left + ' to go…' : ''}`; render();
+      if(r.err){ UI.mail.err = r.err; break; }
+      if(!r.left) break;
+    }
+    S._dg = null; await loadAll();
+    UI.mail = {busy:false, msg:`Done. ${UI.mail.n} new PDF${UI.mail.n === 1 ? '' : 's'} read, ${S.digital.length} digital invoices in total.` + (UI.mail.err ? ' ' + UI.mail.err : ''), n:UI.mail.n};
+  }catch(err){ if(err.auth) return; UI.mail = {busy:false, msg:'', err:err.message || 'Could not read the mailbox'}; }
+  render();
+}
 function invSet(e, patch){
   if(user().role !== 'admin') return;
   const had = S.inv[e.id] ? {...S.inv[e.id]} : undefined, hadTick = S.checks[e.id];
@@ -662,43 +715,50 @@ function invSet(e, patch){
 }
 function viewInvPay(){
   const b = UI.branch, days = weekDays(UI.week), ip = UI.ip;
+  S._dg = dgBuild();
   if(!ip.date) ip.date = fd(todayIso());
   const m = {br:b, week:UI.week, date:ip.date, sel:ip.sel}, pl = payPlan(m);
   const all = pl.groups.flatMap(g => g.invs), sum = l => l.reduce((a, e) => a + e.amt, 0);
   const by = k => all.filter(e => invStat(e) === k), nPhys = all.filter(e => !physOf(e));
   const kp = (lbl, n, amt, cls) => `<div class="kpi"><small>${lbl}</small><strong class="${cls || ''}">${n}</strong><br><em>${amt === null ? '' : money(amt)}</em></div>`;
-  const kpis = `<div class="kpis">${kp('Invoices', all.length, sum(all))}${kp('Matched', by('ok').length, sum(by('ok')))}${kp('Price differs', by('diff').length, sum(by('diff')), by('diff').length ? 'neg' : '')}${kp('Not compared', by('none').length, sum(by('none')))}${kp('No physical invoice', nPhys.length, sum(nPhys), nPhys.length ? 'neg' : '')}</div>`;
+  const kpis = `<div class="kpis">${kp('Invoices', all.length, sum(all))}${kp('Matched', by('ok').length, sum(by('ok')))}${kp('Price differs', by('diff').length, sum(by('diff')), by('diff').length ? 'neg' : '')}${kp('Details differ', by('det').length, sum(by('det')), by('det').length ? 'neg' : '')}${kp('Not compared', by('none').length, sum(by('none')))}${kp('No physical invoice', nPhys.length, sum(nPhys), nPhys.length ? 'neg' : '')}</div>`;
   const kindTxt = {bulk:'one payment for the week (fixed reference)', each:'one payment per invoice', bpay:'BPAY, not in the ABA file', nodata:'no bank details, not in the ABA file'};
   const rows = pl.groups.map(g => {
     const py = g.payee, selSum = g.invs.filter(e => ip.sel[e.id]).reduce((a, e) => a + e.amt, 0);
     const head = `<tr class="grp"><td colspan="9">${esc(g.name)} <small style="font-weight:400;color:var(--muted)">· ${kindTxt[g.kind]}${g.kind === 'bulk' ? ' · ref ' + esc(abaTxt(py.ref, 18)) : ''}</small></td><td class="num">${selSum ? selSum.toFixed(2) : ''}</td></tr>`;
     const body = g.invs.map(e => {
       const st = invStat(e), c = invOf(e), t = pl.txns.find(x => x.ids.includes(e.id)), editable = g.kind === 'each' && ip.sel[e.id];
-      const diff = c.digital !== null ? Math.round((c.digital - e.amt) * 100) / 100 : null;
-      const act = st === 'diff' ? `<button class="btn sm" type="button" data-act="ivacc" data-id="${e.id}" title="The sheet amount is right (supplier digital invoice is wrong). Pay the sheet amount.">Accept</button>` : st === 'acc' ? `<button class="btn sm" type="button" data-act="ivunacc" data-id="${e.id}">Undo</button>` : '';
+      const dm = dgMatch(e), dig = c.digital !== null ? c.digital : (dm && dm.d.total !== null ? dm.d.total : null), dl = dm ? dgDiff(e, dm.d) : [];
+      const diff = dig !== null ? Math.round((dig - e.amt) * 100) / 100 : null;
+      const act = st === 'diff' || st === 'det' ? `<button class="btn sm" type="button" data-act="ivacc" data-id="${e.id}" title="The sheet amount is right (supplier digital invoice is wrong). Pay the sheet amount.">Accept</button>` : st === 'acc' ? `<button class="btn sm" type="button" data-act="ivunacc" data-id="${e.id}">Undo</button>` : '';
+      const dtail = dm ? `<tr class="dgd ${dl.some(x => x.sev === 'diff') ? 'bad' : ''}"><td></td><td colspan="9"><small class="dgsrc">✉ ${esc(dm.d.supplier)} ${esc(dm.d.no)} · ${dm.d.total !== null ? money(dm.d.total) : ''} · to ${esc(String(dm.d.to).replace(/<|>/g, '').split(',')[0].split('@')[0].slice(0, 40))}${dm.how === 'amt' ? ' · matched by supplier, amount and date' : ''}</small>${dl.length ? '<ul>' + dl.map(x => `<li class="${x.sev}"><span>${esc(x.k)}</span> ${x.txt}</li>`).join('') + '</ul>' : ' <small class="dgok">identical</small>'}</td></tr>` : '';
       return `<tr class="${physOf(e) ? '' : 'nophys'}"><td><input type="checkbox" data-act="ipsel" data-id="${e.id}" ${ip.sel[e.id] ? 'checked' : ''} ${st === 'diff' ? 'disabled' : ''} aria-label="Include in the ABA file" title="${st === 'diff' ? 'Resolve the price difference first' : ''}"></td>
         <td>${fs2(e.date)}</td>
         <td>${editable ? `<input type="text" class="${t && t.err === 'Reference' ? 'bad' : ''}" data-payref="${e.id}" value="${esc(e.ref)}" placeholder="Invoice no." maxlength="40">${t && t.cut ? '<small class="warn">Cut to 18 characters: ' + esc(t.refTxt) + '</small>' : ''}` : g.kind === 'bulk' ? '' : esc(e.ref ? '#' + e.ref : '')}</td>
         <td class="num">${e.amt.toFixed(2)}</td>
-        <td class="num"><input type="number" step="0.01" min="0" class="dig" data-ivdig="${e.id}" value="${c.digital !== null ? c.digital : ''}" placeholder="${isTicked(e) && c.digital === null ? 'matches' : ''}" aria-label="Amount on the digital invoice"></td>
+        <td class="num"><input type="number" step="0.01" min="0" class="dig" data-ivdig="${e.id}" value="${c.digital !== null ? c.digital : ''}" placeholder="${c.digital === null && dm && dm.d.total !== null ? dm.d.total.toFixed(2) : isTicked(e) ? 'matches' : ''}" title="${dm ? 'Amount read from the email ' + esc(dm.d.no || '') + '. Type to override.' : ''}" aria-label="Amount on the digital invoice"></td>
         <td class="num ${diff ? 'warn' : ''}">${diff ? (diff > 0 ? '+' : '−') + Math.abs(diff).toFixed(2) : ''}</td>
         <td>${tickBtn(e)}</td>
         <td><input type="checkbox" data-ivphys="${e.id}" ${physOf(e) ? 'checked' : ''} ${e.file ? 'disabled' : ''} aria-label="Physical invoice received" title="${e.file ? 'A photo is attached to this invoice' : 'Tick when the physical invoice has been received'}">${e.file ? ` <span role="button" tabindex="0" data-act="vphoto" data-id="${e.id}" title="View the photo" style="cursor:pointer">📎</span>` : ''}</td>
-        <td><span class="tag ${st === 'diff' ? 'warn' : ''}" style="${st === 'ok' ? 'color:var(--good)' : st === 'diff' ? 'color:var(--bad)' : ''}">${STAT[st][0]}</span> ${physOf(e) ? '' : '<span class="tag nph">No physical invoice</span>'} ${act}</td>
-        <td class="num"></td></tr>`;
+        <td><span class="tag ${st === 'diff' || st === 'det' ? 'warn' : ''}" style="${st === 'ok' ? 'color:var(--good)' : st === 'diff' || st === 'det' ? 'color:var(--bad)' : ''}">${STAT[st][0]}</span> ${physOf(e) ? '' : '<span class="tag nph">No physical invoice</span>'} ${act}</td>
+        <td class="num"></td></tr>${dtail}`;
     }).join('');
     return head + body;
   }).join('');
+  const wk = new Set(days), mx = UI.mail || {}, loose = (S.digital || []).filter(d => !d.err && (d.no || d.total !== null) && !S._dg.used[d.id] && wk.has(d.date || d.mail_date)).slice(0, 40);
+  const mailBar = `<div class="mailbar"><button class="btn" type="button" data-act="mailsync" ${mx.busy ? 'disabled' : ''}>${mx.busy ? 'Reading…' : 'Check emails'}</button><small>${esc(mx.msg || (S.digital.length ? S.digital.length + ' digital invoices from the mailbox (since 05/10)' : 'Reads the supplier invoice PDFs in the mailbox (since 05/10) and compares them with the sheet'))}</small>${mx.err ? `<small class="warn">${esc(mx.err)} ${mx.busy ? '' : '<a href="#" data-act="mailretry">Retry unreadable</a>'}</small>` : ''}</div>`;
+  const looseHtml = loose.length ? `<div class="hint"><b>Emails with no matching entry this week (${loose.length}).</b> Possibly not entered yet, or for another branch:<ul class="dgl">${loose.map(d => `<li>${fs2(d.date || d.mail_date)} · ${esc(d.supplier || d.subject)} ${esc(d.no)} · ${d.total !== null ? money(d.total) : ''} · to ${esc(String(d.to).replace(/<|>/g, '').split(',')[0].split('@')[0].slice(0, 40))}</li>`).join('')}</ul></div>` : '';
   const dIso = parseDate(ip.date, UI.week), dateBad = !dIso || dIso < addDays(todayIso(), -7) || dIso > addDays(todayIso(), 730);
   const bad = pl.txns.filter(t => t.err).length, can = pl.payer && pl.txns.length && !bad && !dateBad;
   const selIds = Object.keys(ip.sel).filter(id => ip.sel[id]).map(Number), selE = all.filter(e => selIds.includes(e.id));
   const warnN = selE.filter(e => invStat(e) === 'none').length, physN = selE.filter(e => !physOf(e)).length;
   const oth = pl.other.map(o => `<div class="hint">${o.kind === 'bpay' ? `<b>${esc(o.supplier)}</b>: pay by BPAY. Biller code ${esc(o.py.biller)}, CRN ${esc(o.py.crn)}, ${money(o.amt)}${o.n > 1 ? ' (' + o.n + ' invoices)' : ''}.` : `<b>${esc(o.supplier)}</b>: no bank details saved (${money(o.amt)}). Add them to the payees sheet to include them.`}</div>`).join('');
   return weekBar() + kpis + `<div class="card"><h2>Invoice payment <small>${esc(DATA[b].name)}. Compare each invoice with the supplier's digital invoice, mark the physical invoice, then pay. A price difference blocks the invoice from the ABA file until it is fixed (edit the amount in the weekly sheet, or accept the difference).</small></h2><div class="pad">
+    ${mailBar}
     <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(ip.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span>
       <button class="btn" type="button" data-act="ipok">Select matched</button><button class="btn" type="button" data-act="ipall">Select all</button><button class="btn" type="button" data-act="ipnone">Clear</button></div>
     ${pl.groups.length ? `<div class="scroll"><table class="pay"><thead><tr><th></th><th>Date</th><th>Invoice no.</th><th class="num">Sheet</th><th class="num">Digital</th><th class="num">Diff</th><th title="Matches the digital invoice">Chk</th><th title="Physical invoice received">Phys.</th><th>Status</th><th class="num">Selected</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p>No invoices this week.</p>'}
-    ${oth}${bad ? `<div class="hint warn">${bad} payment${bad > 1 ? 's' : ''} need fixing (${esc([...new Set(pl.txns.filter(t => t.err).map(t => t.err))].join(', '))}) before the file can be downloaded.</div>` : ''}
+    ${looseHtml}${oth}${bad ? `<div class="hint warn">${bad} payment${bad > 1 ? 's' : ''} need fixing (${esc([...new Set(pl.txns.filter(t => t.err).map(t => t.err))].join(', '))}) before the file can be downloaded.</div>` : ''}
     ${!pl.payer ? '<div class="hint warn">No paying account is saved for this branch (payers sheet).</div>' : ''}
     ${warnN ? `<div class="hint warn">${warnN} selected invoice${warnN > 1 ? 's are' : ' is'} not compared with the digital invoice yet.</div>` : ''}${physN ? `<div class="hint warn">${physN} selected invoice${physN > 1 ? 's have' : ' has'} no physical invoice marked.</div>` : ''}
     <div class="iprow"><span style="flex:1;color:var(--muted)">${pl.txns.length} payment${pl.txns.length === 1 ? '' : 's'} · <b style="color:var(--fg)">${money(pl.total)}</b> in the file${pl.payer ? ' · paid from ' + esc(pl.payer.entity) : ''}</span><button class="btn primary" type="button" data-act="ipdl" ${can ? '' : 'disabled'}>Download ABA file</button></div>
@@ -1331,6 +1391,8 @@ document.addEventListener('click', ev => {
   }
   else if(a === 'del'){ const id = +t.dataset.id; if(UI.confirmDel === id){ S.entries = S.entries.filter(e => e.id !== id); UI.confirmDel = null; UI.editId = null; UI.draft = {}; save(); flash('Entry deleted'); } else { UI.confirmDel = id; } }
   else if(a === 'theme'){ const n = getTheme() === 'dark' ? 'light' : 'dark'; try{ localStorage.setItem('rms-theme', n); }catch(e){} document.documentElement.dataset.theme = n; }
+  else if(a === 'mailsync'){ mailSync(false); return; }
+  else if(a === 'mailretry'){ ev.preventDefault(); mailSync(true); return; }
   else if(a === 'ipsel'){ UI.ip.sel[+t.dataset.id] = t.checked; }
   else if(a === 'ipall'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = invStat(e) !== 'diff'; }); }
   else if(a === 'ipok'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = ['ok', 'acc'].includes(invStat(e)); }); }
