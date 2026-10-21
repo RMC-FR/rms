@@ -60,8 +60,8 @@ select,input[type=text],input[type=number],input[type=date],input[type=email]{ba
 .wtbl td.num,.wtbl td b{font-family:inherit}
 .wtbl .emp{border-left:0}
 .wtbl .k{border-left:3px solid var(--line)}
-.tag.t-full{background:rgba(0,106,255,.12);color:#0061ec}.tag.t-part{background:rgba(230,194,110,.28);color:#8a6a12}.tag.t-casual{background:rgba(232,144,138,.22);color:#b4544d}
-:root[data-theme="dark"] .tag.t-full{background:rgba(76,151,255,.2);color:#7db1ff}:root[data-theme="dark"] .tag.t-part{color:#ecce82}:root[data-theme="dark"] .tag.t-casual{color:#f2aaa4}
+.tag.t-full,.t-salary{background:rgba(0,106,255,.12);color:#0061ec}.tag.t-part{background:rgba(230,194,110,.28);color:#8a6a12}.tag.t-casual{background:rgba(232,144,138,.22);color:#b4544d}
+:root[data-theme="dark"] .tag.t-full,.t-salary{background:rgba(76,151,255,.2);color:#7db1ff}:root[data-theme="dark"] .tag.t-part{color:#ecce82}:root[data-theme="dark"] .tag.t-casual{color:#f2aaa4}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
 .kpi small{display:block;color:var(--muted);font-size:12px}
@@ -1242,11 +1242,14 @@ const wHours = w => (w.ordH || 0) + (w.satH || 0) + (w.sunH || 0) + (w.otH || 0)
 const hasCashW = w => w.cashR != null || w.cashH != null || w.rent != null;   // a cash part was recorded for this wage line (e.g. Bowral)
 const cashPay = w => Math.round(((w.cashH && w.cashR ? w.cashH * w.cashR : 0) + (w.rent || 0)) * 100) / 100;   // cash hours × rate + rent (rent is negative)
 const wBasis = w => [['Ord', w.ordH, w.ordR], ['Sat', w.satH, w.satR], ['Sun', w.sunH, w.sunR], ['OT', w.otH, w.otR]].filter(x => x[1]).map(x => `<div>${x[0]} ${x[1]} h × ${(+x[2]).toFixed(2)}</div>`).join('') + (w.dayN ? `<div>${w.dayN} days × ${(+w.dayR).toFixed(0)} (day rate)</div>` : '');
-const modeRank = w => ({full:0, part:1, casual:2})[String(w.mode).toLowerCase()] ?? 3;
+const modeRank = w => ({full:0, salary:0, part:1, casual:2})[String(w.mode).toLowerCase()] ?? 3;
 const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / Sunday / overtime / day rate
   const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']], r2 = n => Math.round(n * 100) / 100, fixed = !!(w.dayN && w.dayR) && w.name !== 'Robert';
   let L = [];
-  if(fixed){
+  if(String(w.mode).toLowerCase() === 'salary'){   // full-time salary: STP is fixed (38 h × rate); the hours really worked are listed for reference, without a rate
+    L.push({label:'Fixed weekly', q:38, u:'hr', r:w.ordR, sub:w.stp});
+    [['Weekdays', w.ordH], ['Saturday', w.satH], ['Sunday', w.sunH]].forEach(x => { if(x[1]) L.push({label:x[0] + ' (worked)', q:x[1], u:'hr', dim:true}); });
+  } else if(fixed){
     if(w.ordH) L.push({label:'Fixed weekly', q:w.ordH, u:'hr', r:w.ordR, sub:w.stp});
     L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:L.length > 0});
   } else {
