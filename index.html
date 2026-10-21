@@ -143,7 +143,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .itbl td:nth-child(2){width:62px}.itbl td:nth-child(3){width:104px}.itbl td:nth-child(4){width:88px}.itbl td:nth-child(5){width:34px}.itbl.ro td{padding:5px 6px;border-top:1px solid var(--line)}
 .btn.sm{padding:4px 10px;font-size:12px}
 .modal.wide{max-width:680px}.invimg{max-width:100%;max-height:60vh;display:block;margin:0 auto 12px;border-radius:6px;border:1px solid var(--line)}
-.pay{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}.pay th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px}.pay td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:middle}.pay tr.grp td{background:var(--bg2,rgba(127,127,127,.08));font-weight:600}.pay input[type=text]{width:100%;min-width:0;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input.bad{border-color:var(--bad)}.pay .warn{color:var(--bad)}.paybox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.paybox label{display:flex;gap:6px;align-items:center;color:var(--muted)}.paybox input{padding:5px 8px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:120px}
+.pay{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}.pay th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px}.pay td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:middle}.pay tr.grp td{background:var(--bg2,rgba(127,127,127,.08));font-weight:600}.pay input[type=text]{width:100%;min-width:0;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input.bad{border-color:var(--bad)}.pay .warn{color:var(--bad)}.pay input.dig{width:84px;text-align:right;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input[type=checkbox]{width:16px;height:16px}.pay td .tick{margin-right:0}.pay .num{text-align:right}.pay th.num{text-align:right}.paybox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.paybox label{display:flex;gap:6px;align-items:center;color:var(--muted)}.paybox input{padding:5px 8px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:120px}
 .mback{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
 .modal{background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:10px;max-width:520px;width:100%;max-height:calc(100% - 16px);overflow:auto;padding:18px 18px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 .modal h2{margin:0 0 6px;font-size:17px;color:var(--bad)}
@@ -248,7 +248,7 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
   (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
-  S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; (j.checks || []).forEach(c => S.checks[c.id] = c.amt); S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || [];
+  S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc}; }); S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || [];
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
@@ -269,7 +269,7 @@ async function signIn(username, pw){
   await afterLogin();
 }
 async function signOut(){
-  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}, items:{}, wages:[], hiddenWage:{}, deductions:[], checks:{}}; DATA = {}; BR = []; PROFILES = [];
+  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}, items:{}, wages:[], hiddenWage:{}, deductions:[], checks:{}, inv:{}}; DATA = {}; BR = []; PROFILES = [];
   UI.pw = false; UI.syncErr = null; UI.loginErr = '';
 }
 /* save(): sends only what changed since the last successful sync; a single queue keeps edits in order */
@@ -292,14 +292,15 @@ async function doSync(){
   if(UI.syncErr){ UI.syncErr = null; render(); }
 }
 const todayLocal = () => new Date().toLocaleDateString('en-CA');
-const UI = {imp:{text:'', reports:null}, booting:true, loginErr:'', pw:false, branch:'ALL', tab:'summary', day:todayLocal(), week:'2026-10-05', editId:null, draft:{}, fSec:'expense', confirmDel:null};
+const UI = {ip:{sel:{}, date:''}, imp:{text:'', reports:null}, booting:true, loginErr:'', pw:false, branch:'ALL', tab:'summary', day:todayLocal(), week:'2026-10-05', editId:null, draft:{}, fSec:'expense', confirmDel:null};
 const user = () => ({role:ME.role, branch:ME.br, name:ME.name});
 const allowed = () => user().role === 'admin' ? BR : [user().branch];
 function ensureBranch(){
   if(user().role !== 'admin') UI.branch = allowed()[0];
   else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'access'].includes(UI.tab)) UI.tab = 'summary';
   else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'access')) UI.tab = 'summary';
-  if((UI.tab === 'access' || UI.tab === 'cashwage') && user().role !== 'admin') UI.tab = 'summary';
+  if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
+  if(UI.branch === 'ALL' && UI.tab === 'invpay') UI.tab = 'summary';
 }
 
 /* calculations */
@@ -342,7 +343,7 @@ function render(){
   const u = user();
   const chips = u.role === 'admin' ? ['ALL', ...BR].map(b =>
     `<button class="chip" data-act="branch" data-v="${b}" aria-pressed="${UI.branch === b}">${b === 'ALL' ? 'All branches' : b}</button>`).join('') : '';
-  const tabs = (u.role === 'admin' && UI.branch === 'ALL' ? [['summary','Summary'], ['access','Access']] : [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ['wage','Wages']])
+  const tabs = (u.role === 'admin' && UI.branch === 'ALL' ? [['summary','Summary'], ['access','Access']] : [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ...(u.role === 'admin' ? [['invpay','Invoice payment']] : []), ['wage','Wages']])
     .map(([k, l]) => `<button class="tab" role="tab" data-act="tab" data-v="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('');
   $('#app').innerHTML = `
     <header class="top">
@@ -355,7 +356,7 @@ function render(){
     ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : viewAccess()}`;
   const tw = document.createTreeWalker($('#app'), NodeFilter.SHOW_TEXT), negs = [];
   while(tw.nextNode()){ const n = tw.currentNode, p = n.parentElement; if(p && !/^(SCRIPT|STYLE|TEXTAREA|OPTION|BUTTON|TITLE)$/.test(p.tagName) && /^\s*[-−–]\s*\$?\d[\d,]*(\.\d+)?\s*%?\s*$/.test(n.nodeValue)) negs.push(p); }
   negs.forEach(p => p.classList.add('neg'));
@@ -624,37 +625,84 @@ function buildAba(payer, txns, dateIso, desc, remitter){
   L.push('7999-999' + ' '.repeat(12) + num(tot, 10) + num(tot, 10) + num(0, 10) + ' '.repeat(24) + num(txns.length, 6) + ' '.repeat(40));
   return L.join('\r\n') + '\r\n';
 }
-function payModal(m){
-  if(user().role !== 'admin') return '';
-  const pl = payPlan(m), days = weekDays(m.week), dIso = parseDate(m.date, m.week);
-  const dateBad = !dIso || dIso < addDays(todayIso(), -7) || dIso > addDays(todayIso(), 730);
-  const bad = pl.txns.filter(t => t.err).length, can = pl.payer && pl.txns.length && !bad && !dateBad;
-  const kindTxt = {bulk:'one payment for the week (fixed reference)', each:'one payment per invoice', bpay:'BPAY, not in the ABA file', nodata:'no bank details, not in the ABA file'};
-  const rows = pl.groups.map(g => {
-    const py = g.payee, sub = g.invs.filter(e => m.sel[e.id]).reduce((a, e) => a + e.amt, 0);
-    const head = `<tr class="grp"><td colspan="5">${esc(g.name)} <small style="font-weight:400;color:var(--muted)">· ${kindTxt[g.kind]}${g.kind === 'bulk' ? ' · ref ' + esc(abaTxt(py.ref, 18)) : ''}</small></td><td class="num">${sub ? sub.toFixed(2) : ''}</td></tr>`;
-    const body = g.invs.map(e => {
-      const t = pl.txns.find(x => x.ids.includes(e.id)), editable = g.kind === 'each' && m.sel[e.id];
-      return `<tr><td><input type="checkbox" data-act="paysel" data-id="${e.id}" ${m.sel[e.id] ? 'checked' : ''} aria-label="Include"></td><td>${fs2(e.date)}</td><td>${isTicked(e) ? '<span title="Checked against the supplier invoice">✓</span>' : '<span class="warn" title="Not checked yet">–</span>'}</td><td colspan="2">${editable ? `<input type="text" class="${t && t.err === 'Reference' ? 'bad' : ''}" data-payref="${e.id}" value="${esc(e.ref)}" placeholder="Invoice no. (payment reference)" maxlength="40">${t && t.cut ? '<small class="warn">Cut to 18 characters: ' + esc(t.refTxt) + '</small>' : ''}` : (g.kind === 'bulk' ? '' : esc(e.ref ? '#' + e.ref : ''))}</td><td class="num">${e.amt.toFixed(2)}</td></tr>`;
-    }).join('');
-    return head + body;
-  }).join('');
-  const oth = pl.other.map(o => `<div class="hint">${o.kind === 'bpay' ? `<b>${esc(o.supplier)}</b>: pay by BPAY. Biller code ${esc(o.py.biller)}, CRN ${esc(o.py.crn)}, ${money(o.amt)}${o.n > 1 ? ' (' + o.n + ' invoices)' : ''}.` : `<b>${esc(o.supplier)}</b>: no bank details saved (${money(o.amt)}). Add them to the payees sheet to include them.`}</div>`).join('');
-  const missing = pl.groups.filter(g => g.kind === 'nodata' && !g.invs.some(e => m.sel[e.id])).length;
-  return `<div class="mback"><div class="modal wide" role="dialog" aria-modal="true" style="max-width:760px"><h2 style="color:var(--fg)">Pay run · ${esc(BRN[m.br] || m.br)} · ${fs2(days[0])} – ${fs2(days[6])}</h2>
-    <p>${pl.payer ? `Paid from <b>${esc(pl.payer.entity)}</b> (${esc(pl.payer.bsb)} ${esc(String(pl.payer.acct).padStart(6, '0'))}). Download the file, then in Westpac Online Banking go to Payments &gt; File imports &gt; Import new file &gt; Direct Entry/Pay Anyone (ABA).` : '<span class="warn">No paying account is saved for this branch (payers sheet).</span>'}</p>
-    <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(m.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span><button class="btn" type="button" data-act="payall">Select all</button><button class="btn" type="button" data-act="paychk">Only checked</button></div>
-    ${pl.groups.length ? `<table class="pay"><thead><tr><th></th><th>Date</th><th title="Checked against the supplier invoice">Chk</th><th colspan="2">Reference</th><th class="num">Amount</th></tr></thead><tbody>${rows}</tbody></table>` : '<p>No invoices this week.</p>'}
-    ${oth}${bad ? `<div class="hint warn">${bad} payment${bad > 1 ? 's' : ''} need fixing (${esc([...new Set(pl.txns.filter(t => t.err).map(t => t.err))].join(', '))}) before the file can be downloaded.</div>` : ''}
-    <div class="row" style="align-items:center"><span style="flex:1;color:var(--muted)">${pl.txns.length} payment${pl.txns.length === 1 ? '' : 's'} · <b style="color:var(--fg)">${money(pl.total)}</b> in the file${missing ? '' : ''}</span><button class="btn primary" type="button" data-act="paydl" ${can ? '' : 'disabled'}>Download ABA file</button><button class="btn" type="button" data-act="mclose">Close</button></div></div></div>`;
-}
-function payDownload(){
-  const m = UI.modal, pl = payPlan(m), dIso = parseDate(m.date, m.week);
+function payDownload(m){
+  const pl = payPlan(m), dIso = parseDate(m.date, m.week);
   if(!pl.payer || !pl.txns.length || pl.txns.some(t => t.err) || !dIso) return;
   const txt = buildAba(pl.payer, pl.txns, dIso, 'AKIRA ' + m.br, 'AKIRA SUSHI ' + m.br);
   const a = document.createElement('a'), u = URL.createObjectURL(new Blob([txt], {type:'text/plain'}));
   a.href = u; a.download = `AKIRA_${m.br}_${m.week}_suppliers.aba`; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
   flash('ABA file downloaded');
+}
+/* ---------- Invoice payment (admin): compare with the supplier's digital invoice, mark the physical invoice, flag differences, download the ABA ---------- */
+const invOf = e => (S.inv && S.inv[e.id]) || {phys:false, digital:null, acc:false};
+const physOf = e => invOf(e).phys || !!e.file;
+function invStat(e){
+  const c = invOf(e);
+  if(c.digital !== null && Math.abs(c.digital - e.amt) > 0.004) return c.acc ? 'acc' : 'diff';
+  return isTicked(e) || (c.digital !== null) ? 'ok' : 'none';
+}
+const STAT = {ok:['Matched', 'ok'], diff:['Price differs', 'bad'], acc:['Difference accepted', 'wn'], none:['Not compared', '']};
+function invSet(e, patch){
+  if(user().role !== 'admin') return;
+  const had = S.inv[e.id] ? {...S.inv[e.id]} : undefined, hadTick = S.checks[e.id];
+  const c = {...invOf(e), ...patch};
+  if('digital' in patch){
+    if(patch.digital === null){ c.acc = false; }
+    else if(Math.abs(patch.digital - e.amt) < 0.005){ S.checks[e.id] = e.amt; c.acc = false; }
+    else delete S.checks[e.id];
+  }
+  S.inv[e.id] = c; render();
+  UI.syncErr = null;
+  queue = queue.then(() => api('inv', {id:e.id, ...patch})).catch(err => {
+    if(err.auth) return;
+    if(had === undefined) delete S.inv[e.id]; else S.inv[e.id] = had;
+    if(hadTick === undefined) delete S.checks[e.id]; else S.checks[e.id] = hadTick;
+    UI.syncErr = err.message || 'Could not save'; render();
+  });
+}
+function viewInvPay(){
+  const b = UI.branch, days = weekDays(UI.week), ip = UI.ip;
+  if(!ip.date) ip.date = fd(todayIso());
+  const m = {br:b, week:UI.week, date:ip.date, sel:ip.sel}, pl = payPlan(m);
+  const all = pl.groups.flatMap(g => g.invs), sum = l => l.reduce((a, e) => a + e.amt, 0);
+  const by = k => all.filter(e => invStat(e) === k), nPhys = all.filter(e => !physOf(e));
+  const kp = (lbl, n, amt, cls) => `<div class="kpi"><small>${lbl}</small><strong class="${cls || ''}">${n}</strong><br><em>${amt === null ? '' : money(amt)}</em></div>`;
+  const kpis = `<div class="kpis">${kp('Invoices', all.length, sum(all))}${kp('Matched', by('ok').length, sum(by('ok')))}${kp('Price differs', by('diff').length, sum(by('diff')), by('diff').length ? 'neg' : '')}${kp('Not compared', by('none').length, sum(by('none')))}${kp('No physical invoice', nPhys.length, sum(nPhys))}</div>`;
+  const kindTxt = {bulk:'one payment for the week (fixed reference)', each:'one payment per invoice', bpay:'BPAY, not in the ABA file', nodata:'no bank details, not in the ABA file'};
+  const rows = pl.groups.map(g => {
+    const py = g.payee, selSum = g.invs.filter(e => ip.sel[e.id]).reduce((a, e) => a + e.amt, 0);
+    const head = `<tr class="grp"><td colspan="9">${esc(g.name)} <small style="font-weight:400;color:var(--muted)">· ${kindTxt[g.kind]}${g.kind === 'bulk' ? ' · ref ' + esc(abaTxt(py.ref, 18)) : ''}</small></td><td class="num">${selSum ? selSum.toFixed(2) : ''}</td></tr>`;
+    const body = g.invs.map(e => {
+      const st = invStat(e), c = invOf(e), t = pl.txns.find(x => x.ids.includes(e.id)), editable = g.kind === 'each' && ip.sel[e.id];
+      const diff = c.digital !== null ? Math.round((c.digital - e.amt) * 100) / 100 : null;
+      const act = st === 'diff' ? `<button class="btn sm" type="button" data-act="ivacc" data-id="${e.id}" title="The sheet amount is right (supplier digital invoice is wrong). Pay the sheet amount.">Accept</button>` : st === 'acc' ? `<button class="btn sm" type="button" data-act="ivunacc" data-id="${e.id}">Undo</button>` : '';
+      return `<tr><td><input type="checkbox" data-act="ipsel" data-id="${e.id}" ${ip.sel[e.id] ? 'checked' : ''} ${st === 'diff' ? 'disabled' : ''} aria-label="Include in the ABA file" title="${st === 'diff' ? 'Resolve the price difference first' : ''}"></td>
+        <td>${fs2(e.date)}</td>
+        <td>${editable ? `<input type="text" class="${t && t.err === 'Reference' ? 'bad' : ''}" data-payref="${e.id}" value="${esc(e.ref)}" placeholder="Invoice no." maxlength="40">${t && t.cut ? '<small class="warn">Cut to 18 characters: ' + esc(t.refTxt) + '</small>' : ''}` : g.kind === 'bulk' ? '' : esc(e.ref ? '#' + e.ref : '')}</td>
+        <td class="num">${e.amt.toFixed(2)}</td>
+        <td class="num"><input type="number" step="0.01" min="0" class="dig" data-ivdig="${e.id}" value="${c.digital !== null ? c.digital : ''}" placeholder="${isTicked(e) && c.digital === null ? 'matches' : ''}" aria-label="Amount on the digital invoice"></td>
+        <td class="num ${diff ? 'warn' : ''}">${diff ? (diff > 0 ? '+' : '−') + Math.abs(diff).toFixed(2) : ''}</td>
+        <td>${tickBtn(e)}</td>
+        <td><input type="checkbox" data-ivphys="${e.id}" ${physOf(e) ? 'checked' : ''} ${e.file ? 'disabled' : ''} aria-label="Physical invoice received" title="${e.file ? 'A photo is attached to this invoice' : 'Tick when the physical invoice has been received'}">${e.file ? ` <span role="button" tabindex="0" data-act="vphoto" data-id="${e.id}" title="View the photo" style="cursor:pointer">📎</span>` : ''}</td>
+        <td><span class="tag ${st === 'diff' ? 'warn' : ''}" style="${st === 'ok' ? 'color:var(--good)' : st === 'diff' ? 'color:var(--bad)' : ''}">${STAT[st][0]}</span> ${act}</td>
+        <td class="num"></td></tr>`;
+    }).join('');
+    return head + body;
+  }).join('');
+  const dIso = parseDate(ip.date, UI.week), dateBad = !dIso || dIso < addDays(todayIso(), -7) || dIso > addDays(todayIso(), 730);
+  const bad = pl.txns.filter(t => t.err).length, can = pl.payer && pl.txns.length && !bad && !dateBad;
+  const selIds = Object.keys(ip.sel).filter(id => ip.sel[id]).map(Number), selE = all.filter(e => selIds.includes(e.id));
+  const warnN = selE.filter(e => invStat(e) === 'none').length, physN = selE.filter(e => !physOf(e)).length;
+  const oth = pl.other.map(o => `<div class="hint">${o.kind === 'bpay' ? `<b>${esc(o.supplier)}</b>: pay by BPAY. Biller code ${esc(o.py.biller)}, CRN ${esc(o.py.crn)}, ${money(o.amt)}${o.n > 1 ? ' (' + o.n + ' invoices)' : ''}.` : `<b>${esc(o.supplier)}</b>: no bank details saved (${money(o.amt)}). Add them to the payees sheet to include them.`}</div>`).join('');
+  return weekBar() + kpis + `<div class="card"><h2>Invoice payment <small>${esc(DATA[b].name)}. Compare each invoice with the supplier's digital invoice, mark the physical invoice, then pay. A price difference blocks the invoice from the ABA file until it is fixed (edit the amount in the weekly sheet, or accept the difference).</small></h2><div class="pad">
+    <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(ip.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span>
+      <button class="btn" type="button" data-act="ipok">Select matched</button><button class="btn" type="button" data-act="ipall">Select all</button><button class="btn" type="button" data-act="ipnone">Clear</button></div>
+    ${pl.groups.length ? `<div class="scroll"><table class="pay"><thead><tr><th></th><th>Date</th><th>Invoice no.</th><th class="num">Sheet</th><th class="num">Digital</th><th class="num">Diff</th><th title="Matches the digital invoice">Chk</th><th title="Physical invoice received">Phys.</th><th>Status</th><th class="num">Selected</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p>No invoices this week.</p>'}
+    ${oth}${bad ? `<div class="hint warn">${bad} payment${bad > 1 ? 's' : ''} need fixing (${esc([...new Set(pl.txns.filter(t => t.err).map(t => t.err))].join(', '))}) before the file can be downloaded.</div>` : ''}
+    ${!pl.payer ? '<div class="hint warn">No paying account is saved for this branch (payers sheet).</div>' : ''}
+    ${warnN ? `<div class="hint warn">${warnN} selected invoice${warnN > 1 ? 's are' : ' is'} not compared with the digital invoice yet.</div>` : ''}${physN ? `<div class="hint warn">${physN} selected invoice${physN > 1 ? 's have' : ' has'} no physical invoice marked.</div>` : ''}
+    <div class="row" style="align-items:center"><span style="flex:1;color:var(--muted)">${pl.txns.length} payment${pl.txns.length === 1 ? '' : 's'} · <b style="color:var(--fg)">${money(pl.total)}</b> in the file${pl.payer ? ' · paid from ' + esc(pl.payer.entity) : ''}</span><button class="btn primary" type="button" data-act="ipdl" ${can ? '' : 'disabled'}>Download ABA file</button></div>
+    <div class="hint">Then in Westpac Online Banking go to Payments &gt; File imports &gt; Import new file &gt; Direct Entry/Pay Anyone (ABA).</div></div></div>`;
 }
 function entryForm(b, days){
   const secs = ['expense', 'cash', 'card', 'transfer', 'disc'];
@@ -712,7 +760,7 @@ function viewSheet(){
   const sumE = es => es.reduce((a, e) => a + e.amt, 0);
   const cell = (es, ro, d, sec, label) => {
     if(!es.length) return ro ? '<td class="num dim">·</td>' : `<td class="num cell dim" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Click to add">·</td>`;
-    const lines = es.map(e => `<div class="inv ${e.id === UI.editId ? 'editing' : ''}" title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : e.ref ? 'Invoice ' + e.ref : '')}">${tickBtn(e)}<span class="amt" role="button" tabindex="0" data-act="vinv" data-id="${e.id}" data-w="${ro ? 0 : 1}" title="Click to see the invoice items">${e.amt.toFixed(2)}</span>${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}${e.file ? '<small title="Photo attached"> 📎</small>' : ''}</div>`).join('');
+    const lines = es.map(e => `<div class="inv ${e.id === UI.editId ? 'editing' : ''}" title="${esc(e.sec === 'disc' ? 'Reason: ' + e.note : e.ref ? 'Invoice ' + e.ref : '')}"><span class="amt" role="button" tabindex="0" data-act="vinv" data-id="${e.id}" data-w="${ro ? 0 : 1}" title="Click to see the invoice items">${e.amt.toFixed(2)}</span>${e.ref ? `<small>#${esc(e.ref)}</small>` : ''}${e.file ? '<small title="Photo attached"> 📎</small>' : ''}</div>`).join('');
     return `<td class="num ${ro ? '' : 'cellp'}">${lines}${es.length > 1 ? `<div class="invsum">${sumE(es).toFixed(2)}</div>` : ''}${ro ? '' : `<button type="button" class="plus" data-act="add" data-d="${d}" data-sec="${sec}" data-c="${esc(label || '')}" title="Add another" aria-label="Add another">+</button>`}</td>`;
   };
   const barRow = (cls, label, vals, tot, extra) => `<tr class="brow ${cls}"><td>${label}</td>${vals.map(v => `<td class="num">${v ? v.toFixed(2) : '–'}</td>`).join('')}<td class="num">${tot ? tot.toFixed(2) : '–'}</td><td class="num">${extra || ''}</td></tr>`;
@@ -746,7 +794,7 @@ function viewSheet(){
   const adjS = t.adjSales;
   const sums = [['Total sales', t.sales, ''], ['Card', cardS, pc(cardS, t.sales)], ['Cash', cashS, pc(cashS, t.sales)], ['Delivery', delivS, pc(delivS, t.sales)], ['Closing cash', t.closing, ''], ['Expense total', t.exp, pc(t.exp, t.sales)], ...(t.uberFee ? [[t.feeLbl || 'Delivery fees', t.uberFee, pc(t.uberFee, t.sales)]] : []), ['Wage', imp ? t.wage : null, imp ? pc(t.wage, t.sales) : ''], ['Net sales', imp && t.hasExp ? t.net : null, imp ? pc(t.net, t.sales) : ''], ['E + W', imp ? t.exp + t.wage : null, imp ? pc(t.exp + t.wage, t.sales) : '']];
   return weekBar() + entryForm(b, days) + `
-    <div class="card"><h2>Weekly sheet <small>Sales come from the imported daily reports (read-only). Click an expense amount to edit it. Several invoices from one supplier on the same day are stacked in the cell and added up below them.</small></h2>${checkSummary(b, days)}<div class="scroll"><table class="sheet">
+    <div class="card"><h2>Weekly sheet <small>Sales come from the imported daily reports (read-only). Click an expense amount to edit it. Several invoices from one supplier on the same day are stacked in the cell and added up below them.</small></h2><div class="scroll"><table class="sheet">
       <thead><tr><th>Date</th>${days.map((d, i) => `<th class="r">${DOW[i]}<br>${fs2(d)}</th>`).join('')}<th class="r">Sub total</th><th class="r">%</th></tr></thead><tbody>
       ${barRow('s', 'SALES TOTAL', c.rows.map(r => r.sales), t.sales)}
       ${salesLines}${adjS ? `<tr class="ln"><td class="sub">Excel adjustment <span class="tag warn">read-only</span></td><td colspan="7"></td><td class="num sub"><b>${adjS.toFixed(2)}</b></td><td></td></tr>` : ''}
@@ -1081,7 +1129,6 @@ function closingMismatch(r){
 }
 function modalHtml(){
   if(UI.modal.kind === 'photo') return photoModal(UI.modal);
-  if(UI.modal.kind === 'pay') return payModal(UI.modal);
   const m = UI.modal, sg = x => (x > 0 ? '+' : x < 0 ? '−' : '') + money(Math.abs(x));
   return `<div class="mback"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-t">
     <h2 id="m-t">Closing cash does not match</h2>
@@ -1270,11 +1317,6 @@ document.addEventListener('click', ev => {
   else if(a === 'ivdel'){ readDraft(); UI.inv.items.splice(+t.dataset.i, 1); }
   else if(a === 'ivadd'){ readDraft(); UI.inv.items.push({item:'', qty:null, amt:0, cat:'Other'}); }
   else if(a === 'ivclear'){ readDraft(); UI.inv = null; }
-  else if(a === 'payrun'){ const b = UI.branch, ws = UI.week, inv = entriesFor(b, weekDays(ws), ['expense']); UI.modal = {kind:'pay', br:b, week:ws, date:fd(todayIso()), sel:Object.fromEntries(inv.map(e => [e.id, isTicked(e)]))}; }
-  else if(a === 'paysel'){ UI.modal.sel[+t.dataset.id] = t.checked; }
-  else if(a === 'payall'){ entriesFor(UI.modal.br, weekDays(UI.modal.week), ['expense']).forEach(e => UI.modal.sel[e.id] = true); }
-  else if(a === 'paychk'){ entriesFor(UI.modal.br, weekDays(UI.modal.week), ['expense']).forEach(e => UI.modal.sel[e.id] = isTicked(e)); }
-  else if(a === 'paydl'){ payDownload(); return; }
   else if(a === 'mclose'){ UI.modal = null; }
   else if(a === 'vinv'){
     const en = S.entries.find(e => e.id === +t.dataset.id); if(!en) return;
@@ -1289,6 +1331,13 @@ document.addEventListener('click', ev => {
   }
   else if(a === 'del'){ const id = +t.dataset.id; if(UI.confirmDel === id){ S.entries = S.entries.filter(e => e.id !== id); UI.confirmDel = null; UI.editId = null; UI.draft = {}; save(); flash('Entry deleted'); } else { UI.confirmDel = id; } }
   else if(a === 'theme'){ const n = getTheme() === 'dark' ? 'light' : 'dark'; try{ localStorage.setItem('rms-theme', n); }catch(e){} document.documentElement.dataset.theme = n; }
+  else if(a === 'ipsel'){ UI.ip.sel[+t.dataset.id] = t.checked; }
+  else if(a === 'ipall'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = invStat(e) !== 'diff'; }); }
+  else if(a === 'ipok'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = ['ok', 'acc'].includes(invStat(e)); }); }
+  else if(a === 'ipnone'){ UI.ip.sel = {}; }
+  else if(a === 'ipdl'){ payDownload({br:UI.branch, week:UI.week, date:UI.ip.date, sel:UI.ip.sel}); return; }
+  else if(a === 'ivacc'){ const e = S.entries.find(x => x.id === +t.dataset.id); if(e) invSet(e, {acc:true}); return; }
+  else if(a === 'ivunacc'){ const e = S.entries.find(x => x.id === +t.dataset.id); if(e){ UI.ip.sel[e.id] = false; invSet(e, {acc:false}); } return; }
   else if(a === 'ubsave'){ uberSave(); }
   else if(a === 'ubdiscard'){ UI.uber = null; }
   else if(a === 'logout'){ signOut().then(render); return; }
@@ -1317,8 +1366,10 @@ document.addEventListener('change', ev => {
 });
 document.addEventListener('change', ev => {
   const t = ev.target;
-  if(t.dataset && t.dataset.payref && UI.modal && UI.modal.kind === 'pay'){ const e = S.entries.find(x => x.id === +t.dataset.payref); if(e){ e.ref = t.value.trim(); save(); render(); } }
-  else if(t.id === 'pay-date' && UI.modal && UI.modal.kind === 'pay'){ UI.modal.date = t.value; render(); }
+  if(t.dataset && t.dataset.payref){ const e = S.entries.find(x => x.id === +t.dataset.payref); if(e){ e.ref = t.value.trim(); save(); render(); } }
+  else if(t.id === 'pay-date'){ UI.ip.date = t.value; render(); }
+  else if(t.dataset && t.dataset.ivdig){ const e = S.entries.find(x => x.id === +t.dataset.ivdig); if(e){ const v = t.value.trim(); invSet(e, {digital:v === '' ? null : Math.max(0, parseFloat(v) || 0)}); } }
+  else if(t.dataset && t.dataset.ivphys){ const e = S.entries.find(x => x.id === +t.dataset.ivphys); if(e) invSet(e, {phys:t.checked}); }
   else if(t.id === 'inv-file' && t.files && t.files[0]) readInvoice(t.files[0]);
   else if(t.dataset && t.dataset.iv === 'cat' && UI.inv){ UI.inv.items[+t.dataset.i].cat = t.value; }
 });
