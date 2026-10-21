@@ -1299,10 +1299,10 @@ const CASH_BR = {BO:'Bowral', GN:'Glenorie', LE:'Leichhardt', CT:'Campbelltown'}
 const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day week; every day beyond 5 is paid in cash at the day rate
 
 /* STP wages for payment (admin): one list per paying bank account / ABN, staff merged across branches, alphabetical by first name */
-const ABN_FALLBACK = {WT:'AKLE', BO:'AKLE', TM:'AKLE'};   // WT, BO and TM are paid from the AKLE account; every other branch is its own account
+const ABN_OF = {WT:'AKLE', BO:'AKLE', TM:'AKLE', LE:'KBMI', GN:'SZGN', CT:'T81CT'}, ABN_LIST = ['AKLE', 'KBMI', 'SZGN', 'T81CT'];   // WT, BO and TM are paid from the AKLE account; every other branch is its own account
 function viewStpPay(){
   const ws = UI.week, r2 = n => Math.round(n * 100) / 100, pay = S.pay || {payees:[], payers:[]};
-  const entOf = b => { const p = pay.payers.find(x => x.branches.includes(b)); return p ? p.entity : ABN_FALLBACK[b] || (BRN[b] || b); };
+  const entOf = b => ABN_OF[b] || b;
   const G = {};
   S.wages.filter(w => w.week === ws && (w.stp || 0) > 0).forEach(w => {
     const ent = entOf(w.br), g = G[ent] = G[ent] || {ent, brs:[], P:{}};
@@ -1310,7 +1310,7 @@ function viewStpPay(){
     const k = String(w.name).trim().toLowerCase(), p = g.P[k] = g.P[k] || {name:w.name, nick:w.nick, rows:[], stp:0};
     p.rows.push(w); p.stp += w.stp || 0;
   });
-  const gs = Object.values(G).sort((a, b) => a.ent.localeCompare(b.ent)), d = '<span class="dim">–</span>';
+  const sel = ABN_LIST.includes(UI.stpEnt) ? UI.stpEnt : ABN_LIST[0], gs = (G[sel] ? [G[sel]] : []), d = '<span class="dim">–</span>';
   const cards = gs.map(g => { const L = Object.values(g.P).sort((x, y) => x.name.localeCompare(y.name, 'en', {sensitivity:'base'})), tot = r2(L.reduce((a, p) => a + p.stp, 0));
     const body = L.map(p => { const rs = p.rows.sort((x, y) => x.br.localeCompare(y.br)), lines = rs.map(w => ({w, L:wageLines(w)})), n = lines.reduce((a, x) => a + x.L.length, 0);
       return lines.map((x, ri) => x.L.map((l, i) => `<tr class="${ri === 0 && i === 0 ? 'wfirst' : ''}${l.dim ? ' dim' : ''}">`
@@ -1322,7 +1322,8 @@ function viewStpPay(){
     return `<div class="card"><h2>${esc(g.ent)} <small>${g.brs.map(b => esc(b)).join(', ')} · ${L.length} staff · ${money(tot)}</small></h2><div class="scroll"><table class="wtbl">
       <thead><tr><th class="emp">Employee</th><th>Branch</th><th class="k">Pay type</th><th>Hours / days</th><th>Rate</th><th>Subtotal</th><th class="k">Total hours</th><th>STP wage</th><th>STP to pay</th></tr></thead><tbody>${body}
       <tr class="tot"><td colspan="8" class="emp">Total</td><td class="num">${money(tot)}</td></tr></tbody></table></div></div>`; }).join('');
-  return weekBar() + (cards || `<div class="card"><div class="empty">No STP wages for this week yet.</div></div>`) + `<div class="hint">One list per paying account. Staff who work at several branches of the same account are merged into one line. Staff bank details are not stored yet, so this is a summary, not an ABA file.</div>`;
+  const tabs = `<div class="adminrow">${ABN_LIST.map(e => `<button class="cwbtn" data-act="stpent" data-v="${e}" aria-pressed="${e === sel}">${e}<span class="cwsub">${G[e] ? money(r2(Object.values(G[e].P).reduce((a, p) => a + p.stp, 0))) : '–'}</span></button>`).join('')}</div>`;
+  return weekBar() + tabs + (cards || `<div class="card"><div class="empty">No STP wages for ${sel} this week.</div></div>`) + `<div class="hint">One list per paying account. Staff who work at several branches of the same account are merged into one line. Staff bank details are not stored yet, so this is a summary, not an ABA file.</div>`;
 }
 function viewCashWage(){
   const ws = UI.week, rows = S.wages.filter(w => w.week === ws && w.restricted && !CASH_BR[w.br]), P = {};   // branches whose cash is shown on its own below
@@ -1385,6 +1386,7 @@ function readDraft(){
 document.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
   if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'stppay', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
+  else if(a === 'stpent'){ UI.stpEnt = t.dataset.v; }
   else if(a === 'tab'){ UI.tab = t.dataset.v; UI.editId = null; UI.draft = {}; UI.confirmDel = null; }
   else if(a === 'day'){ const v = t.dataset.v; UI.day = v === '0' ? todayLocal() : v === 'last' ? DATA[UI.branch === 'ALL' ? BR[0] : UI.branch].dates[6] : addDays(UI.day, +v); }
   else if(a === 'pickday'){ UI.day = t.dataset.v; window.scrollTo(0, 0); }
