@@ -1255,9 +1255,10 @@ const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / S
   if(!L.length) L.push({label:'–'});
   return L;
 };
+const AWARD_OF = {GN:'Fast Food', LE:'Fast Food', WT:'Restaurant', BO:'Restaurant', TM:'Restaurant', CT:'Restaurant'};   // award each branch's staff are paid under
 const TOP_STAFF = ['Oyundulam', 'Bhuwaneshwor'];   // listed first in their branch's wage table
 function viewWageNew(b, ws, rows){
-  const adm = ME.role === 'admin', hid = S.hiddenWage[b + '|' + ws] || 0, c = calc(b, ws), award = (rows[0] || {}).award || '';
+  const adm = ME.role === 'admin', hid = S.hiddenWage[b + '|' + ws] || 0, c = calc(b, ws), award = AWARD_OF[b] || (rows[0] || {}).award || '';
   const dayStaff = w => (w.dayN && w.dayR) || TOP_STAFF.includes(w.name) ? 0 : 1, sorted = [...rows].sort((x, y) => dayStaff(x) - dayStaff(y) || modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0));
   const hasCash = rows.some(hasCashW), stpTot = rows.reduce((a, w) => a + (w.stp || 0), 0), cashTot = Math.round(rows.reduce((a, w) => a + cashPay(w), 0) * 100) / 100, vis = stpTot + cashTot, hrs = rows.reduce((a, w) => a + wHours(w), 0);
   return weekBar() + `<div class="kpis">
@@ -1265,7 +1266,7 @@ function viewWageNew(b, ws, rows){
     <div class="kpi"><small>Staff paid</small><strong>${rows.filter(w => w.stp > 0).length}${hid && !adm ? ' + admin only' : ''}</strong></div>
     <div class="kpi"><small>Total hours${hid && !adm ? ' (listed staff)' : ''}</small><strong>${Math.round(hrs * 100) / 100} h</strong></div>
     ${hasCash ? `<div class="kpi"><small>STP wage / cash part</small><strong style="font-size:15px">${money(stpTot)} / ${money(cashTot)}</strong></div>` : ''}
-    <div class="kpi"><small>Award</small><strong style="font-size:15px">${esc(award || '–')}</strong></div></div>
+    <div class="kpi"><small>Award</small><strong style="font-size:15px">${award ? esc(award) + ' Award' : '–'}</strong></div></div>
     ${(() => {
       const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']];
       const r2 = n => Math.round(n * 100) / 100;
