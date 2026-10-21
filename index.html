@@ -1243,6 +1243,18 @@ const hasCashW = w => w.cashR != null || w.cashH != null || w.rent != null;   //
 const cashPay = w => Math.round(((w.cashH && w.cashR ? w.cashH * w.cashR : 0) + (w.rent || 0)) * 100) / 100;   // cash hours × rate + rent (rent is negative)
 const wBasis = w => [['Ord', w.ordH, w.ordR], ['Sat', w.satH, w.satR], ['Sun', w.sunH, w.sunR], ['OT', w.otH, w.otR]].filter(x => x[1]).map(x => `<div>${x[0]} ${x[1]} h × ${(+x[2]).toFixed(2)}</div>`).join('') + (w.dayN ? `<div>${w.dayN} days × ${(+w.dayR).toFixed(0)} (day rate)</div>` : '');
 const modeRank = w => ({full:0, part:1, casual:2})[String(w.mode).toLowerCase()] ?? 3;
+const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / Sunday / overtime / day rate
+  const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']], r2 = n => Math.round(n * 100) / 100, fixed = !!(w.dayN && w.dayR) && w.name !== 'Robert';
+  let L = [];
+  if(fixed){
+    if(w.ordH) L.push({label:'Fixed weekly', q:w.ordH, u:'hr', r:w.ordR, sub:w.stp});
+    L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:L.length > 0});
+  } else {
+    G.forEach(g => { if(w[g[1]] && w[g[2]]) L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:g[0] === 'Day rate' ? (w[g[1]] === 1 ? 'day' : 'days') : 'hr', r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:g[0] === 'Day rate' && L.length > 0}); });
+  }
+  if(!L.length) L.push({label:'–'});
+  return L;
+};
 const TOP_STAFF = ['Oyundulam', 'Bhuwaneshwor'];   // listed first in their branch's wage table
 function viewWageNew(b, ws, rows){
   const adm = ME.role === 'admin', hid = S.hiddenWage[b + '|' + ws] || 0, c = calc(b, ws), award = (rows[0] || {}).award || '';
@@ -1258,16 +1270,7 @@ function viewWageNew(b, ws, rows){
       const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']];
       const r2 = n => Math.round(n * 100) / 100;
       const body = sorted.map(w => {
-        const fixed = !!(w.dayN && w.dayR) && w.name !== 'Robert';
-        let L = [];
-        if(fixed){
-          if(w.ordH) L.push({label:'Fixed weekly', q:w.ordH, u:'hr', r:w.ordR, sub:w.stp});
-          L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:L.length > 0});
-        } else {
-          G.forEach(g => { if(w[g[1]] && w[g[2]]) L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:g[0] === 'Day rate' ? (w[g[1]] === 1 ? 'day' : 'days') : 'hr', r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:g[0] === 'Day rate' && L.length > 0}); });
-          if(!L.length) L.push({label:'–'});
-        }
-        if(!L.length) L.push({label:'–'});
+        const L = wageLines(w);
         const n = L.length, d = '<span class="dim">–</span>';
         return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span></td>` : '')
           + `<td class="k">${g.label}</td><td class="num">${g.q ? g.q + ' ' + g.u : d}</td><td class="num">${g.r ? money(g.r) : d}</td><td class="num">${g.sub != null ? money(g.sub) : d}</td>`
@@ -1304,15 +1307,21 @@ function viewStpPay(){
   S.wages.filter(w => w.week === ws && (w.stp || 0) > 0).forEach(w => {
     const ent = entOf(w.br), g = G[ent] = G[ent] || {ent, brs:[], P:{}};
     if(!g.brs.includes(w.br)) g.brs.push(w.br);
-    const k = String(w.name).trim().toLowerCase(), p = g.P[k] = g.P[k] || {name:w.name, nick:w.nick, br:[], stp:0};
-    if(!p.br.includes(w.br)) p.br.push(w.br); p.stp += w.stp || 0;
+    const k = String(w.name).trim().toLowerCase(), p = g.P[k] = g.P[k] || {name:w.name, nick:w.nick, rows:[], stp:0};
+    p.rows.push(w); p.stp += w.stp || 0;
   });
-  const gs = Object.values(G).sort((a, b) => a.ent.localeCompare(b.ent));
+  const gs = Object.values(G).sort((a, b) => a.ent.localeCompare(b.ent)), d = '<span class="dim">–</span>';
   const cards = gs.map(g => { const L = Object.values(g.P).sort((x, y) => x.name.localeCompare(y.name, 'en', {sensitivity:'base'})), tot = r2(L.reduce((a, p) => a + p.stp, 0));
-    return `<div class="card"><h2>${esc(g.ent)} <small>${g.brs.map(b => esc(b)).join(', ')} · ${L.length} staff · ${money(tot)}</small></h2><div class="scroll"><table>
-      <thead><tr><th>Employee</th><th>Branch</th><th class="r">STP wage</th></tr></thead><tbody>
-      ${L.map(p => `<tr><td>${esc(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}</td><td>${p.br.map(esc).join(', ')}</td><td class="num pay">${money(r2(p.stp))}</td></tr>`).join('')}
-      <tr class="tot"><td colspan="2">Total</td><td class="num">${money(tot)}</td></tr></tbody></table></div></div>`; }).join('');
+    const body = L.map(p => { const rs = p.rows.sort((x, y) => x.br.localeCompare(y.br)), lines = rs.map(w => ({w, L:wageLines(w)})), n = lines.reduce((a, x) => a + x.L.length, 0);
+      return lines.map((x, ri) => x.L.map((l, i) => `<tr class="${ri === 0 && i === 0 ? 'wfirst' : ''}${l.dim ? ' dim' : ''}">`
+        + (ri === 0 && i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(p.name)}</b>${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}<br><span class="tag t-${String(x.w.mode).toLowerCase()}">${esc(x.w.mode)}</span></td>` : '')
+        + (i === 0 ? `<td rowspan="${x.L.length}"><b>${esc(x.w.br)}</b></td>` : '')
+        + `<td class="k">${l.label}</td><td class="num">${l.q ? l.q + ' ' + l.u : d}</td><td class="num">${l.r ? money(l.r) : d}</td><td class="num">${l.sub != null ? money(l.sub) : d}</td>`
+        + (i === 0 ? `<td rowspan="${x.L.length}" class="num k"><b>${wHours(x.w) ? wHours(x.w) + ' hr' : '–'}</b></td><td rowspan="${x.L.length}" class="num">${money(x.w.stp)}</td>` : '')
+        + (ri === 0 && i === 0 ? `<td rowspan="${n}" class="num pay"><b>${money(r2(p.stp))}</b></td>` : '') + '</tr>').join('')).join(''); }).join('');
+    return `<div class="card"><h2>${esc(g.ent)} <small>${g.brs.map(b => esc(b)).join(', ')} · ${L.length} staff · ${money(tot)}</small></h2><div class="scroll"><table class="wtbl">
+      <thead><tr><th class="emp">Employee</th><th>Branch</th><th class="k">Pay type</th><th>Hours / days</th><th>Rate</th><th>Subtotal</th><th class="k">Total hours</th><th>STP wage</th><th>STP to pay</th></tr></thead><tbody>${body}
+      <tr class="tot"><td colspan="8" class="emp">Total</td><td class="num">${money(tot)}</td></tr></tbody></table></div></div>`; }).join('');
   return weekBar() + (cards || `<div class="card"><div class="empty">No STP wages for this week yet.</div></div>`) + `<div class="hint">One list per paying account. Staff who work at several branches of the same account are merged into one line. Staff bank details are not stored yet, so this is a summary, not an ABA file.</div>`;
 }
 function viewCashWage(){
