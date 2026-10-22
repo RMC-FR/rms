@@ -1238,13 +1238,13 @@ function impChange(t){
   else if(k === 'addback'){ r.addBack = t.checked; }
   render();
 }
-const wHours = w => (w.ordH || 0) + (w.satH || 0) + (w.sunH || 0) + (w.otH || 0);
+const wHours = w => (w.ordH || 0) + (w.satH || 0) + (w.sunH || 0) + (w.otH || 0) + (w.ot2H || 0);
 const hasCashW = w => w.cashR != null || w.cashH != null || w.rent != null;   // a cash part was recorded for this wage line (e.g. Bowral)
 const cashPay = w => Math.round(((w.cashH && w.cashR ? w.cashH * w.cashR : 0) + (w.rent || 0)) * 100) / 100;   // cash hours × rate + rent (rent is negative)
 const wBasis = w => [['Ord', w.ordH, w.ordR], ['Sat', w.satH, w.satR], ['Sun', w.sunH, w.sunR], ['OT', w.otH, w.otR]].filter(x => x[1]).map(x => `<div>${x[0]} ${x[1]} h × ${(+x[2]).toFixed(2)}</div>`).join('') + (w.dayN ? `<div>${w.dayN} days × ${(+w.dayR).toFixed(0)} (day rate)</div>` : '');
 const modeRank = w => ({full:0, salary:0, part:1, casual:2})[String(w.mode).toLowerCase()] ?? 3;
 const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / Sunday / overtime / day rate
-  const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']], r2 = n => Math.round(n * 100) / 100, fixed = !!(w.dayN && w.dayR) && w.name !== 'Robert';
+  const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Overtime 2.0x','ot2H','ot2R'], ['Day rate','dayN','dayR']], r2 = n => Math.round(n * 100) / 100, fixed = !!(w.dayN && w.dayR) && w.name !== 'Robert';
   let L = [];
   if(String(w.mode).toLowerCase() === 'salary'){   // full-time salary: STP is fixed (38 h × rate); the hours really worked are listed for reference, without a rate
     L.push({label:'Fixed weekly', q:38, u:'hr', r:w.ordR, sub:w.stp});
@@ -1253,7 +1253,7 @@ const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / S
     if(w.ordH) L.push({label:'Fixed weekly', q:w.ordH, u:'hr', r:w.ordR, sub:w.stp});
     L.push({label:'Actual', q:w.dayN, u:w.dayN === 1 ? 'day' : 'days', r:w.dayR, sub:r2(w.dayN * w.dayR), dim:L.length > 0});
   } else {
-    G.forEach(g => { if(w[g[1]] && w[g[2]]){ const hr = g[0] !== 'Day rate', adj = g[0] === 'Ordinary' && w.adjH > 0 ? w.adjH : 0; L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:hr ? 'hr' : (w[g[1]] === 1 ? 'day' : 'days'), r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:!hr && L.length > 0, act:hr ? r2(w[g[1]] - adj) : null, adj}); } });
+    G.forEach(g => { if(w[g[1]] && w[g[2]]){ const hr = g[0] !== 'Day rate', adj = g[0] === 'Ordinary' && w.adjH > 0 ? w.adjH : 0; L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0] === 'Overtime' && w.ot2H ? 'Overtime 1.5x' : g[0], q:w[g[1]], u:hr ? 'hr' : (w[g[1]] === 1 ? 'day' : 'days'), r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:!hr && L.length > 0, act:hr ? r2(w[g[1]] - adj) : null, adj}); } });
   }
   const sa = L.find(x => x.label === 'Saturday'), su = L.find(x => x.label === 'Sunday');
   if(sa && su && sa.r === su.r){   // Saturday and Sunday share one rate: one Weekend line (easy to copy into payroll), the split goes in a note

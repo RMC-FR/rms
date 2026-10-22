@@ -17,7 +17,7 @@ const HEAD_ = {
   meta: ['br', 'json'],
   users: ['username', 'name', 'role', 'br', 'must_change', 'salt', 'hash'],
   items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat'],
-  wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note', 'realH', 'cashH', 'cashR', 'rent', 'adjH'],
+  wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note', 'realH', 'cashH', 'cashR', 'rent', 'adjH', 'ot2H', 'ot2R'],
   deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note'],
   checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at', 'phys', 'digital', 'acc'],
   payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
@@ -385,7 +385,7 @@ const isRestricted_ = r => r.restricted === true || r.restricted === 'TRUE';
 function wagesOf_(me) {
   return read_('wages').filter(r => canSee_(me, r.br) && (me.role === 'admin' || !isRestricted_(r))).map(r => {
     const o = { week: String(r.week), br: String(r.br), name: String(r.name), nick: String(r.nick), mode: String(r.mode), award: String(r.award), restricted: isRestricted_(r), note: String(r.note) };
-    ['ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'realH', 'cashH', 'cashR', 'rent', 'adjH'].forEach(k => o[k] = (r[k] === '' || r[k] === undefined || r[k] === null) ? null : Number(r[k]));
+    ['ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'realH', 'cashH', 'cashR', 'rent', 'adjH', 'ot2H', 'ot2R'].forEach(k => o[k] = (r[k] === '' || r[k] === undefined || r[k] === null) ? null : Number(r[k]));
     return o;
   });
 }
