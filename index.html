@@ -1256,8 +1256,8 @@ const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / S
     G.forEach(g => { if(w[g[1]] && w[g[2]]){ const hr = g[0] !== 'Day rate', adj = g[0] === 'Ordinary' && w.adjH > 0 ? w.adjH : 0; L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:hr ? 'hr' : (w[g[1]] === 1 ? 'day' : 'days'), r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:!hr && L.length > 0, act:hr ? r2(w[g[1]] - adj) : null, adj}); } });
   }
   const sa = L.find(x => x.label === 'Saturday'), su = L.find(x => x.label === 'Sunday');
-  if(sa && su && sa.r === su.r){   // Saturday and Sunday share one rate: also give the weekend as a single line, easy to copy into payroll
-    const q = r2(sa.q + su.q); L.splice(L.indexOf(su) + 1, 0, {label:'Weekend total', q, u:'hr', r:sa.r, sub:r2(q * sa.r), dim:true, act:r2(sa.act + su.act)});
+  if(sa && su && sa.r === su.r){   // Saturday and Sunday share one rate: one Weekend line (easy to copy into payroll), the split goes in a note
+    const q = r2(sa.q + su.q); L.splice(L.indexOf(sa), 2, {label:'Weekend', q, u:'hr', r:sa.r, sub:r2(q * sa.r), act:r2(sa.act + su.act), note:'Sat ' + sa.q + ' h · Sun ' + su.q + ' h'});
   }
   if(!L.length) L.push({label:'–'});
   return L;
@@ -1281,7 +1281,7 @@ function viewWageNew(b, ws, rows){
         const L = wageLines(w);
         const n = L.length, d = '<span class="dim">–</span>';
         return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span></td>` : '')
-          + `<td class="k">${g.label}</td><td class="num">${g.act != null ? g.act + ' hr' : d}</td><td class="num">${g.q ? g.q + ' ' + g.u : d}${g.adj ? `<br><small class="topup">+${g.adj} top-up</small>` : ''}</td><td class="num">${g.r ? money(g.r) : d}</td><td class="num">${g.sub != null ? money(g.sub) : d}</td>`
+          + `<td class="k">${g.label}</td><td class="num">${g.act != null ? g.act + ' hr' : d}</td><td class="num">${g.q ? g.q + ' ' + g.u : d}${g.adj ? `<br><small class="topup">+${g.adj} top-up</small>` : ''}${g.note ? `<br><small class="dim">${g.note}</small>` : ''}</td><td class="num">${g.r ? money(g.r) : d}</td><td class="num">${g.sub != null ? money(g.sub) : d}</td>`
           + (i === 0 ? `<td rowspan="${n}" class="num k"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b>${w.adjH > 0 ? `<br><small class="topup">${Math.round((wHours(w) - w.adjH) * 100) / 100} worked</small>` : ''}</td><td rowspan="${n}" class="num"><b>${money(w.stp)}</b></td>` : '') + '</tr>').join('');
       }).join('');
       return `<div class="card"><h2>Wages by employee <small>${esc(DATA[b].name)} · ${esc(award)} Award · ${hasCash ? 'STP part' : 'wage cost = STP wage'}</small></h2><div class="scroll"><table class="wtbl">
@@ -1324,7 +1324,7 @@ function viewStpPay(){
       return lines.map((x, ri) => x.L.map((l, i) => `<tr class="${ri === 0 && i === 0 ? 'wfirst' : ''}${l.dim ? ' dim' : ''}">`
         + (ri === 0 && i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(p.name)}</b>${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}<br><span class="tag t-${String(x.w.mode).toLowerCase()}">${esc(x.w.mode)}</span></td>` : '')
         + (i === 0 ? `<td rowspan="${x.L.length}"><b>${esc(x.w.br)}</b></td>` : '')
-        + `<td class="k">${l.label}</td><td class="num">${l.act != null ? l.act + ' hr' : d}</td><td class="num">${l.q ? l.q + ' ' + l.u : d}${l.adj ? `<br><small class="topup">+${l.adj} top-up</small>` : ''}</td><td class="num">${l.r ? money(l.r) : d}</td><td class="num">${l.sub != null ? money(l.sub) : d}</td>`
+        + `<td class="k">${l.label}</td><td class="num">${l.act != null ? l.act + ' hr' : d}</td><td class="num">${l.q ? l.q + ' ' + l.u : d}${l.adj ? `<br><small class="topup">+${l.adj} top-up</small>` : ''}${l.note ? `<br><small class="dim">${l.note}</small>` : ''}</td><td class="num">${l.r ? money(l.r) : d}</td><td class="num">${l.sub != null ? money(l.sub) : d}</td>`
         + (i === 0 ? `<td rowspan="${x.L.length}" class="num k"><b>${wHours(x.w) ? wHours(x.w) + ' hr' : '–'}</b>${x.w.adjH > 0 ? `<br><small class="topup">${Math.round((wHours(x.w) - x.w.adjH) * 100) / 100} worked</small>` : ''}</td><td rowspan="${x.L.length}" class="num">${money(x.w.stp)}</td>` : '')
         + (ri === 0 && i === 0 ? `<td rowspan="${n}" class="num pay"><b>${money(r2(p.stp))}</b></td>` : '') + '</tr>').join('')).join(''); }).join('');
     return `<div class="card"><h2>${esc(g.ent)} <small>${g.brs.map(b => esc(b)).join(', ')} · ${L.length} staff · ${money(tot)}</small></h2><div class="scroll"><table class="wtbl">
