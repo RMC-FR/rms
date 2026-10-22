@@ -1255,6 +1255,10 @@ const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / S
   } else {
     G.forEach(g => { if(w[g[1]] && w[g[2]]){ const hr = g[0] !== 'Day rate', adj = g[0] === 'Ordinary' && w.adjH > 0 ? w.adjH : 0; L.push({label:g[0] === 'Day rate' ? 'Actual' : g[0], q:w[g[1]], u:hr ? 'hr' : (w[g[1]] === 1 ? 'day' : 'days'), r:w[g[2]], sub:r2(w[g[1]] * w[g[2]]), dim:!hr && L.length > 0, act:hr ? r2(w[g[1]] - adj) : null, adj}); } });
   }
+  const sa = L.find(x => x.label === 'Saturday'), su = L.find(x => x.label === 'Sunday');
+  if(sa && su && sa.r === su.r){   // Saturday and Sunday share one rate: also give the weekend as a single line, easy to copy into payroll
+    const q = r2(sa.q + su.q); L.splice(L.indexOf(su) + 1, 0, {label:'Weekend total', q, u:'hr', r:sa.r, sub:r2(q * sa.r), dim:true, act:r2(sa.act + su.act)});
+  }
   if(!L.length) L.push({label:'–'});
   return L;
 };
