@@ -1308,7 +1308,7 @@ const CASH_BR = {BO:'Bowral', GN:'Glenorie', LE:'Leichhardt', CT:'Campbelltown'}
 const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day week; every day beyond 5 is paid in cash at the day rate
 
 /* STP wages for payment (admin): one list per paying bank account / ABN, staff merged across branches, alphabetical by first name */
-const ABN_OF = {WT:'AKLE', BO:'AKLE', TM:'AKLE', LE:'KBMI', GN:'SZGN', CT:'T81CT'}, ABN_LIST = ['AKLE', 'KBMI', 'SZGN', 'T81CT'];   // WT, BO and TM are paid from the AKLE account; every other branch is its own account
+const ABN_OF = {WT:'AKLE', BO:'AKLE', TM:'AKLE', OF:'AKLE', LE:'KBMI', GN:'SZGN', CT:'T81CT'}, ABN_LIST = ['AKLE', 'KBMI', 'SZGN', 'T81CT'];   // WT, BO and TM are paid from the AKLE account; every other branch is its own account
 function viewStpPay(){
   const ws = UI.week, r2 = n => Math.round(n * 100) / 100, pay = S.pay || {payees:[], payers:[]};
   const entOf = w => DAY_STAFF.includes(w.name) ? 'AKLE' : ABN_OF[w.br] || w.br;   // Jinheum, Jaeyoon and Youngjae are always paid from AKLE, wherever they worked
