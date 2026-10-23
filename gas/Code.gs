@@ -8,7 +8,7 @@ const P_ = () => PropertiesService.getScriptProperties();
 const SHEET_ = n => {
   const ss = SpreadsheetApp.openById(P_().getProperty('SSID'));
   let sh = ss.getSheetByName(n);
-  if (!sh && HEAD_[n]) { sh = ss.insertSheet(n); sh.getRange(1, 1, 1, HEAD_[n].length).setValues([HEAD_[n]]).setFontWeight('bold'); sh.setFrozenRows(1); if (n === 'wages' || n === 'deductions') sh.getRange('A:A').setNumberFormat('@'); if (n === 'deductions') sh.getRange('E:E').setNumberFormat('@'); }
+  if (!sh && HEAD_[n]) { sh = ss.insertSheet(n); sh.getRange(1, 1, 1, HEAD_[n].length).setValues([HEAD_[n]]).setFontWeight('bold'); sh.setFrozenRows(1); if (n === 'wages' || n === 'deductions' || n === 'costs') sh.getRange('A:A').setNumberFormat('@'); if (n === 'deductions') sh.getRange('E:E').setNumberFormat('@'); }
   return sh;
 };
 const HEAD_ = {
@@ -19,6 +19,7 @@ const HEAD_ = {
   items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat'],
   wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note', 'realH', 'cashH', 'cashR', 'rent', 'adjH', 'ot2H', 'ot2R'],
   deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note'],
+  costs: ['week', 'br', 'rent', 'leave', 'super', 'note'],   // admin-only estimated overheads per branch and week (premises rent, annual leave accrual, super)
   checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at', 'phys', 'digital', 'acc'],
   payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
   payers: ['entity', 'branches', 'bsb', 'acct'],
@@ -134,7 +135,8 @@ function load_(me) {
     pay: me.role === 'admin' ? payInfo_() : null,
     checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: r.amt === '' ? null : Number(r.amt), phys: r.phys === true || r.phys === 'TRUE', digital: r.digital === '' || r.digital === null ? null : Number(r.digital), acc: r.acc === true || r.acc === 'TRUE' })) : [],
     digital: me.role === 'admin' ? digitalOf_() : [],
-    wages: wagesOf_(me), hiddenWage: hiddenWage_(me), deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
+    wages: wagesOf_(me), hiddenWage: hiddenWage_(me), costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
+    deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
 }
 /* Supplier bank details and the owner's paying accounts (admin only). The sheet is the only place they live; they are never in this file or the public repo. */

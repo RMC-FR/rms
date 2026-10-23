@@ -248,7 +248,7 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
   (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
-  S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || [];
+  S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || []; S.costs = j.costs || [];
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
@@ -461,6 +461,17 @@ function branchCharts(b, c){
     <div class="card"><h2>Expenses <small>by group</small></h2>${donut(exps, 150, money(tot(exps)).replace(/\.\d\d$/, ''))}</div>
   </div>`;
 }
+function overheadsCard(b, c){   // admin only: estimated premises rent, annual leave and super, kept apart from wage cost; net after these
+  const rows = (S.costs || []).filter(x => x.br === b && x.week === UI.week); if(!rows.length) return '';
+  const sum = k => Math.round(rows.reduce((a, x) => a + (x[k] || 0), 0) * 100) / 100, rent = sum('rent'), leave = sum('leave'), sup = sum('super'), tot = Math.round((rent + leave + sup) * 100) / 100, net = c.t.hasWage && c.t.hasExp ? c.t.net - tot : NaN, note = rows.map(x => x.note).filter(Boolean).join(' ');
+  return `<div class="card"><h2>Overheads, estimated <small>Admin only. Kept apart from wage cost</small></h2><div class="scroll"><table>
+    <thead><tr><th>Item</th><th class="r">Amount</th></tr></thead><tbody>
+    <tr><td>Premises rent <span class="tag">weekly share</span></td><td class="num">${money(rent)}</td></tr>
+    <tr><td>Annual leave accrual</td><td class="num">${money(leave)}</td></tr>
+    <tr><td>Super</td><td class="num">${money(sup)}</td></tr>
+    <tr class="tot"><td>Overheads total</td><td class="num">${money(tot)}</td></tr>
+    <tr class="tot"><td>Net profit after overheads</td><td class="num ${net < 0 ? 'neg' : ''}">${isFinite(net) ? money(net) : '–'}</td></tr></tbody></table></div>${note ? `<div class="hint">${esc(note)}</div>` : ''}</div>`;
+}
 function viewSummary(){
   if(UI.branch === 'ALL'){
     const rs = BR.map(b => [b, calc(b, UI.week).t]);
@@ -478,7 +489,7 @@ function viewSummary(){
       </tbody></table></div></div>`;
   }
   const c = calc(UI.branch, UI.week);
-  return weekBar() + (user().role === 'admin' ? branchCharts(UI.branch, c) : kpis(c.t, true)) + `<div class="card"><h2>Daily summary</h2><div class="scroll"><table>
+  return weekBar() + (user().role === 'admin' ? branchCharts(UI.branch, c) + overheadsCard(UI.branch, c) : kpis(c.t, true)) + `<div class="card"><h2>Daily summary</h2><div class="scroll"><table>
     <thead><tr><th>Date</th><th class="r">Sales</th><th class="r">Expenses</th><th class="r">Closing cash</th></tr></thead><tbody>
     ${c.days.map((d, i) => `<tr><td>${DOW[i]} <span class="tag">${fs2(d)}</span></td><td class="num">${money(c.rows[i].sales)}</td><td class="num">${money(c.rows[i].exp)}</td><td class="num">${money(c.rows[i].closing)}</td></tr>`).join('')}
     ${c.t.adjSales || c.t.adjExp ? `<tr><td>Excel adjustment <span class="tag warn">read-only</span></td><td class="num">${money(c.t.adjSales)}</td><td class="num">${money(c.t.adjExp)}</td><td></td></tr>` : ''}
