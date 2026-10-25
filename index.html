@@ -755,7 +755,7 @@ function viewInvPay(){
         <td class="num ${diff ? 'warn' : ''}">${diff ? (diff > 0 ? '+' : '−') + Math.abs(diff).toFixed(2) : ''}</td>
         <td>${c.dstat === 'na' && dig === null ? vtag('na', 'Digital') : digTick(e, st === 'ok')} ${c.dstat === 'na' ? '' : vtag(c.dstat, 'Digital')}</td>
         <td><input type="checkbox" data-ivphys="${e.id}" ${physOf(e) ? 'checked' : ''} ${e.file ? 'disabled' : ''} aria-label="Physical invoice received" title="${e.file ? 'A photo is attached to this invoice' : 'Tick when the physical invoice has been received'}">${e.file ? ` <span role="button" tabindex="0" data-act="vphoto" data-id="${e.id}" title="View the photo" style="cursor:pointer">📎</span>` : ''} ${vtag(c.pstat, 'Physical')}</td>
-        <td><span class="tag ${st === 'diff' || st === 'det' ? 'warn' : ''}" style="${st === 'ok' ? 'color:var(--good)' : st === 'diff' || st === 'det' ? 'color:var(--bad)' : ''}">${STAT[st][0]}</span> ${physOf(e) ? '' : '<span class="tag nph">No physical invoice</span>'} ${act}</td>
+        <td><span class="tag ${st === 'diff' || st === 'det' ? 'warn' : ''}" style="${st === 'ok' ? 'color:var(--good)' : st === 'diff' || st === 'det' ? 'color:var(--bad)' : ''}">${STAT[st][0]}</span> ${physOf(e) ? '' : '<span class="tag nph">No physical invoice</span>'} ${/^Added from/.test(e.note || '') ? '<span class="tag nph" title="The manager did not report this expense, but the invoice confirms it">Not in sales report</span>' : ''} ${act}</td>
         <td class="num"></td></tr>${dtail}${ltail}`;
     }).join('');
     return head + body;
