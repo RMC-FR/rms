@@ -689,9 +689,10 @@ function invStat(e){
   const c = invOf(e), m = dgMatch(e), dig = c.digital !== null ? c.digital : (m && m.d.total !== null ? m.d.total : null);
   if(dig !== null && Math.abs(dig - e.amt) > 0.004) return c.acc ? 'acc' : 'diff';
   if(m && c.digital === null && dgHard(e).length) return c.acc ? 'acc' : 'det';
-  return isTicked(e) || dig !== null ? 'ok' : 'none';
+  if(isTicked(e) || dig !== null || c.dstat === 'ok') return 'ok';
+  return c.dstat === 'na' ? 'na' : 'none';
 }
-const STAT = {ok:['Matched', 'ok'], diff:['Price differs', 'bad'], det:['Details differ', 'bad'], acc:['Difference accepted', 'wn'], none:['Not compared', '']};
+const STAT = {ok:['Matched', 'ok'], diff:['Price differs', 'bad'], det:['Details differ', 'bad'], acc:['Difference accepted', 'wn'], none:['Not compared', ''], na:['N/A', '']};
 async function mailSync(retry){
   if(UI.mail && UI.mail.busy) return;
   UI.mail = {busy:true, msg:'Reading the mailbox…', n:0}; render();
@@ -707,6 +708,7 @@ async function mailSync(retry){
   }catch(err){ if(err.auth) return; UI.mail = {busy:false, msg:'', err:err.message || 'Could not read the mailbox'}; }
   render();
 }
+const digTick = (e, on) => user().role === 'admin' ? `<button type="button" class="tick ${on ? 'on' : ''}" data-act="chk" data-id="${e.id}" aria-pressed="${on}" title="${on ? 'Confirmed against the supplier digital invoice' + (isTicked(e) ? '. Click to uncheck' : '') : 'Click when this amount matches the supplier digital invoice'}"><svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.5"/></svg></button>` : '';
 const vtag = (k, w) => k === 'ok' ? `<span class="tag vok" title="${w} invoice read and confirmed">Verified</span>` : k === 'na' ? `<span class="tag vna" title="No ${w.toLowerCase()} invoice received">N/A</span>` : k === 'issue' ? `<span class="tag nph" title="See the log">Issue</span>` : k === 'missing' ? `<span class="tag nph" title="Invoice not received">Missing</span>` : '';
 function invSet(e, patch){
   if(user().role !== 'admin') return;
@@ -734,25 +736,24 @@ function viewInvPay(){
   const all = pl.groups.flatMap(g => g.invs), sum = l => l.reduce((a, e) => a + e.amt, 0);
   const by = k => all.filter(e => invStat(e) === k), nPhys = all.filter(e => !physOf(e));
   const kp = (lbl, n, amt, cls) => `<div class="kpi"><small>${lbl}</small><strong class="${cls || ''}">${n}</strong><br><em>${amt === null ? '' : money(amt)}</em></div>`;
-  const kpis = `<div class="kpis">${kp('Invoices', all.length, sum(all))}${kp('Matched', by('ok').length, sum(by('ok')))}${kp('Price differs', by('diff').length, sum(by('diff')), by('diff').length ? 'neg' : '')}${kp('Details differ', by('det').length, sum(by('det')), by('det').length ? 'neg' : '')}${kp('Not compared', by('none').length, sum(by('none')))}${kp('No physical invoice', nPhys.length, sum(nPhys), nPhys.length ? 'neg' : '')}</div>`;
+  const kpis = `<div class="kpis">${kp('Invoices', all.length, sum(all))}${kp('Matched', by('ok').length, sum(by('ok')))}${kp('Price differs', by('diff').length, sum(by('diff')), by('diff').length ? 'neg' : '')}${kp('Details differ', by('det').length, sum(by('det')), by('det').length ? 'neg' : '')}${kp('N/A', by('na').length, sum(by('na')))}${kp('Not compared', by('none').length, sum(by('none')))}${kp('No physical invoice', nPhys.length, sum(nPhys), nPhys.length ? 'neg' : '')}</div>`;
   const kindTxt = {bulk:'one payment for the week (fixed reference)', each:'one payment per invoice', bpay:'BPAY, not in the ABA file', nodata:'no bank details, not in the ABA file'};
   const rows = pl.groups.map(g => {
     const py = g.payee, selSum = g.invs.filter(e => ip.sel[e.id]).reduce((a, e) => a + e.amt, 0);
-    const head = `<tr class="grp"><td colspan="9">${esc(g.name)} <small style="font-weight:400;color:var(--muted)">· ${kindTxt[g.kind]}${g.kind === 'bulk' ? ' · ref ' + esc(abaTxt(py.ref, 18)) : ''}</small></td><td class="num">${selSum ? selSum.toFixed(2) : ''}</td></tr>`;
+    const head = `<tr class="grp"><td colspan="8">${esc(g.name)} <small style="font-weight:400;color:var(--muted)">· ${kindTxt[g.kind]}${g.kind === 'bulk' ? ' · ref ' + esc(abaTxt(py.ref, 18)) : ''}</small></td><td class="num">${selSum ? selSum.toFixed(2) : ''}</td></tr>`;
     const body = g.invs.map(e => {
       const st = invStat(e), c = invOf(e), t = pl.txns.find(x => x.ids.includes(e.id)), editable = g.kind === 'each' && ip.sel[e.id];
       const dm = dgMatch(e), dig = c.digital !== null ? c.digital : (dm && dm.d.total !== null ? dm.d.total : null), dl = dm ? dgDiff(e, dm.d) : [];
       const diff = dig !== null ? Math.round((dig - e.amt) * 100) / 100 : null;
       const act = st === 'diff' || st === 'det' ? `<button class="btn sm" type="button" data-act="ivacc" data-id="${e.id}" title="The sheet amount is right (supplier digital invoice is wrong). Pay the sheet amount.">Accept</button>` : st === 'acc' ? `<button class="btn sm" type="button" data-act="ivunacc" data-id="${e.id}">Undo</button>` : '';
-      const dtail = dm ? `<tr class="dgd ${dl.some(x => x.sev === 'diff') ? 'bad' : ''}"><td></td><td colspan="9"><small class="dgsrc">✉ ${esc(dm.d.supplier)} ${esc(dm.d.no)} · ${dm.d.total !== null ? money(dm.d.total) : ''} · to ${esc(String(dm.d.to).replace(/<|>/g, '').split(',')[0].split('@')[0].slice(0, 40))}${dm.how === 'amt' ? ' · matched by supplier, amount and date' : ''}</small>${dl.length ? '<ul>' + dl.map(x => `<li class="${x.sev}"><span>${esc(x.k)}</span> ${x.txt}</li>`).join('') + '</ul>' : ' <small class="dgok">identical</small>'}</td></tr>` : '';
-      const lg = (c.log || '').split('\n').filter(Boolean), ltail = lg.length ? `<tr class="dgd bad"><td></td><td colspan="9"><small class="dgsrc">Log</small><ul class="dgl">${lg.map(x => `<li>${esc(x)}</li>`).join('')}</ul></td></tr>` : '';
+      const dtail = dm ? `<tr class="dgd ${dl.some(x => x.sev === 'diff') ? 'bad' : ''}"><td></td><td colspan="8"><small class="dgsrc">✉ ${esc(dm.d.supplier)} ${esc(dm.d.no)} · ${dm.d.total !== null ? money(dm.d.total) : ''} · to ${esc(String(dm.d.to).replace(/<|>/g, '').split(',')[0].split('@')[0].slice(0, 40))}${dm.how === 'amt' ? ' · matched by supplier, amount and date' : ''}</small>${dl.length ? '<ul>' + dl.map(x => `<li class="${x.sev}"><span>${esc(x.k)}</span> ${x.txt}</li>`).join('') + '</ul>' : ' <small class="dgok">identical</small>'}</td></tr>` : '';
+      const lg = (c.log || '').split('\n').filter(Boolean), ltail = lg.length ? `<tr class="dgd bad"><td></td><td colspan="8"><small class="dgsrc">Log</small><ul class="dgl">${lg.map(x => `<li>${esc(x)}</li>`).join('')}</ul></td></tr>` : '';
       return `<tr class="${physOf(e) ? '' : 'nophys'}"><td><input type="checkbox" data-act="ipsel" data-id="${e.id}" ${ip.sel[e.id] ? 'checked' : ''} ${st === 'diff' ? 'disabled' : ''} aria-label="Include in the ABA file" title="${st === 'diff' ? 'Resolve the price difference first' : ''}"></td>
         <td>${fs2(e.date)}</td>
         <td>${editable ? `<input type="text" class="${t && t.err === 'Reference' ? 'bad' : ''}" data-payref="${e.id}" value="${esc(e.ref)}" placeholder="Invoice no." maxlength="40">${t && t.cut ? '<small class="warn">Cut to 18 characters: ' + esc(t.refTxt) + '</small>' : ''}` : g.kind === 'bulk' ? '' : esc(e.ref ? '#' + e.ref : '')}</td>
         <td class="num">${e.amt.toFixed(2)}</td>
-        <td class="num"><input type="number" step="0.01" min="0" class="dig" data-ivdig="${e.id}" value="${c.digital !== null ? c.digital : ''}" placeholder="${c.digital === null && dm && dm.d.total !== null ? dm.d.total.toFixed(2) : isTicked(e) ? 'matches' : ''}" title="${dm ? 'Amount read from the email ' + esc(dm.d.no || '') + '. Type to override.' : ''}" aria-label="Amount on the digital invoice">${vtag(c.dstat, 'Digital')}</td>
         <td class="num ${diff ? 'warn' : ''}">${diff ? (diff > 0 ? '+' : '−') + Math.abs(diff).toFixed(2) : ''}</td>
-        <td>${tickBtn(e)}</td>
+        <td>${c.dstat === 'na' && dig === null ? vtag('na', 'Digital') : digTick(e, st === 'ok')} ${c.dstat === 'na' ? '' : vtag(c.dstat, 'Digital')}</td>
         <td><input type="checkbox" data-ivphys="${e.id}" ${physOf(e) ? 'checked' : ''} ${e.file ? 'disabled' : ''} aria-label="Physical invoice received" title="${e.file ? 'A photo is attached to this invoice' : 'Tick when the physical invoice has been received'}">${e.file ? ` <span role="button" tabindex="0" data-act="vphoto" data-id="${e.id}" title="View the photo" style="cursor:pointer">📎</span>` : ''} ${vtag(c.pstat, 'Physical')}</td>
         <td><span class="tag ${st === 'diff' || st === 'det' ? 'warn' : ''}" style="${st === 'ok' ? 'color:var(--good)' : st === 'diff' || st === 'det' ? 'color:var(--bad)' : ''}">${STAT[st][0]}</span> ${physOf(e) ? '' : '<span class="tag nph">No physical invoice</span>'} ${act}</td>
         <td class="num"></td></tr>${dtail}${ltail}`;
@@ -778,7 +779,7 @@ function viewInvPay(){
     ${mailBar}
     <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(ip.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span>
       <button class="btn" type="button" data-act="ipok">Select matched</button><button class="btn" type="button" data-act="ipall">Select all</button><button class="btn" type="button" data-act="ipnone">Clear</button></div>
-    ${pl.groups.length ? `<div class="scroll"><table class="pay"><thead><tr><th></th><th>Date</th><th>Invoice no.</th><th class="num">Sheet</th><th class="num">Digital</th><th class="num">Diff</th><th title="Matches the digital invoice">Chk</th><th title="Physical invoice received">Phys.</th><th>Status</th><th class="num">Selected</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p>No invoices this week.</p>'}
+    ${pl.groups.length ? `<div class="scroll"><table class="pay"><thead><tr><th></th><th>Date</th><th>Invoice no.</th><th class="num">Sheet</th><th class="num">Diff</th><th title="Confirmed against the supplier's digital invoice from the mailbox">Digital</th><th title="Physical invoice received">Physical</th><th>Status</th><th class="num">Selected</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p>No invoices this week.</p>'}
     ${looseHtml}${oth}${bad ? `<div class="hint warn">${bad} payment${bad > 1 ? 's' : ''} need fixing (${esc([...new Set(pl.txns.filter(t => t.err).map(t => t.err))].join(', '))}) before the file can be downloaded.</div>` : ''}
     ${!pl.payer ? '<div class="hint warn">No paying account is saved for this branch (payers sheet).</div>' : ''}
     ${warnN ? `<div class="hint warn">${warnN} selected invoice${warnN > 1 ? 's are' : ' is'} not compared with the digital invoice yet.</div>` : ''}${physN ? `<div class="hint warn">${physN} selected invoice${physN > 1 ? 's have' : ' has'} no physical invoice marked.</div>` : ''}
@@ -1486,7 +1487,7 @@ document.addEventListener('click', ev => {
   else if(a === 'mailretry'){ ev.preventDefault(); mailSync(true); return; }
   else if(a === 'ipsel'){ UI.ip.sel[+t.dataset.id] = t.checked; }
   else if(a === 'ipall'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = invStat(e) !== 'diff'; }); }
-  else if(a === 'ipok'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = ['ok', 'acc'].includes(invStat(e)); }); }
+  else if(a === 'ipok'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = ['ok', 'acc', 'na'].includes(invStat(e)); }); }
   else if(a === 'ipnone'){ UI.ip.sel = {}; }
   else if(a === 'ipdl'){ payDownload({br:UI.branch, week:UI.week, date:UI.ip.date, sel:UI.ip.sel}); return; }
   else if(a === 'ivacc'){ const e = S.entries.find(x => x.id === +t.dataset.id); if(e) invSet(e, {acc:true}); return; }
