@@ -20,7 +20,7 @@ const HEAD_ = {
   wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note', 'realH', 'cashH', 'cashR', 'rent', 'adjH', 'ot2H', 'ot2R'],
   deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note'],
   costs: ['week', 'br', 'rent', 'leave', 'super', 'note'],   // admin-only estimated overheads per branch and week (premises rent, annual leave accrual, super)
-  checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at', 'phys', 'digital', 'acc'],
+  checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at', 'phys', 'digital', 'acc', 'pstat', 'dstat', 'log'],   // pstat/dstat: '' | 'ok' (read and confirmed) | 'issue' | 'na' (digital only); log: one issue per line
   payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
   payers: ['entity', 'branches', 'bsb', 'acct'],
   digital: ['msg', 'att', 'date', 'supplier', 'inv_no', 'total', 'items', 'to', 'subject', 'from', 'file', 'mail_date', 'got', 'err']
@@ -133,7 +133,7 @@ function load_(me) {
     entries: read_('entries').filter(r => canSee_(me, r.br)).map(r => ({ id: r.id, br: r.br, date: String(r.date), sec: r.sec, cat: String(r.cat), amt: Number(r.amt), ref: String(r.ref), note: String(r.note), file: String(r.file || '') })),
     items: itemsOf_(me),
     pay: me.role === 'admin' ? payInfo_() : null,
-    checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: r.amt === '' ? null : Number(r.amt), phys: r.phys === true || r.phys === 'TRUE', digital: r.digital === '' || r.digital === null ? null : Number(r.digital), acc: r.acc === true || r.acc === 'TRUE' })) : [],
+    checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: r.amt === '' ? null : Number(r.amt), phys: r.phys === true || r.phys === 'TRUE', digital: r.digital === '' || r.digital === null ? null : Number(r.digital), acc: r.acc === true || r.acc === 'TRUE', pstat: String(r.pstat || ''), dstat: String(r.dstat || ''), log: String(r.log || '') })) : [],
     digital: me.role === 'admin' ? digitalOf_() : [],
     wages: wagesOf_(me), hiddenWage: hiddenWage_(me), costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
     deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
@@ -420,11 +420,15 @@ function inv_(me, b) {
   const ent = ev.find(v => Number(v[0]) === id);
   if (!ent) throw new Error('Entry not found');
   const sh = SHEET_('checks'), m = sh.getLastRow(), rows = [];
-  sh.getRange(1, 6, 1, 3).setValues([['phys', 'digital', 'acc']]);
-  let cur = ['', '', '', '', '', '', '', ''];
-  if (m > 1) sh.getRange(2, 1, m - 1, 8).getValues().forEach((v, i) => { if (Number(v[0]) === id) { rows.push(i + 2); if (rows.length === 1) cur = v; } });
+  sh.getRange(1, 6, 1, 6).setValues([['phys', 'digital', 'acc', 'pstat', 'dstat', 'log']]);
+  let cur = ['', '', '', '', '', '', '', '', '', '', ''];
+  if (m > 1) sh.getRange(2, 1, m - 1, 11).getValues().forEach((v, i) => { if (Number(v[0]) === id) { rows.push(i + 2); if (rows.length === 1) cur = v; } });
   const entAmt = Number(ent[5]);
   let amt = cur[2], by = cur[3], at = cur[4], phys = cur[5] === true || cur[5] === 'TRUE', digital = cur[6], acc = cur[7] === true || cur[7] === 'TRUE';
+  let pstat = String(cur[8] || ''), dstat = String(cur[9] || ''), log = String(cur[10] || '');
+  if ('pstat' in b) pstat = String(b.pstat || '');
+  if ('dstat' in b) dstat = String(b.dstat || '');
+  if ('log' in b) log = String(b.log || '');
   if ('phys' in b) phys = !!b.phys;
   if ('acc' in b) acc = !!b.acc;
   if ('digital' in b) {
@@ -437,7 +441,7 @@ function inv_(me, b) {
   }
   if ('tick' in b) { if (b.tick) { amt = entAmt; by = me.username; at = new Date().toISOString(); } else { amt = ''; } }
   rows.sort((x, y) => y - x).forEach(r => sh.deleteRow(r));
-  if (amt !== '' || phys || digital !== '' || acc) sh.getRange(sh.getLastRow() + 1, 1, 1, 8).setValues([[id, ent[1], amt, by || me.username, at || new Date().toISOString(), phys, digital, acc]]);
+  if (amt !== '' || phys || digital !== '' || acc || pstat || dstat || log) sh.getRange(sh.getLastRow() + 1, 1, 1, 11).setValues([[id, ent[1], amt, by || me.username, at || new Date().toISOString(), phys, digital, acc, pstat, dstat, log]]);
   return { ok: true };
 }
 /** Older clients: invoice tick only. */
