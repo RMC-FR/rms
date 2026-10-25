@@ -599,6 +599,7 @@ function photoModal(m){
 
 /* ---------- Pay run: one ABA (Direct Entry) file per branch per week, for Westpac Online Banking > Payments > File imports ---------- */
 const BRN = {WT:'Waterloo', LE:'Leichhardt', BO:'Bowral', GN:'Glenorie', TM:'Turramurra', CT:'Campbelltown'};
+const isFixedRef = e => { const py = ((S.pay && S.pay.payees) || []).find(p => p.br === e.br && payKey(p.supplier) === payKey(e.cat)); return !!py && py.mode === 'fixed'; };
 const payKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/s$/, '');
 const abaTxt = (s, n) => String(s || '').replace(/[^A-Za-z0-9 +\-@$!%&()*.\/#=:;?,'\[\]_^]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -667,7 +668,7 @@ function simW(a, b){ const A = wordsOf(a), B = wordsOf(b); if(!A.size || !B.size
 function dgDiff(e, d){
   const out = [], nm = x => esc(String(x || '').slice(0, 60)), q = x => x === null || x === undefined || x === '' ? '' : ' × ' + x, mo = x => '$' + Number(x).toFixed(2);
   if(e.ref && d.no && !dgRefEq(e.ref, d.no)) out.push({sev:'diff', k:'Invoice no.', txt:`sheet <b>${esc(e.ref)}</b> / digital <b>${esc(d.no)}</b>`});
-  else if(!e.ref && d.no) out.push({sev:'note', k:'Invoice no.', txt:`missing in the sheet, digital is <b>${esc(d.no)}</b>`});
+  else if(!e.ref && d.no && !isFixedRef(e)) out.push({sev:'note', k:'Invoice no.', txt:`missing in the sheet, digital is <b>${esc(d.no)}</b>`});
   if(d.total !== null && Math.abs(d.total - e.amt) > 0.004) out.push({sev:'diff', k:'Total', txt:`sheet <b>${mo(e.amt)}</b> / digital <b>${mo(d.total)}</b> (${d.total > e.amt ? '+' : '−'}${mo(Math.abs(d.total - e.amt))})`});
   if(d.date && dgDays(d.date, e.date) > 3) out.push({sev:'diff', k:'Date', txt:`sheet <b>${fd(e.date)}</b> / digital <b>${fd(d.date)}</b>`});
   const it = S.items[e.id], L = it && it.lines ? it.lines.map(l => ({n:l.item, q:l.qty, a:Number(l.amt)})) : [], D = (d.items || []).map(l => ({n:l.name, q:l.qty, a:Number(l.amt)}));
@@ -706,7 +707,7 @@ async function mailSync(retry){
   }catch(err){ if(err.auth) return; UI.mail = {busy:false, msg:'', err:err.message || 'Could not read the mailbox'}; }
   render();
 }
-const vtag = (k, w) => k === 'ok' ? `<span class="tag vok" title="${w} invoice read and confirmed">Verified</span>` : k === 'na' ? `<span class="tag vna" title="No ${w.toLowerCase()} invoice received">N/A</span>` : k === 'issue' ? `<span class="tag nph" title="See the log">Issue</span>` : '';
+const vtag = (k, w) => k === 'ok' ? `<span class="tag vok" title="${w} invoice read and confirmed">Verified</span>` : k === 'na' ? `<span class="tag vna" title="No ${w.toLowerCase()} invoice received">N/A</span>` : k === 'issue' ? `<span class="tag nph" title="See the log">Issue</span>` : k === 'missing' ? `<span class="tag nph" title="Invoice not received">Missing</span>` : '';
 function invSet(e, patch){
   if(user().role !== 'admin') return;
   const had = S.inv[e.id] ? {...S.inv[e.id]} : undefined, hadTick = S.checks[e.id];
@@ -766,6 +767,13 @@ function viewInvPay(){
   const selIds = Object.keys(ip.sel).filter(id => ip.sel[id]).map(Number), selE = all.filter(e => selIds.includes(e.id));
   const warnN = selE.filter(e => invStat(e) === 'none').length, physN = selE.filter(e => !physOf(e)).length;
   const oth = pl.other.map(o => `<div class="hint">${o.kind === 'bpay' ? `<b>${esc(o.supplier)}</b>: pay by BPAY. Biller code ${esc(o.py.biller)}, CRN ${esc(o.py.crn)}, ${money(o.amt)}${o.n > 1 ? ' (' + o.n + ' invoices)' : ''}.` : `<b>${esc(o.supplier)}</b>: no bank details saved (${money(o.amt)}). Add them to the payees sheet to include them.`}</div>`).join('');
+  const cashE = entriesFor(b, days, ['cash']).sort((x, y) => x.date.localeCompare(y.date) || x.id - y.id), cashMiss = cashE.filter(e => !physOf(e));
+  const cashRows = cashE.map(e => {
+    const c = invOf(e), lg = (c.log || '').split('\n').filter(Boolean);
+    return `<tr class="${physOf(e) ? '' : 'nophys'}"><td>${fs2(e.date)}</td><td>${esc(e.cat)}${e.note && !/^Imported from/.test(e.note) ? ` <small style="color:var(--muted)">${esc(e.note)}</small>` : ''}</td><td class="num">${e.amt.toFixed(2)}</td>
+      <td><input type="checkbox" data-ivphys="${e.id}" ${physOf(e) ? 'checked' : ''} ${e.file ? 'disabled' : ''} aria-label="Receipt received"> ${physOf(e) ? vtag(c.pstat, 'Receipt') : '<span class="tag nph">Missing</span>'}${e.file ? ` <span role="button" tabindex="0" data-act="vphoto" data-id="${e.id}" title="View the photo" style="cursor:pointer">📎</span>` : ''}</td></tr>${lg.length ? `<tr class="dgd bad"><td></td><td colspan="3"><small class="dgsrc">Log</small><ul class="dgl">${lg.map(x => `<li>${esc(x)}</li>`).join('')}</ul></td></tr>` : ''}`;
+  }).join('');
+  const cashCard = `<div class="card"><h2>Cash purchases <small>Paid in cash from the till. Each needs a receipt or invoice as proof; ${cashE.length ? cashMiss.length ? cashMiss.length + ' without proof' : 'all have proof' : 'none this week'}.</small></h2><div class="pad">${cashE.length ? `<div class="scroll"><table class="pay"><thead><tr><th>Date</th><th>Item</th><th class="num">Amount</th><th>Receipt</th></tr></thead><tbody>${cashRows}<tr class="grp"><td colspan="2">Total</td><td class="num">${sum(cashE).toFixed(2)}</td><td></td></tr></tbody></table></div>` : '<p>No cash purchases this week.</p>'}</div></div>`;
   return weekBar() + kpis + `<div class="card"><h2>Invoice payment <small>${esc(DATA[b].name)}. Compare each invoice with the supplier's digital invoice, mark the physical invoice, then pay. A price difference blocks the invoice from the ABA file until it is fixed (edit the amount in the weekly sheet, or accept the difference).</small></h2><div class="pad">
     ${mailBar}
     <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(ip.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span>
@@ -775,7 +783,7 @@ function viewInvPay(){
     ${!pl.payer ? '<div class="hint warn">No paying account is saved for this branch (payers sheet).</div>' : ''}
     ${warnN ? `<div class="hint warn">${warnN} selected invoice${warnN > 1 ? 's are' : ' is'} not compared with the digital invoice yet.</div>` : ''}${physN ? `<div class="hint warn">${physN} selected invoice${physN > 1 ? 's have' : ' has'} no physical invoice marked.</div>` : ''}
     <div class="iprow"><span style="flex:1;color:var(--muted)">${pl.txns.length} payment${pl.txns.length === 1 ? '' : 's'} · <b style="color:var(--fg)">${money(pl.total)}</b> in the file${pl.payer ? ' · paid from ' + esc(pl.payer.entity) : ''}</span><button class="btn primary" type="button" data-act="ipdl" ${can ? '' : 'disabled'}>Download ABA file</button></div>
-    <div class="hint" style="margin-top:10px">Then in Westpac Online Banking go to Payments &gt; File imports &gt; Import new file &gt; Direct Entry/Pay Anyone (ABA).</div></div></div>`;
+    <div class="hint" style="margin-top:10px">Then in Westpac Online Banking go to Payments &gt; File imports &gt; Import new file &gt; Direct Entry/Pay Anyone (ABA).</div></div></div>${cashCard}`;
 }
 function entryForm(b, days){
   const secs = ['expense', 'cash', 'card', 'transfer', 'disc'];
