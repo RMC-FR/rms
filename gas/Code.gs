@@ -23,6 +23,7 @@ const HEAD_ = {
   checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at', 'phys', 'digital', 'acc', 'pstat', 'dstat', 'log'],   // pstat/dstat: '' | 'ok' (read and confirmed) | 'issue' | 'na' (digital only); log: one issue per line
   payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
   payers: ['entity', 'branches', 'bsb', 'acct'],
+  staff: ['key', 'first', 'middle', 'last', 'gender', 'dob', 'email', 'phone', 'position', 'visa', 'address', 'tfn', 'bsb', 'acct', 'passport', 'super_abn', 'super_usi', 'super_acct', 'submitted', 'n_resp'],   // admin only: staff details taken from the Tax form responses
   digital: ['msg', 'att', 'date', 'supplier', 'inv_no', 'total', 'items', 'to', 'subject', 'from', 'file', 'mail_date', 'got', 'err']
 };
 
@@ -135,9 +136,15 @@ function load_(me) {
     pay: me.role === 'admin' ? payInfo_() : null,
     checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: r.amt === '' ? null : Number(r.amt), phys: r.phys === true || r.phys === 'TRUE', digital: r.digital === '' || r.digital === null ? null : Number(r.digital), acc: r.acc === true || r.acc === 'TRUE', pstat: String(r.pstat || ''), dstat: String(r.dstat || ''), log: String(r.log || '') })) : [],
     digital: me.role === 'admin' ? digitalOf_() : [],
+    staff: me.role === 'admin' ? staffOf_() : [],
     wages: wagesOf_(me), hiddenWage: hiddenWage_(me), costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
     deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
+}
+/* Staff personal, tax, bank, visa and super details (admin only). Lives only in the sheet. */
+function staffOf_() {
+  const s = v => String(v === null || v === undefined ? '' : v).replace(/\s+/g, ' ').trim();
+  return read_('staff').filter(r => s(r.key)).map(r => ({ key: s(r.key), first: s(r.first), middle: s(r.middle), last: s(r.last), gender: s(r.gender), dob: s(r.dob), email: s(r.email), phone: s(r.phone), position: s(r.position), visa: s(r.visa), address: s(r.address), tfn: s(r.tfn), bsb: s(r.bsb), acct: s(r.acct), passport: s(r.passport), superAbn: s(r.super_abn), superUsi: s(r.super_usi), superAcct: s(r.super_acct), submitted: s(r.submitted), n: Number(r.n_resp) || 1 }));
 }
 /* Supplier bank details and the owner's paying accounts (admin only). The sheet is the only place they live; they are never in this file or the public repo. */
 function payInfo_() {

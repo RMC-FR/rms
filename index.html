@@ -248,7 +248,7 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
   (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
-  S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc, pstat:c.pstat || '', dstat:c.dstat || '', log:c.log || ''}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || []; S.costs = j.costs || [];
+  S.staff = j.staff || []; S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc, pstat:c.pstat || '', dstat:c.dstat || '', log:c.log || ''}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || []; S.costs = j.costs || [];
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
@@ -297,9 +297,9 @@ const user = () => ({role:ME.role, branch:ME.br, name:ME.name});
 const allowed = () => user().role === 'admin' ? BR : [user().branch];
 function ensureBranch(){
   if(user().role !== 'admin') UI.branch = allowed()[0];
-  else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'stppay', 'access'].includes(UI.tab)) UI.tab = 'summary';
-  else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'access')) UI.tab = 'summary';
-  if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
+  else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'stppay', 'staff', 'access'].includes(UI.tab)) UI.tab = 'summary';
+  else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'access')) UI.tab = 'summary';
+  if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
   if(UI.branch === 'ALL' && UI.tab === 'invpay') UI.tab = 'summary';
 }
 
@@ -353,10 +353,10 @@ function render(){
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
-    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="stppay" aria-pressed="${UI.tab === 'stppay'}">STP wages for payment<span class="cwsub">Admin only</span></button></div>` : ''}
+    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="stppay" aria-pressed="${UI.tab === 'stppay'}">STP wages for payment<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="staff" aria-pressed="${UI.tab === 'staff'}">Staff details<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : UI.tab === 'stppay' ? viewStpPay() : viewAccess()}`;
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : UI.tab === 'stppay' ? viewStpPay() : UI.tab === 'staff' ? viewStaff() : viewAccess()}`;
   const tw = document.createTreeWalker($('#app'), NodeFilter.SHOW_TEXT), negs = [];
   while(tw.nextNode()){ const n = tw.currentNode, p = n.parentElement; if(p && !/^(SCRIPT|STYLE|TEXTAREA|OPTION|BUTTON|TITLE)$/.test(p.tagName) && /^\s*[-−–]\s*\$?\d[\d,]*(\.\d+)?\s*%?\s*$/.test(n.nodeValue)) negs.push(p); }
   negs.forEach(p => p.classList.add('neg'));
@@ -1328,6 +1328,32 @@ function viewWageNew(b, ws, rows){
 const CASH_BR = {BO:'Bowral', GN:'Glenorie', LE:'Leichhardt', CT:'Campbelltown'};   // branches where the cash part is part of the wage cost and visible to the manager
 const DAY_STAFF = ['Jinheum', 'Jaeyoon', 'Youngjae'];   // fixed pay for a 5-day week; every day beyond 5 is paid in cash at the day rate
 
+/* Staff details (admin): personal, visa, tax, bank and super details taken from the Tax form responses. TFN, bank, passport and super numbers stay hidden until shown. */
+function staffBranches(p){
+  const f = (p.first || '').toLowerCase(), m = (p.middle || '').toLowerCase(), l = (p.last || '').toLowerCase(), keys = new Set([f, (f + ' ' + m).trim(), (f + ' ' + l).trim(), (f + ' ' + m + ' ' + l).trim()].filter(Boolean)), br = new Set();
+  S.wages.forEach(w => { const n = String(w.name || '').trim().toLowerCase().replace(/\s+/g, ' '), k = String(w.nick || '').trim().toLowerCase(); if(keys.has(n) || (k && keys.has(k))) br.add(w.br); });
+  return [...br].sort();
+}
+function staffRows(){
+  const q = (UI.stQ || '').trim().toLowerCase(), all = UI.stF === 'all', dash = '<span class="dim">–</span>';
+  if(!S._stBr) S._stBr = {};
+  let n = 0;
+  const html = S.staff.map(p => ({p, br:S._stBr[p.key] || (S._stBr[p.key] = staffBranches(p))}))
+    .filter(x => (all || x.br.length) && (!q || [x.p.first, x.p.middle, x.p.last, x.p.email, x.p.phone, x.p.position, x.p.visa, x.br.join(' ')].join(' ').toLowerCase().includes(q)))
+    .map(({p, br}) => { n++;
+      const open = UI.stAll || (UI.stShow || {})[p.key], sec = (v, k) => !v ? dash : open ? esc(v) : '•••• ' + esc(String(v).slice(-k));
+      const name = [p.first, p.middle, p.last].filter(Boolean).join(' ');
+      return `<tr><td class="emp"><b>${esc(name)}</b>${p.n > 1 ? ` <small class="dim">${p.n} forms</small>` : ''}</td><td>${br.length ? br.map(esc).join(', ') : dash}</td><td>${esc(p.position) || dash}</td><td>${esc(p.visa) || dash}</td><td>${esc(p.dob) || dash}</td><td>${esc(p.gender) || dash}</td><td>${esc(p.phone) || dash}</td><td>${esc(p.email) || dash}</td><td>${esc(p.address) || dash}</td><td>${sec(p.tfn, 3)}</td><td>${p.bsb || p.acct ? esc(p.bsb) + (p.bsb && p.acct ? ' / ' : '') + sec(p.acct, 3) : dash}</td><td>${sec(p.passport, 3)}</td><td>${p.superAbn || p.superUsi || p.superAcct ? [p.superAbn && 'ABN ' + esc(p.superAbn), p.superUsi && 'USI ' + esc(p.superUsi), p.superAcct && 'Acct ' + sec(p.superAcct, 3)].filter(Boolean).join('<br>') : dash}</td><td>${esc(p.submitted) || dash}</td><td><button class="btn sm" data-act="stshow" data-k="${esc(p.key)}">${open ? 'Hide' : 'Show'}</button></td></tr>`; }).join('');
+  return {html: html || '<tr><td colspan="15" class="dim">No staff found.</td></tr>', n};
+}
+function viewStaff(){
+  const cur = S.staff.filter(p => (S._stBr && S._stBr[p.key] ? S._stBr[p.key] : (S._stBr = S._stBr || {}, S._stBr[p.key] = staffBranches(p))).length).length, all = UI.stF === 'all', r = staffRows();
+  return `<div class="card"><h2>Staff details <small>Admin only. Taken from the Tax form responses (latest form per person). TFN, bank account, passport and super numbers are hidden until you press Show.</small></h2>
+    <div class="adminrow"><button class="cwbtn" data-act="stf" data-v="cur" aria-pressed="${!all}">Current staff<span class="cwsub">${cur}</span></button><button class="cwbtn" data-act="stf" data-v="all" aria-pressed="${all}">Everyone who filled the form<span class="cwsub">${S.staff.length}</span></button>
+      <input id="st-q" type="search" placeholder="Search name, phone, branch…" value="${esc(UI.stQ || '')}" style="max-width:260px"><button class="btn sm" data-act="stall">${UI.stAll ? 'Hide all numbers' : 'Show all numbers'}</button><span class="dim"><span id="st-n">${r.n}</span> shown</span></div>
+    <div class="scroll"><table><thead><tr><th>Name</th><th>Branch</th><th>Position</th><th>Visa</th><th>DOB</th><th>Gender</th><th>Phone</th><th>Email</th><th>Address</th><th>TFN</th><th>BSB / Account</th><th>Passport</th><th>Super</th><th>Form date</th><th></th></tr></thead><tbody id="st-body">${r.html}</tbody></table></div></div>
+    <div class="hint">"Current staff" means the person's name appears in the wage data. Branch comes from the same match. A few people use a different name on the form than in payroll; use "Everyone who filled the form" and search to find them.</div>`;
+}
 /* STP wages for payment (admin): one list per paying bank account / ABN, staff merged across branches, alphabetical by first name */
 const ABN_OF = {WT:'AKLE', BO:'AKLE', TM:'AKLE', OF:'AKLE', LE:'KBMI', GN:'SZGN', CT:'T81CT'}, ABN_LIST = ['AKLE', 'KBMI', 'SZGN', 'T81CT'];   // WT, BO and TM are paid from the AKLE account; every other branch is its own account
 function viewStpPay(){
@@ -1415,8 +1441,11 @@ function readDraft(){
 }
 document.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
-  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'stppay', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
+  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'stppay', 'staff', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
   else if(a === 'stpent'){ UI.stpEnt = t.dataset.v; }
+  else if(a === 'stf'){ UI.stF = t.dataset.v; }
+  else if(a === 'stshow'){ UI.stShow = UI.stShow || {}; UI.stShow[t.dataset.k] = !UI.stShow[t.dataset.k]; }
+  else if(a === 'stall'){ UI.stAll = !UI.stAll; }
   else if(a === 'tab'){ UI.tab = t.dataset.v; UI.editId = null; UI.draft = {}; UI.confirmDel = null; }
   else if(a === 'day'){ const v = t.dataset.v; UI.day = v === '0' ? todayLocal() : v === 'last' ? DATA[UI.branch === 'ALL' ? BR[0] : UI.branch].dates[6] : addDays(UI.day, +v); }
   else if(a === 'pickday'){ UI.day = t.dataset.v; window.scrollTo(0, 0); }
@@ -1499,6 +1528,7 @@ document.addEventListener('change', ev => {
 });
 document.addEventListener('keydown', ev => { if(ev.key === 'Escape' && UI.modal){ UI.modal = null; render(); } });
 document.addEventListener('input', ev => { if(ev.target.id === 'imp-text') UI.imp.text = ev.target.value;
+  if(ev.target.id === 'st-q'){ UI.stQ = ev.target.value; const r = staffRows(), b = $('#st-body'); if(b) b.innerHTML = r.html; const n = $('#st-n'); if(n) n.textContent = r.n; }
   if(ev.target.dataset && ev.target.dataset.iv && UI.inv){ const k = ev.target.dataset.iv, it = UI.inv.items[+ev.target.dataset.i], v = ev.target.value; if(k === 'item') it.item = v; else if(k === 'qty') it.qty = v === '' ? null : +v; else if(k === 'amt') it.amt = v === '' ? 0 : +v; if(k === 'amt'){ const h = $('#ivsum'); if(h) h.innerHTML = ivSumHtml(); } }
   if(ev.target.id === 'm-reason' && UI.modal){ UI.modal.reason = ev.target.value; const bt = $('#m-rec'); if(bt) bt.disabled = !ev.target.value.trim(); } if(ev.target.classList && ev.target.classList.contains('dinp')) updDayTotal(); });
 document.addEventListener('submit', ev => {
