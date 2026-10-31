@@ -270,7 +270,7 @@ async function signIn(username, pw){
   await afterLogin();
 }
 async function signOut(){
-  AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}, items:{}, wages:[], hiddenWage:{}, deductions:[], checks:{}, inv:{}}; DATA = {}; BR = []; PROFILES = [];
+  MGR.gate = ''; MGR.err = ''; AUTH.tok = null; lsSet(null); ME = null; S = {entries:[], cats:{}, items:{}, wages:[], hiddenWage:{}, deductions:[], checks:{}, inv:{}}; DATA = {}; BR = []; PROFILES = [];
   UI.pw = false; UI.syncErr = null; UI.loginErr = '';
 }
 /* save(): sends only what changed since the last successful sync; a single queue keeps edits in order */
@@ -293,14 +293,15 @@ async function doSync(){
   if(UI.syncErr){ UI.syncErr = null; render(); }
 }
 const todayLocal = () => new Date().toLocaleDateString('en-CA');
+const MGR = {gate:'', err:''};
 const UI = {ip:{sel:{}, date:''}, imp:{text:'', reports:null}, booting:true, loginErr:'', pw:false, branch:'ALL', tab:'summary', day:todayLocal(), week:'2026-10-05', editId:null, draft:{}, fSec:'expense', confirmDel:null};
 const user = () => ({role:ME.role, branch:ME.br, name:ME.name});
 const allowed = () => user().role === 'admin' ? BR : [user().branch];
 function ensureBranch(){
   if(user().role !== 'admin') UI.branch = allowed()[0];
-  else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'stppay', 'staff', 'award', 'access'].includes(UI.tab)) UI.tab = 'summary';
-  else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'access')) UI.tab = 'summary';
-  if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
+  else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'stppay', 'staff', 'award', 'mgrpw', 'access'].includes(UI.tab)) UI.tab = 'summary';
+  else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'mgrpw' || UI.tab === 'access')) UI.tab = 'summary';
+  if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'mgrpw' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
   if(UI.branch === 'ALL' && UI.tab === 'invpay') UI.tab = 'summary';
 }
 
@@ -354,10 +355,10 @@ function render(){
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
-    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="stppay" aria-pressed="${UI.tab === 'stppay'}">STP wages for payment<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="staff" aria-pressed="${UI.tab === 'staff'}">Staff details<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="award" aria-pressed="${UI.tab === 'award'}">Award calculator<span class="cwsub">Admin only</span></button></div>` : ''}
+    ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="stppay" aria-pressed="${UI.tab === 'stppay'}">STP wages for payment<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="staff" aria-pressed="${UI.tab === 'staff'}">Staff details<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="award" aria-pressed="${UI.tab === 'award'}">Award calculator<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="mgrpw" aria-pressed="${UI.tab === 'mgrpw'}">Passwords<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : UI.tab === 'stppay' ? viewStpPay() : UI.tab === 'staff' ? viewStaff() : UI.tab === 'award' ? `<div class="awardwrap">${ffcCard()}</div>` : viewAccess()}`;
+    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : UI.tab === 'stppay' ? viewStpPay() : UI.tab === 'staff' ? viewStaff() : UI.tab === 'award' ? `<div class="awardwrap">${ffcCard()}</div>` : UI.tab === 'mgrpw' ? viewMgrPw() : viewAccess()}`;
   const tw = document.createTreeWalker($('#app'), NodeFilter.SHOW_TEXT), negs = [];
   while(tw.nextNode()){ const n = tw.currentNode, p = n.parentElement; if(p && !/^(SCRIPT|STYLE|TEXTAREA|OPTION|BUTTON|TITLE)$/.test(p.tagName) && /^\s*[-−–]\s*\$?\d[\d,]*(\.\d+)?\s*%?\s*$/.test(n.nodeValue)) negs.push(p); }
   negs.forEach(p => p.classList.add('neg'));
@@ -1456,6 +1457,20 @@ function viewWage(){
       <thead><tr><th>Employee</th><th class="r">Hours</th><th class="r">Taxed</th><th class="r">Cash</th><th class="r">Total</th></tr></thead><tbody>${rows}</tbody></table></div></div>
     <div class="hint">The sum of the employees above may differ from the sheet total (${money(ws.total)}) because of how the sheet groups its ranges. Automatic wage calculation from hours comes in the next step.</div>`;
 }
+function viewMgrPw(){
+  if(!MGR.gate) return `<div class="card awardwrap"><h2>Manager passwords <small>Enter the page code to continue.</small></h2>
+    <form id="mgrgate" autocomplete="off"><label class="lbl">Page code<input id="m-gate" type="password" autocomplete="off" inputmode="numeric" style="display:block;margin-top:4px;width:100%"></label>
+    <div class="err" role="alert">${esc(MGR.err || '')}</div><button class="btn primary" type="submit"${UI.busy ? ' disabled' : ''}>Unlock</button></form></div>`;
+  const ms = PROFILES.filter(u => u.role !== 'admin').sort((a, b) => String(a.br).localeCompare(String(b.br)));
+  return `<div class="card"><h2>Manager passwords <small>Set a new password for a branch manager. Managers can change it themselves after signing in.</small></h2>
+    <div class="scroll"><table><thead><tr><th>Name</th><th>User ID</th><th>Branch</th><th>Password</th><th>New password</th><th></th></tr></thead><tbody>
+    ${ms.map(u => `<tr><td>${esc(u.name)}</td><td style="font-family:var(--mono);font-size:12.5px">${esc(u.username)}</td><td>${esc(u.br)}</td>
+      <td>${u.must_change ? '<span class="tag warn">temporary</span>' : 'Changed'}</td>
+      <td><input class="mgr-pw" data-u="${esc(u.username)}" type="text" autocomplete="off" placeholder="min 4 characters" style="width:170px"></td>
+      <td><button class="btn sm" data-act="mgrset" data-v="${esc(u.username)}"${UI.busy ? ' disabled' : ''}>Set password</button> <button class="btn sm" data-act="mgrreset" data-v="${esc(u.username)}"${UI.busy ? ' disabled' : ''}>Reset to 1234</button></td></tr>`).join('')}</tbody></table></div>
+    <div class="err" role="alert">${esc(MGR.err || '')}</div>
+    <div class="hint">The manager is asked to choose their own password at next sign-in. <button class="btn sm" data-act="mgrlock">Lock this page</button></div></div>`;
+}
 function viewAccess(){
   return `<div class="card"><h2>Accounts <small>Read-only. Accounts are created and removed in the database (Google Sheet) for now.</small></h2><div class="scroll"><table>
     <thead><tr><th>Name</th><th>User ID</th><th>Role</th><th>Can view</th><th>Password</th></tr></thead><tbody>
@@ -1472,7 +1487,7 @@ function readDraft(){
 }
 document.addEventListener('click', ev => {
   const t = ev.target.closest('[data-act]'); if(!t || t.tagName === 'SELECT') return; const a = t.dataset.act;
-  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'stppay', 'staff', 'award', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
+  if(a === 'branch'){ UI.branch = t.dataset.v; if(UI.branch === 'ALL' ? !['summary', 'cashwage', 'stppay', 'staff', 'award', 'mgrpw', 'access'].includes(UI.tab) : UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'mgrpw' || UI.tab === 'access') UI.tab = 'summary'; UI.editId = null; UI.draft = {}; window.scrollTo(0, 0); }
   else if(a === 'stpent'){ UI.stpEnt = t.dataset.v; }
   else if(a === 'stf'){ UI.stF = t.dataset.v; }
   else if(a === 'stshow'){ UI.stShow = UI.stShow || {}; UI.stShow[t.dataset.k] = !UI.stShow[t.dataset.k]; }
@@ -1525,6 +1540,17 @@ document.addEventListener('click', ev => {
   else if(a === 'ubsave'){ uberSave(); }
   else if(a === 'ubdiscard'){ UI.uber = null; }
   else if(a === 'logout'){ signOut().then(render); return; }
+  else if(a === 'mgrlock'){ MGR.gate = ''; MGR.err = ''; }
+  else if(a === 'mgrset' || a === 'mgrreset'){
+    const u = t.dataset.v, inp = document.querySelector('.mgr-pw[data-u="' + u + '"]'), np = a === 'mgrreset' ? '1234' : (inp ? inp.value : '');
+    if(np.length < 4){ MGR.err = 'Use at least 4 characters.'; render(); return; }
+    UI.busy = true; MGR.err = ''; render();
+    api('mgr_set', {gate:MGR.gate, user:u, np, must_change:true})
+      .then(() => { const p = PROFILES.find(x => x.username === u); if(p) p.must_change = true; flash('Password set for ' + u); })
+      .catch(e => { MGR.err = e.message; if(e.message === 'Wrong code.') MGR.gate = ''; })
+      .finally(() => { UI.busy = false; render(); });
+    return;
+  }
   else if(a === 'pw'){ UI.pw = true; UI.pwErr = ''; }
   else if(a === 'pwcancel'){ UI.pw = false; }
   else if(a === 'retry'){ save(); }
@@ -1570,6 +1596,11 @@ document.addEventListener('submit', ev => {
     UI.loginUser = $('#l-user').value; const pw = $('#l-pw').value; UI.busy = true; UI.loginErr = ''; render();
     signIn(UI.loginUser, pw).catch(e => { UI.loginErr = e.message; ME = null; })
       .finally(() => { UI.busy = false; render(); });
+    return;
+  }
+  if(ev.target.id === 'mgrgate'){
+    const g = $('#m-gate').value; UI.busy = true; MGR.err = ''; render();
+    api('mgr_gate', {gate:g}).then(() => { MGR.gate = g; }).catch(e => { MGR.err = e.message; }).finally(() => { UI.busy = false; render(); });
     return;
   }
   if(ev.target.id === 'pwform'){

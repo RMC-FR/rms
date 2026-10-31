@@ -50,6 +50,8 @@ function route_(b) {
   if (b.a === 'inv') return withLock_(() => inv_(me, b));
   if (b.a === 'mail') return withLock_(() => mail_(me, b));
   if (b.a === 'chpw') return withLock_(() => chpw_(me, b));
+  if (b.a === 'mgr_gate') return mgrGate_(me, b);
+  if (b.a === 'mgr_set') return withLock_(() => mgrSet_(me, b));
   if (b.a === 'inv_read') return invRead_(me, b);
   if (b.a === 'inv_img') return invImg_(me, b);
   throw new Error('Unknown action');
@@ -121,6 +123,27 @@ function chpw_(me, b) {
   const salt = Utilities.getUuid(), hash = hashPw_(np, salt);
   SHEET_('users').getRange(me.row, 5, 1, 3).setValues([[false, salt, hash]]);
   return { token: token_({ username: me.username, hash }), me: pub_({ ...me, must_change: false }) };
+}
+
+/* ---------- manager password management (admin only, behind a page code) ---------- */
+function mgrGate_(me, b) {
+  if (me.role !== 'admin') throw new Error('Admin only.');
+  const cache = CacheService.getScriptCache(), k = 'mgrfail:' + me.username;
+  if (+(cache.get(k) || 0) >= 8) throw new Error('Too many attempts. Try again in 15 minutes.');
+  const code = P_().getProperty('PWGATE') || '1234';
+  if (String(b.gate || '') !== code) { cache.put(k, String(+(cache.get(k) || 0) + 1), 900); Utilities.sleep(800); throw new Error('Wrong code.'); }
+  cache.remove(k);
+  return { ok: true };
+}
+function mgrSet_(me, b) {
+  mgrGate_(me, b);
+  const un = String(b.user || '').trim().toLowerCase(), np = String(b.np || '');
+  const u = userRow_(un);
+  if (!u || u.role === 'admin') throw new Error('Manager account not found.');
+  if (np.length < 4) throw new Error('Use at least 4 characters.');
+  const salt = Utilities.getUuid(), hash = hashPw_(np, salt);
+  SHEET_('users').getRange(u.row, 5, 1, 3).setValues([[b.must_change !== false, salt, hash]]);
+  return { ok: true, user: u.username, must_change: b.must_change !== false };
 }
 
 /* ---------- data ---------- */
