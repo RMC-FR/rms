@@ -1196,14 +1196,13 @@ function parseDocket(texts){
   if(out.total === null) out.warnings.push('Total sales not found.');
   if(out.cash === null) out.warnings.push('Cash sales not found.');
   if(out.eftpos === null) out.warnings.push('Card (EFTPOS) sales not found.');
-  if(out.counted === null || out.opening === null) out.warnings.push('Counted cash or opening cash not found, so closing cash cannot be calculated.');
   if(best.tot && best.rel < best.tot) out.warnings.push('Some docket numbers do not add up (Total = Cash + Card, Card = EFTPOS + Uber, or the cash count). The photo may have been misread: please check every amount below against the docket.');
   if(!best.tot) out.warnings.push('Too few numbers were read to cross-check them. Please check every amount against the docket.');
   return out;
 }
 function docketToText(d, b){
   const f = x => x === null || x === undefined ? '' : '$ ' + x.toFixed(2);
-  const closing = d.counted !== null && d.opening !== null ? Math.round((d.counted - d.opening) * 100) / 100 : null;
+  const closing = d.cash !== null ? Math.round((d.cash - (d.expense || 0)) * 100) / 100 : null;   // closing cash = cash sales - cash-out (the cash in the till is not used)
   const dd = d.date ? d.date.slice(8) + '/' + d.date.slice(5, 7) + '/' + d.date.slice(2, 4) : '';
   return `***${DATA[b].name}***\n\nDate : ${dd}\nSales total : ${f(d.total)}\nCard sales : ${f(d.eftpos)}\nCash Sales : ${f(d.cash)}\n${d.uber ? 'Uber : ' + f(d.uber) + '\n' : ''}${d.doordash ? 'Doordash : ' + f(d.doordash) + '\n' : ''}Cash-out total : ${f(d.expense)}\nClosing amount : ${f(closing)}\n`;
 }
@@ -1264,9 +1263,9 @@ function dkCard(){
     ${k.err ? `<div class="err" role="alert">${esc(k.err)}</div>` : ''}</div></div>`;
 }
 function dkNote(d, url){
-  const closing = d.counted !== null && d.opening !== null ? Math.round((d.counted - d.opening) * 100) / 100 : null, m = x => x === null || x === undefined ? '–' : money(x);
+  const closing = d.cash !== null ? Math.round((d.cash - (d.expense || 0)) * 100) / 100 : null, m = x => x === null || x === undefined ? '–' : money(x);
   return `<div class="pad" style="padding-bottom:0"><div class="row" style="align-items:flex-start;gap:14px">${url ? `<img src="${url}" alt="Uploaded docket" style="width:96px;border-radius:4px;border:1px solid var(--line)">` : ''}
-    <div class="hint" style="margin:0;flex:1 1 240px">Read from the docket: total sales ${m(d.total)} · cash ${m(d.cash)} · card ${m(d.eftpos)}${d.uber ? ' · Uber ' + m(d.uber) : ''}${d.doordash ? ' · Doordash ' + m(d.doordash) : ''} · cash-out ${m(d.expense)} · counted cash ${m(d.counted)} − opening ${m(d.opening)} = closing ${m(closing)}${d.balance !== null ? ' · POS cash difference ' + m(d.balance) : ''}. Check these against the docket before saving.</div></div>
+    <div class="hint" style="margin:0;flex:1 1 240px">Read from the docket: total sales ${m(d.total)} · cash ${m(d.cash)} · card ${m(d.eftpos)}${d.uber ? ' · Uber ' + m(d.uber) : ''}${d.doordash ? ' · Doordash ' + m(d.doordash) : ''} · cash-out ${m(d.expense)} · closing cash (cash sales − cash-out) ${m(closing)}. Check these against the docket before saving.</div></div>
     ${d.warnings.length ? `<div class="chk">${d.warnings.map(w => `<div class="wn"><b>!</b><span>${esc(w)}</span></div>`).join('')}</div>` : ''}</div>`;
 }
 
