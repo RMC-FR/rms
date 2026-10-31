@@ -160,7 +160,7 @@ function load_(me) {
     checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: r.amt === '' ? null : Number(r.amt), phys: r.phys === true || r.phys === 'TRUE', digital: r.digital === '' || r.digital === null ? null : Number(r.digital), acc: r.acc === true || r.acc === 'TRUE', pstat: String(r.pstat || ''), dstat: String(r.dstat || ''), log: String(r.log || '') })) : [],
     digital: me.role === 'admin' ? digitalOf_() : [],
     staff: me.role === 'admin' ? staffOf_() : [],
-    wages: wagesOf_(me), hiddenWage: hiddenWage_(me), costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
+    wages: me.role === 'admin' ? wagesOf_(me) : [], hiddenWage: me.role === 'admin' ? hiddenWage_(me) : {}, costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
     deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
 }
@@ -324,6 +324,11 @@ function invRead_(me, b) {
   if (!EXT_[mime]) throw new Error('Use a JPG, PNG or PDF file.');
   if (data.length > 9e6) throw new Error('The file is too large. Take the photo again or use a smaller file.');
   const stamp = Utilities.formatDate(new Date(), 'Australia/Sydney', 'yyyyMMdd-HHmmss');
+  if (b.nosave) {   // manager uploads: read only, the photo is not filed in Drive
+    const o = { file: null, parsed: null, perr: '' };
+    try { o.parsed = gemini_(mime, data); } catch (err) { o.perr = String(err && err.message || err); }
+    return o;
+  }
   const file = folder_(br).createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, br + '_' + stamp + '.' + EXT_[mime]));
   file.setDescription(br);
   const out = { file: { id: file.getId(), name: file.getName() }, parsed: null, perr: '' };
@@ -433,6 +438,8 @@ function hiddenWage_(me) {
 function metaFor_(me) {
   const rows = read_('meta').filter(r => canSee_(me, r.br)).map(r => ({ br: r.br, data: JSON.parse(r.json) }));
   if (me.role === 'admin') return rows;
+  rows.forEach(r => { if (r.data) { delete r.data.wages; delete r.data.wageSummary; } });   // managers do not see wages for now
+  return rows;
   const bad = {};
   read_('wages').filter(isRestricted_).forEach(r => { bad[String(r.name).trim().toLowerCase()] = 1; });
   rows.forEach(r => { if (r.data && r.data.wages) r.data.wages = r.data.wages.filter(w => !bad[String(w.name).trim().toLowerCase()]); });

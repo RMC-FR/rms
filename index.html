@@ -134,6 +134,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .chk .ok{color:var(--good)}.chk .wn{color:var(--warn)}.chk .bd{color:var(--bad)}
 .rtable input,.rtable select{width:100%;min-width:90px}
 .rtable td.skipped{color:var(--muted)}
+.homebtns{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:8px 0}.bigbtn{position:relative;display:flex;flex-direction:column;justify-content:center;gap:6px;min-height:150px;padding:24px;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;overflow:hidden}.bigbtn b{font-size:20px}.bigbtn span{opacity:.85;font-size:13px}.bigbtn.alt{background:#1f2933}.bigbtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .fileb{position:relative;overflow:hidden}.fileb input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
 .err{background:var(--bad-soft);color:var(--bad);padding:10px 14px;border-radius:6px;margin:12px 14px;font-weight:500}
 .invbox{grid-column:1/-1;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:8px;background:var(--bg)}
@@ -261,7 +262,7 @@ const loadAll = async () => applyLoad(await api('load'));
 const latestWeek = () => { const d = S.entries.reduce((m, e) => e.date > m ? e.date : m, ''); return d ? monday(d) : UI.week; };
 async function afterLogin(){
   await loadAll();
-  UI.branch = ME.role === 'admin' ? 'ALL' : ME.br; UI.tab = ME.role === 'admin' ? 'summary' : 'import';
+  UI.branch = ME.role === 'admin' ? 'ALL' : ME.br; UI.tab = ME.role === 'admin' ? 'summary' : 'home';
   UI.week = latestWeek();
 }
 async function signIn(username, pw){
@@ -299,6 +300,7 @@ const user = () => ({role:ME.role, branch:ME.br, name:ME.name});
 const allowed = () => user().role === 'admin' ? BR : [user().branch];
 function ensureBranch(){
   if(user().role !== 'admin') UI.branch = allowed()[0];
+  if(user().role !== 'admin' && UI.tab === 'wage') UI.tab = 'home';
   else if(UI.branch === 'ALL' && !['summary', 'cashwage', 'stppay', 'staff', 'award', 'mgrpw', 'access'].includes(UI.tab)) UI.tab = 'summary';
   else if(UI.branch !== 'ALL' && (UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'mgrpw' || UI.tab === 'access')) UI.tab = 'summary';
   if((UI.tab === 'access' || UI.tab === 'cashwage' || UI.tab === 'stppay' || UI.tab === 'staff' || UI.tab === 'award' || UI.tab === 'mgrpw' || UI.tab === 'invpay') && user().role !== 'admin') UI.tab = 'summary';
@@ -311,6 +313,7 @@ const entriesFor = (b, days, secs) => S.entries.filter(e => e.br === b && days.i
 const NET_UBER = /(uber|door ?dash).*(net|payout)/i;   // delivery payout lines (Uber / Doordash net): a result, not a sales line
 const wageRows = (b, ws) => S.wages.filter(w => w.br === b && w.week === ws);
 function wageFor(b, ws, d, imp){
+  if(!ME || ME.role !== 'admin') return {has:false, total:0};   // managers do not see wages for now
   const rows = wageRows(b, ws), hid = S.hiddenWage[b + '|' + ws] || 0;
   if(rows.length || hid) return {has:true, total:Math.round((rows.reduce((a, w) => a + (w.stp || 0) + cashPay(w), 0) + hid) * 100) / 100};
   return {has:imp, total:imp && d.wageSummary ? d.wageSummary.total : 0};
@@ -345,7 +348,7 @@ function render(){
   const u = user();
   const chips = u.role === 'admin' ? ['ALL', ...BR].map(b =>
     `<button class="chip" data-act="branch" data-v="${b}" aria-pressed="${UI.branch === b}">${b === 'ALL' ? 'All branches' : b}</button>`).join('') : '';
-  const tabs = (u.role === 'admin' && UI.branch === 'ALL' ? [['summary','Summary'], ['access','Access']] : [['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ...(u.role === 'admin' ? [['invpay','Invoice payment']] : []), ['wage','Wages']])
+  const tabs = (u.role === 'admin' && UI.branch === 'ALL' ? [['summary','Summary'], ['access','Access']] : [...(u.role === 'admin' ? [] : [['home','Home']]), ['import','Import report'], ['summary','Summary'], ['sheet','Weekly sheet'], ...(u.role === 'admin' ? [['invpay','Invoice payment'], ['wage','Wages']] : [])])
     .map(([k, l]) => `<button class="tab" role="tab" data-act="tab" data-v="${k}" aria-selected="${UI.tab === k}">${l}</button>`).join('');
   $('#app').innerHTML = `
     <header class="top">
@@ -355,11 +358,11 @@ function render(){
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
-    ${u.role !== 'admin' && UI.tab !== 'import' ? `<div class="adminrow">${dkUploadBtn()}</div>` : ''}
+    ${u.role !== 'admin' && UI.tab !== 'import' && UI.tab !== 'home' ? `<div class="adminrow">${dkUploadBtn()}${upUploadBtn()}</div>` : ''}
     ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="stppay" aria-pressed="${UI.tab === 'stppay'}">STP wages for payment<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="staff" aria-pressed="${UI.tab === 'staff'}">Staff details<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="award" aria-pressed="${UI.tab === 'award'}">Award calculator<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="mgrpw" aria-pressed="${UI.tab === 'mgrpw'}">Passwords<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
-    ${UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : UI.tab === 'stppay' ? viewStpPay() : UI.tab === 'staff' ? viewStaff() : UI.tab === 'award' ? `<div class="awardwrap">${ffcCard()}</div>` : UI.tab === 'mgrpw' ? viewMgrPw() : viewAccess()}`;
+    ${UI.tab === 'home' ? viewHome() : UI.tab === 'daily' ? viewDaily() : UI.tab === 'import' ? viewImport() : UI.tab === 'summary' ? viewSummary() : UI.tab === 'sheet' ? sheetBlank(viewSheet()) : UI.tab === 'invpay' ? viewInvPay() : UI.tab === 'wage' ? viewWage() : UI.tab === 'cashwage' ? viewCashWage() : UI.tab === 'stppay' ? viewStpPay() : UI.tab === 'staff' ? viewStaff() : UI.tab === 'award' ? `<div class="awardwrap">${ffcCard()}</div>` : UI.tab === 'mgrpw' ? viewMgrPw() : viewAccess()}`;
   const tw = document.createTreeWalker($('#app'), NodeFilter.SHOW_TEXT), negs = [];
   while(tw.nextNode()){ const n = tw.currentNode, p = n.parentElement; if(p && !/^(SCRIPT|STYLE|TEXTAREA|OPTION|BUTTON|TITLE)$/.test(p.tagName) && /^\s*[-−–]\s*\$?\d[\d,]*(\.\d+)?\s*%?\s*$/.test(n.nodeValue)) negs.push(p); }
   negs.forEach(p => p.classList.add('neg'));
@@ -542,7 +545,7 @@ function shrinkImage(file){
 function matchSupplier(b, name){
   const n = norm(name); if(n.length < 3) return null;
   for(const sec of ['expense', 'card', 'cash']){
-    const c = S.cats[b].find(x => x.sec === sec && (norm(x.label) === n || (norm(x.label).length > 3 && (n.includes(norm(x.label)) || norm(x.label).includes(n)))));
+    const c = S.cats[b].find(x => x.sec === sec && (norm(x.label) === n || (norm(x.label).length > 3 && (n.includes(norm(x.label)) || norm(x.label).includes(n))) || (norm(x.label).length >= 3 && n.startsWith(norm(x.label)))));
     if(c) return {sec, label:c.label};
   }
   return null;
@@ -1080,7 +1083,7 @@ function analyze(r){
   if(!r.date) checks.push(['bd', 'The date is missing or not valid. Enter it as DD/MM/YYYY.']);
   return {suggest, cashRec, co, checks, hasCash:!!cashLine};
 }
-function viewImport(){ return dkCard() + viewReportImport() + uberCard(); }
+function viewImport(){ return dkCard() + upCard() + viewReportImport() + uberCard(); }
 function viewReportImport(){
   const reps = UI.imp.reports;
   const input = `<div class="card imp"><h2>Import a report <small>Paste the KakaoTalk report text or upload a .txt file. Nothing is saved until you confirm.</small></h2><div class="pad">
@@ -1659,6 +1662,8 @@ document.addEventListener('click', ev => {
   else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.inv = null; UI.confirmDel = null; UI.focusAmt = true; }
   else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; UI.inv = null; }
   else if(a === 'ivdel'){ readDraft(); UI.inv.items.splice(+t.dataset.i, 1); }
+  else if(a === 'upsave'){ upSave(); return; }
+  else if(a === 'updiscard'){ UI.up = null; UI.inv = null; }
   else if(a === 'ivadd'){ readDraft(); UI.inv.items.push({item:'', qty:null, amt:0, cat:'Other'}); }
   else if(a === 'ivclear'){ readDraft(); UI.inv = null; }
   else if(a === 'mclose'){ UI.modal = null; }
@@ -1801,6 +1806,77 @@ document.addEventListener('submit', ev => {
     render();
   }
 });
+
+/* ---------- Manager home + invoice / receipt upload (read by the existing invoice reader, reviewed, then registered) ---------- */
+function viewHome(){
+  return `<div class="homebtns"><label class="bigbtn"><input type="file" id="dk-file" accept="image/*"><b>Upload sales summary</b><span>Photo of the POS Daily Report docket</span></label>
+    <label class="bigbtn alt"><input type="file" id="up-file" accept="image/*,application/pdf"><b>Upload invoice &amp; receipts</b><span>One invoice or receipt at a time: photo or PDF</span></label></div>`;
+}
+function upUploadBtn(cls){ return `<span class="btn ${cls || 'primary'} fileb">Upload invoice &amp; receipts<input type="file" id="up-file" accept="image/*,application/pdf"${UI.up && UI.up.busy ? ' disabled' : ''}></span>`; }
+async function runInvoice(file){
+  const b = UI.branch;
+  if(b === 'ALL' || !allowed().includes(b)){ flash('Select a branch first'); return; }
+  UI.tab = 'import'; UI.inv = null; UI.up = {busy:true, err:'', d:null}; render();
+  try{
+    const img = await shrinkImage(file);
+    const j = await api('inv_read', {br:b, mime:img.mime, data:img.data, nosave:true});
+    const p = j.parsed || {supplier:'', date:'', invoice_no:'', total:null, items:[]};
+    const m = matchSupplier(b, p.supplier), sec = m ? m.sec : 'expense';
+    const tot = p.total !== null && p.total !== undefined ? p.total : r2(p.items.reduce((a, i) => a + i.amt, 0));
+    const votes = {}; p.items.forEach(i => votes[i.cat] = (votes[i.cat] || 0) + i.amt);
+    const top = Object.entries(votes).sort((x, y) => y[1] - x[1])[0];
+    UI.inv = {busy:false, file:null, err:'', items:p.items, total:p.total};
+    UI.up = {busy:false, err:j.perr || '', dup:false, d:{date:p.date ? fd(p.date) : '', cat:m ? m.label : p.supplier, ref:p.invoice_no || '', amt:tot ? String(tot) : '', sec, grp:sec === 'cash' ? (top && ['Grocery', 'Liquor', 'Equipment'].includes(top[0]) ? top[0] : classify(p.supplier)) : 'ETC'}};
+  }catch(e){ UI.up = {busy:false, err:e.message, d:null}; UI.inv = null; if(e.auth) return; }
+  render();
+}
+function upCard(){
+  const k = UI.up;
+  if(!k) return `<div class="card imp"><h2>Invoices &amp; receipts <small>Upload one invoice or receipt (photo or PDF). The date, supplier, reference, total and lines are read automatically. Nothing is saved until you confirm.</small></h2><div class="pad"><div class="row">${upUploadBtn()}</div></div></div>`;
+  if(k.busy) return `<div class="card imp"><h2>Invoices &amp; receipts</h2><div class="pad"><div class="hint" role="status"><b>Reading the invoice…</b> This takes a few seconds. Please wait.</div></div></div>`;
+  const d = k.d, b = UI.branch;
+  if(!d) return `<div class="card imp"><h2>Invoices &amp; receipts</h2><div class="pad"><div class="err" role="alert">${esc(k.err || 'Could not read the file.')}</div><div class="row">${upUploadBtn()}</div></div></div>`;
+  const iv = UI.inv || {items:[]};
+  const names = [...new Set(S.cats[b].filter(c => ['expense', 'card', 'cash'].includes(c.sec)).map(c => c.label))];
+  const sum = r2(iv.items.reduce((a, i) => a + (+i.amt || 0), 0));
+  return `<div class="card imp"><h2>Invoice / receipt <small>Check everything against the paper before you save.</small></h2><div class="pad">
+    ${k.err ? `<div class="err" role="alert">${esc(k.err)} Fill in the details by hand.</div>` : ''}
+    <div class="form" style="margin-bottom:12px">
+      <label>Date (DD/MM/YYYY)<input type="text" data-up="date" value="${esc(d.date)}" inputmode="numeric"></label>
+      <label>Supplier<input type="text" data-up="cat" list="up-sup" value="${esc(d.cat)}"><datalist id="up-sup">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>
+      <label>Reference / invoice no.<input type="text" data-up="ref" value="${esc(d.ref)}"></label>
+      <label>Total (AUD)<input type="number" step="0.01" min="0" data-up="amt" value="${esc(d.amt)}"></label>
+      <label>Paid how<select data-up="sec"><option value="expense" ${d.sec === 'expense' ? 'selected' : ''}>Invoice (the owner pays)</option><option value="cash" ${d.sec === 'cash' ? 'selected' : ''}>Cash purchase</option><option value="card" ${d.sec === 'card' ? 'selected' : ''}>Card purchase</option></select></label>
+      ${d.sec === 'cash' ? `<label>Group<select data-up="grp">${GROUPS.map(g => `<option ${g === d.grp ? 'selected' : ''}>${g}</option>`).join('')}</select></label>` : ''}</div>
+    ${iv.items.length ? `<div class="scroll"><table class="itbl"><thead><tr><th>Item</th><th>Qty</th><th>Category</th><th class="r">Amount</th><th></th></tr></thead><tbody>
+      ${iv.items.map((i, q) => `<tr><td><input data-iv="item" data-i="${q}" value="${esc(i.item ?? i.name ?? '')}"></td><td><input data-iv="qty" data-i="${q}" type="number" step="any" value="${i.qty ?? ''}"></td>
+        <td><select data-iv="cat" data-i="${q}">${ITEM_CATS.map(c => `<option ${c === i.cat ? 'selected' : ''}>${c}</option>`).join('')}</select></td>
+        <td><input data-iv="amt" data-i="${q}" type="number" step="0.01" value="${i.amt ?? ''}"></td><td><button type="button" class="btn sm" data-act="ivdel" data-i="${q}" aria-label="Remove line">×</button></td></tr>`).join('')}</tbody></table></div>
+      <div class="hint" id="ivsum">${ivSumHtml()}</div>` : ''}
+    <div class="row"><button type="button" class="btn sm" data-act="ivadd">+ Add line</button></div>
+    ${k.dup ? `<div class="chk"><div class="wn"><b>!</b><span>The same supplier, date and amount is already recorded. Press Save again only if this is a different invoice.</span></div></div>` : ''}
+    <div class="row"><button type="button" class="btn primary" data-act="upsave"${d.cat && d.date && parseFloat(d.amt) > 0 ? '' : ' disabled'}>${k.dup ? 'Save anyway' : 'Save to ledger'}</button><button type="button" class="btn" data-act="updiscard">Discard</button> ${upUploadBtn('')}</div></div></div>`;
+}
+function upSave(){
+  const k = UI.up, d = k && k.d, b = UI.branch; if(!d || !allowed().includes(b)) return;
+  const date = parseDate(d.date, UI.week), amt = Math.round(parseFloat(d.amt) * 100) / 100, cat = d.cat.trim(), sec = d.sec;
+  if(!date){ flash('Enter the date as DD/MM/YYYY'); return; }
+  if(!(amt > 0) || !cat){ flash('Supplier and total are required'); return; }
+  if(!k.dup && S.entries.some(e => e.br === b && e.sec === sec && e.date === date && e.cat === cat && Math.abs(e.amt - amt) < 0.005)){ k.dup = true; render(); return; }
+  const ec = S.cats[b].find(c => c.sec === sec && c.label === cat);
+  if(!ec) S.cats[b].push({sec, label:cat, counted:true, ...(sec === 'cash' ? {grp:d.grp || classify(cat)} : {})});
+  const eid = nid(); S.entries.push({id:eid, br:b, date, sec, cat, amt, ref:d.ref.trim(), note:'Uploaded by manager'});
+  const lines = (UI.inv ? UI.inv.items : []).filter(i => String(i.item ?? i.name ?? '').trim());
+  if(lines.length) S.items[eid] = {br:b, date, supplier:cat, lines:lines.map(i => ({item:String(i.item ?? i.name).trim(), qty:i.qty === '' || i.qty === undefined ? null : i.qty, amt:r2(i.amt), cat:i.cat}))};
+  save(); flash(`${cat} ${money(amt)} saved for ${fd(date)}`);
+  UI.up = null; UI.inv = null; UI.week = monday(date); render();
+}
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if(t.id === 'up-file'){ const f = t.files && t.files[0]; t.value = ''; if(f) runInvoice(f); return; }
+  if(t.dataset && t.dataset.up && UI.up && UI.up.d){ UI.up.d[t.dataset.up] = t.value; UI.up.dup = false; if(t.dataset.up === 'sec'){ const g = UI.up.d.sec === 'cash' ? classify(UI.up.d.cat) : UI.up.d.grp; UI.up.d.grp = g; } render(); }
+});
+document.addEventListener('input', ev => { const t = ev.target; if(t.dataset && t.dataset.up && UI.up && UI.up.d && t.tagName === 'INPUT'){ UI.up.d[t.dataset.up] = t.value; UI.up.dup = false; const bt = document.querySelector('[data-act="upsave"]'); if(bt) bt.disabled = !(UI.up.d.cat && UI.up.d.date && parseFloat(UI.up.d.amt) > 0); } });
 async function boot(){
   render();
   try{ const t = lsGet(); if(t && CFG.url){ AUTH.tok = t; await afterLogin(); } }
