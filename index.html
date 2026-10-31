@@ -355,6 +355,7 @@ function render(){
     </header>
     ${UI.syncErr ? `<div class="syncerr" role="alert"><span><b>Changes are not saved yet:</b> ${esc(UI.syncErr)}</span><button class="btn sm" data-act="retry">Retry</button></div>` : ''}
     ${chips ? `<div class="chips">${chips}</div>` : ''}
+    ${u.role !== 'admin' && UI.tab !== 'import' ? `<div class="adminrow">${dkUploadBtn()}</div>` : ''}
     ${u.role === 'admin' && UI.branch === 'ALL' ? `<div class="adminrow"><button class="cwbtn" data-act="tab" data-v="cashwage" aria-pressed="${UI.tab === 'cashwage'}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Cash Wage<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="stppay" aria-pressed="${UI.tab === 'stppay'}">STP wages for payment<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="staff" aria-pressed="${UI.tab === 'staff'}">Staff details<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="award" aria-pressed="${UI.tab === 'award'}">Award calculator<span class="cwsub">Admin only</span></button><button class="cwbtn" data-act="tab" data-v="mgrpw" aria-pressed="${UI.tab === 'mgrpw'}">Passwords<span class="cwsub">Admin only</span></button></div>` : ''}
     <div class="tabs" role="tablist">${tabs}</div>
     ${UI.modal ? modalHtml() : ''}
@@ -1079,7 +1080,7 @@ function analyze(r){
   if(!r.date) checks.push(['bd', 'The date is missing or not valid. Enter it as DD/MM/YYYY.']);
   return {suggest, cashRec, co, checks, hasCash:!!cashLine};
 }
-function viewImport(){ return viewReportImport() + uberCard(); }
+function viewImport(){ return dkCard() + viewReportImport() + uberCard(); }
 function viewReportImport(){
   const reps = UI.imp.reports;
   const input = `<div class="card imp"><h2>Import a report <small>Paste the KakaoTalk report text or upload a .txt file. Nothing is saved until you confirm.</small></h2><div class="pad">
@@ -1112,6 +1113,7 @@ function viewReportImport(){
     const canSave = !r.blocked && r.date && !needVendor && r.fields.some(f => f.target !== 'skip' && f.amount > 0);
     return `<div class="card imp"><h2>${esc(DATA[b].name)} <small>${r.date ? 'Report date ' + fd(r.date) : 'Date not found'}${r.staff ? ' · closing staff ' + esc(r.staff) : ''}</small></h2>
       ${r.blocked ? `<div class="err">${esc(r.blocked)}</div>` : ''}
+      ${r.dk ? dkNote(r.dk, UI.dk && UI.dk.url) : ''}
       <div class="pad"><div class="form" style="margin-bottom:12px">
         <label>Date (DD/MM/YYYY)<input type="text" data-imp="date" data-r="${ri}" value="${r.date ? fd(r.date) : esc(r.dateRaw)}" inputmode="numeric"></label>
         ${user().role === 'admin' ? `<label>Branch<select data-imp="branch" data-r="${ri}">${BR.map(x => `<option ${x === b ? 'selected' : ''}>${x}</option>`).join('')}</select></label>` : ''}</div>
@@ -1122,6 +1124,152 @@ function viewReportImport(){
       <div class="row"><button class="btn primary" data-act="impsave" data-r="${ri}" ${canSave ? '' : 'disabled'}>Save to ledger</button><button class="btn" data-act="impdiscard" data-r="${ri}">Discard</button></div></div></div>`;
   }).join('');
 }
+/* DOCKET-START */
+/* ---------- Sales summary docket (POS "Daily Report" photo): free OCR in the browser, then the normal review screen ---------- */
+const DK_TOL = 0.02;
+function dkNums(line){
+  const out = [];
+  (line.match(/-?\d{1,3}(?:,\d{3})+[.,]\d{2}(?!\d)|-?\d+[.,]\d{2}(?!\d)/g) || []).forEach(tok => {
+    const neg = tok[0] === '-' ? -1 : 1;
+    let s = tok.replace(/^-/, '');
+    if(/^\d{1,3}(,\d{3})+\.\d{2}$/.test(s)) s = s.replace(/,/g, '');
+    else s = s.replace(/,(\d{2})$/, '.$1').replace(/,/g, '');
+    const m = s.match(/^(\d+)\.(\d{2})$/); if(!m) return;
+    out.push([neg * parseFloat(s), 1]);
+    for(let k = 1; k <= 2; k++) if(m[1].length > k) out.push([neg * parseFloat(m[1].slice(k) + '.' + m[2]), 0.4]);   // stray leading mark read as a digit
+  });
+  return out;
+}
+function dkValidDate(y, m, d){ return y >= 2020 && y <= 2099 && m >= 1 && m <= 12 && d >= 1 && d <= 31; }
+function parseDocket(texts){
+  const cand = {T:{}, C:{}, K:{}, E:{}, U:{}, D:{}, X:{}, O:{}, B:{}, N:{}}, dates = {};
+  const add = (k, line, abs) => dkNums(line).forEach(([v, w]) => { v = abs ? Math.abs(v) : v; const key = v.toFixed(2); cand[k][key] = (cand[k][key] || 0) + w; });
+  for(const text of texts){
+    const lines = String(text || '').split(/\r?\n/);
+    for(const raw of lines){
+      const l = raw.toLowerCase().replace(/[|]/g, ' ');
+      if(/work\s*(start|end)|print\s*date/.test(l)){
+        const m = l.match(/(20\d\d)\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{1,2})/);
+        if(m && dkValidDate(+m[1], +m[2], +m[3])){ const k = m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0'); dates[k] = (dates[k] || 0) + (/work\s*start/.test(l) ? 2 : 1); }
+      }
+      if(/cash\s*total\s*sales/.test(l)) add('C', l);
+      else if(/card\s*total/.test(l)) add('K', l);
+      else if(/total\s*sales/.test(l)) add('T', l);
+      else if(/\bcash\s*sales/.test(l)) add('C', l);
+      else if(/eftpos/.test(l)) add('E', l);
+      else if(/uber\s*eat/.test(l)) add('U', l);
+      else if(/door\s*dash/.test(l)) add('D', l);
+      else if(/\bexpense/.test(l)) add('X', l, true);
+      else if(/opening\s*cash/.test(l)) add('O', l);
+      else if(/closing\s*cash\s*balance/.test(l)) add('B', l);
+      else if(/^\W*total\b/.test(l) && !/sales|gst|cash|card|expense/.test(l)) add('N', l);
+    }
+  }
+  const top = (k, n) => Object.entries(cand[k]).sort((a, b) => b[1] - a[1]).slice(0, n).map(([v, w]) => [parseFloat(v), w]);
+  { // the closing count should equal opening + cash sales - expense + difference: offer that value as a candidate too
+    const t2 = k => top(k, 2).map(x => x[0]), xs = t2('X').length ? t2('X') : [0];
+    for(const o of t2('O')) for(const c of t2('C')) for(const x of xs) for(const bb of t2('B')){ const key = (Math.round((o + c - x + bb) * 100) / 100).toFixed(2); cand.N[key] = (cand.N[key] || 0) + 0.3; }
+  }
+  const keys = ['T', 'C', 'K', 'E', 'U', 'D', 'X', 'O', 'B', 'N'], lists = {};
+  keys.forEach(k => { const l = top(k, 4); lists[k] = l.length ? [...l, [null, 0]] : [[null, 0]]; });
+  const eq = (a, b) => Math.abs(a - b) <= DK_TOL;
+  let best = null;
+  const pick = {};
+  (function rec(i, w){
+    if(i === keys.length){
+      const v = {}; keys.forEach(k => v[k] = pick[k]);
+      let sc = w, rel = 0, tot = 0;
+      if(v.T !== null && v.C !== null && v.K !== null){ tot++; if(eq(v.T, v.C + v.K)){ rel++; sc += 100; } }
+      if(v.K !== null && v.E !== null && v.U !== null){ tot++; if(eq(v.K, v.E + v.U + (v.D || 0))){ rel++; sc += 100; } }
+      if(v.N !== null && v.O !== null && v.C !== null && v.B !== null){ tot++; if(eq(v.N, v.O + v.C - (v.X || 0) + v.B)){ rel++; sc += 100; } }
+      if(!best || sc > best.sc) best = {sc, v, rel, tot};
+      return;
+    }
+    for(const [val, wt] of lists[keys[i]]){ pick[keys[i]] = val; rec(i + 1, w + wt); }
+  })(0, 0);
+  const v = best.v;
+  const date = Object.entries(dates).sort((a, b) => b[1] - a[1])[0];
+  const out = {date:date ? date[0] : null, total:v.T, cash:v.C, cardTotal:v.K, eftpos:v.E, uber:v.U, doordash:v.D, expense:v.X, opening:v.O, balance:v.B, counted:v.N, rel:best.rel, relTotal:best.tot, warnings:[]};
+  if(out.eftpos === null && out.cardTotal !== null) out.eftpos = Math.round((out.cardTotal - (out.uber || 0) - (out.doordash || 0)) * 100) / 100;
+  if(out.cash === null && out.total !== null && out.cardTotal !== null) out.cash = Math.round((out.total - out.cardTotal) * 100) / 100;
+  if(!out.date) out.warnings.push('Date not found on the docket. Type it in below.');
+  if(out.total === null) out.warnings.push('Total sales not found.');
+  if(out.cash === null) out.warnings.push('Cash sales not found.');
+  if(out.eftpos === null) out.warnings.push('Card (EFTPOS) sales not found.');
+  if(out.counted === null || out.opening === null) out.warnings.push('Counted cash or opening cash not found, so closing cash cannot be calculated.');
+  if(best.tot && best.rel < best.tot) out.warnings.push('Some docket numbers do not add up (Total = Cash + Card, Card = EFTPOS + Uber, or the cash count). The photo may have been misread: please check every amount below against the docket.');
+  if(!best.tot) out.warnings.push('Too few numbers were read to cross-check them. Please check every amount against the docket.');
+  return out;
+}
+function docketToText(d, b){
+  const f = x => x === null || x === undefined ? '' : '$ ' + x.toFixed(2);
+  const closing = d.counted !== null && d.opening !== null ? Math.round((d.counted - d.opening) * 100) / 100 : null;
+  const dd = d.date ? d.date.slice(8) + '/' + d.date.slice(5, 7) + '/' + d.date.slice(2, 4) : '';
+  return `***${DATA[b].name}***\n\nDate : ${dd}\nSales total : ${f(d.total)}\nCard sales : ${f(d.eftpos)}\nCash Sales : ${f(d.cash)}\n${d.uber ? 'Uber : ' + f(d.uber) + '\n' : ''}${d.doordash ? 'Doordash : ' + f(d.doordash) + '\n' : ''}Cash-out total : ${f(d.expense)}\nClosing amount : ${f(closing)}\n`;
+}
+/* DOCKET-END */
+
+let TESS_P = null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve();
+  return TESS_P || (TESS_P = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js'; sc.onload = ok; sc.onerror = () => { TESS_P = null; no(new Error('Could not load the text reader. Check your internet connection and try again.')); }; document.head.append(sc); }));
+}
+function dkPrep(bmp, a, b){
+  const sx = Math.floor(bmp.width * a), sw = Math.floor(bmp.width * (b - a)), sc = Math.min(2, 1800 / sw);
+  const cv = document.createElement('canvas'); cv.width = Math.round(sw * sc); cv.height = Math.round(bmp.height * sc);
+  const cx = cv.getContext('2d', {willReadFrequently:true}); cx.drawImage(bmp, sx, 0, sw, bmp.height, 0, 0, cv.width, cv.height);
+  const im = cx.getImageData(0, 0, cv.width, cv.height), d = im.data, h = new Array(256).fill(0);
+  for(let i = 0; i < d.length; i += 4){ const g = Math.round(d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114); d[i] = d[i + 1] = d[i + 2] = g; h[g]++; }
+  const n = d.length / 4; let lo = 0, hi = 255, c = 0;
+  for(let i = 0; i < 256; i++){ c += h[i]; if(c > n * .02){ lo = i; break; } }
+  c = 0; for(let i = 255; i >= 0; i--){ c += h[i]; if(c > n * .02){ hi = i; break; } }
+  const k = hi > lo ? 255 / (hi - lo) : 1;
+  for(let i = 0; i < d.length; i += 4){ const g = Math.max(0, Math.min(255, (d[i] - lo) * k)); d[i] = d[i + 1] = d[i + 2] = g; }
+  cx.putImageData(im, 0, 0); return cv;
+}
+async function runDocket(file){
+  const b = UI.branch;
+  if(b === 'ALL' || !allowed().includes(b)){ flash('Select a branch first'); return; }
+  UI.tab = 'import'; UI.imp.reports = null; UI.dk = {busy:true, msg:'Preparing the photo…', err:'', url:''}; render();
+  let worker = null;
+  try{
+    const bmp = await createImageBitmap(file);
+    const th = document.createElement('canvas'); th.width = 420; th.height = Math.round(420 * bmp.height / bmp.width); th.getContext('2d').drawImage(bmp, 0, 0, th.width, th.height);
+    UI.dk.url = th.toDataURL('image/jpeg', .6);
+    const crops = [[0, 1], [.2, .8], [.33, .7]], psms = ['4', '6'], total = crops.length * psms.length, texts = [];
+    UI.dk.msg = 'Loading the text reader…'; render();
+    await loadTesseract();
+    worker = await Tesseract.createWorker('eng');
+    let step = 0;
+    for(const [a, z] of crops){
+      const cv = dkPrep(bmp, a, z);
+      for(const psm of psms){
+        step++; UI.dk.msg = `Reading the docket… ${step} of ${total}`; render();
+        await worker.setParameters({tessedit_pageseg_mode:psm});
+        const r = await worker.recognize(cv); texts.push(r.data.text || '');
+      }
+    }
+    const d = parseDocket(texts);
+    const reps = parseReports(docketToText(d, b));
+    reps.forEach(r => { r.branch = b; r.dk = d; });
+    UI.imp = {text:'', reports:reps}; UI.dk.busy = false; UI.dk.msg = '';
+  }catch(e){ UI.dk = {busy:false, msg:'', err:(e && e.message) || 'Could not read the photo.', url:''}; }
+  finally{ if(worker) try{ await worker.terminate(); }catch(e){} render(); }
+}
+function dkUploadBtn(cls){ return `<span class="btn ${cls || 'primary'} fileb">Upload sales summary<input type="file" id="dk-file" accept="image/*"${UI.dk && UI.dk.busy ? ' disabled' : ''}></span>`; }
+function dkCard(){
+  const k = UI.dk || {};
+  return `<div class="card imp"><h2>Sales summary <small>Take a flat, well-lit photo of the whole POS "Daily Report" docket. The date, sales, cash-out and closing cash are read automatically. Nothing is saved until you confirm.</small></h2><div class="pad">
+    ${k.busy ? `<div class="hint" role="status">${esc(k.msg)}</div>` : `<div class="row">${dkUploadBtn()}</div>`}
+    ${k.err ? `<div class="err" role="alert">${esc(k.err)}</div>` : ''}</div></div>`;
+}
+function dkNote(d, url){
+  const closing = d.counted !== null && d.opening !== null ? Math.round((d.counted - d.opening) * 100) / 100 : null, m = x => x === null || x === undefined ? '–' : money(x);
+  return `<div class="pad" style="padding-bottom:0"><div class="row" style="align-items:flex-start;gap:14px">${url ? `<img src="${url}" alt="Uploaded docket" style="width:96px;border-radius:4px;border:1px solid var(--line)">` : ''}
+    <div class="hint" style="margin:0;flex:1 1 240px">Read from the docket: total sales ${m(d.total)} · cash ${m(d.cash)} · card ${m(d.eftpos)}${d.uber ? ' · Uber ' + m(d.uber) : ''}${d.doordash ? ' · Doordash ' + m(d.doordash) : ''} · cash-out ${m(d.expense)} · counted cash ${m(d.counted)} − opening ${m(d.opening)} = closing ${m(closing)}${d.balance !== null ? ' · POS cash difference ' + m(d.balance) : ''}. Check these against the docket before saving.</div></div>
+    ${d.warnings.length ? `<div class="chk">${d.warnings.map(w => `<div class="wn"><b>!</b><span>${esc(w)}</span></div>`).join('')}</div>` : ''}</div>`;
+}
+
 /* ---------- Uber Eats CSV: only the daily Gross and Net payout are recorded; the file itself is not kept ---------- */
 function csvRows(text){
   const rows = []; let row = [], f = '', q = false;
@@ -1566,6 +1714,7 @@ document.addEventListener('change', ev => {
     const f = t.files && t.files[0]; if(!f) return; const br = UI.branch;
     const rd = new FileReader(); rd.onload = () => { UI.uber = parseUber(String(rd.result || ''), br); render(); }; rd.readAsText(f); return;
   }
+  else if(t.id === 'dk-file'){ const f = t.files && t.files[0]; t.value = ''; if(f) runDocket(f); return; }
   else if(t.id === 'imp-file'){
     const f = t.files && t.files[0]; if(!f) return;
     const rd = new FileReader(); rd.onload = () => { UI.imp.text = String(rd.result || ''); UI.imp.reports = parseReports(UI.imp.text); render(); }; rd.readAsText(f); return;
