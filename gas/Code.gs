@@ -24,6 +24,7 @@ const HEAD_ = {
   payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
   payers: ['entity', 'branches', 'bsb', 'acct'],
   staff: ['key', 'first', 'middle', 'last', 'gender', 'dob', 'email', 'phone', 'position', 'visa', 'address', 'tfn', 'bsb', 'acct', 'passport', 'super_abn', 'super_usi', 'super_acct', 'submitted', 'n_resp'],   // admin only: staff details taken from the Tax form responses
+  pending: ['id', 'br', 'file', 'name', 'mime', 'at', 'by', 'sec', 'note', 'status', 'result'],   // manager uploads (invoices / receipts) waiting for Claude to read and register them
   digital: ['msg', 'att', 'date', 'supplier', 'inv_no', 'total', 'items', 'to', 'subject', 'from', 'file', 'mail_date', 'got', 'err']
 };
 
@@ -53,6 +54,7 @@ function route_(b) {
   if (b.a === 'mgr_gate') return mgrGate_(me, b);
   if (b.a === 'mgr_set') return withLock_(() => mgrSet_(me, b));
   if (b.a === 'inv_read') return invRead_(me, b);
+  if (b.a === 'up_submit') return withLock_(() => upSubmit_(me, b));
   if (b.a === 'inv_img') return invImg_(me, b);
   throw new Error('Unknown action');
 }
@@ -146,6 +148,27 @@ function mgrSet_(me, b) {
   return { ok: true, user: u.username, must_change: b.must_change !== false };
 }
 
+/* Manager uploads: the file is filed in the branch folder and queued; Claude reads it and registers it later. */
+function upSubmit_(me, b) {
+  const br = String(b.br || '');
+  if (!canSee_(me, br) || !/^[A-Z]{2}$/.test(br)) throw new Error('Not allowed for branch ' + br);
+  const mime = String(b.mime || ''), data = String(b.data || '');
+  if (!EXT_[mime]) throw new Error('Use a JPG, PNG or PDF file.');
+  if (data.length > 9e6) throw new Error('The file is too large. Take the photo again or use a smaller file.');
+  const sec = ['expense', 'cash', 'card'].indexOf(b.sec) >= 0 ? b.sec : 'expense';
+  const stamp = Utilities.formatDate(new Date(), 'Australia/Sydney', 'yyyyMMdd-HHmmss');
+  const file = folder_(br).createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, 'PENDING_' + br + '_' + stamp + '.' + EXT_[mime]));
+  file.setDescription(br);
+  const id = Date.now(), at = Utilities.formatDate(new Date(), 'Australia/Sydney', "yyyy-MM-dd'T'HH:mm"), note = String(b.note || '').slice(0, 200);
+  const sh = SHEET_('pending'), n = sh.getLastRow() + 1;
+  sh.getRange(n, 1, 1, HEAD_.pending.length).setValues([[id, br, file.getId(), file.getName(), mime, at, me.username, sec, note, 'pending', '']]);
+  return { item: pendOut_({ id, br, name: file.getName(), at, sec, note, status: 'pending', result: '' }) };
+}
+const pendOut_ = r => ({ id: Number(r.id), br: String(r.br), name: String(r.name), at: String(r.at), sec: String(r.sec), note: String(r.note || ''), status: String(r.status), result: String(r.result || '') });
+function pendingOf_(me) {
+  return read_('pending').filter(r => canSee_(me, r.br)).slice(-60).map(pendOut_);
+}
+
 /* ---------- data ---------- */
 function load_(me) {
   const users = read_('users').map(v => ({ username: v.username, name: v.name, role: v.role, br: v.br || null, must_change: v.must_change === true || v.must_change === 'TRUE' }));
@@ -160,6 +183,7 @@ function load_(me) {
     checks: me.role === 'admin' ? read_('checks').map(r => ({ id: Number(r.entry), amt: r.amt === '' ? null : Number(r.amt), phys: r.phys === true || r.phys === 'TRUE', digital: r.digital === '' || r.digital === null ? null : Number(r.digital), acc: r.acc === true || r.acc === 'TRUE', pstat: String(r.pstat || ''), dstat: String(r.dstat || ''), log: String(r.log || '') })) : [],
     digital: me.role === 'admin' ? digitalOf_() : [],
     staff: me.role === 'admin' ? staffOf_() : [],
+    pending: pendingOf_(me),
     wages: me.role === 'admin' ? wagesOf_(me) : [], hiddenWage: me.role === 'admin' ? hiddenWage_(me) : {}, costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
     deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
@@ -324,15 +348,10 @@ function invRead_(me, b) {
   if (!EXT_[mime]) throw new Error('Use a JPG, PNG or PDF file.');
   if (data.length > 9e6) throw new Error('The file is too large. Take the photo again or use a smaller file.');
   const stamp = Utilities.formatDate(new Date(), 'Australia/Sydney', 'yyyyMMdd-HHmmss');
-  if (b.nosave) {   // manager uploads: read only, the photo is not filed in Drive
-    const o = { file: null, parsed: null, perr: '' };
-    try { o.parsed = gemini_(mime, data); } catch (err) { o.perr = String(err && err.message || err); }
-    return o;
-  }
   const file = folder_(br).createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, br + '_' + stamp + '.' + EXT_[mime]));
   file.setDescription(br);
   const out = { file: { id: file.getId(), name: file.getName() }, parsed: null, perr: '' };
-  try { out.parsed = gemini_(mime, data); } catch (err) { out.perr = String(err && err.message || err); }
+  out.perr = 'Invoices are read by Claude after upload (Upload invoice & receipts). Fill the form by hand.';
   if (out.parsed) {
     const p = out.parsed, clean = x => String(x || '').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 30);
     const nm = [br, p.date || stamp, clean(p.supplier), clean(p.invoice_no)].filter(Boolean).join('_') + '.' + EXT_[mime];

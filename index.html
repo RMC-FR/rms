@@ -250,7 +250,7 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
   (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
-  S.staff = j.staff || []; S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc, pstat:c.pstat || '', dstat:c.dstat || '', log:c.log || ''}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; applyAwards(); S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || []; S.costs = j.costs || [];
+  S.pending = j.pending || []; S.staff = j.staff || []; S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc, pstat:c.pstat || '', dstat:c.dstat || '', log:c.log || ''}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; applyAwards(); S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || []; S.costs = j.costs || [];
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
@@ -1662,8 +1662,6 @@ document.addEventListener('click', ev => {
   else if(a === 'edit'){ UI.editId = +t.dataset.id; UI.draft = {}; UI.inv = null; UI.confirmDel = null; UI.focusAmt = true; }
   else if(a === 'cancel'){ UI.editId = null; UI.draft = {}; UI.inv = null; }
   else if(a === 'ivdel'){ readDraft(); UI.inv.items.splice(+t.dataset.i, 1); }
-  else if(a === 'upsave'){ upSave(); return; }
-  else if(a === 'updiscard'){ UI.up = null; UI.inv = null; }
   else if(a === 'ivadd'){ readDraft(); UI.inv.items.push({item:'', qty:null, amt:0, cat:'Other'}); }
   else if(a === 'ivclear'){ readDraft(); UI.inv = null; }
   else if(a === 'mclose'){ UI.modal = null; }
@@ -1816,67 +1814,32 @@ function upUploadBtn(cls){ return `<span class="btn ${cls || 'primary'} fileb">U
 async function runInvoice(file){
   const b = UI.branch;
   if(b === 'ALL' || !allowed().includes(b)){ flash('Select a branch first'); return; }
-  UI.tab = 'import'; UI.inv = null; UI.up = {busy:true, err:'', d:null}; render();
+  UI.tab = 'import'; const sec = (UI.upOpt && UI.upOpt.sec) || 'expense', note = (UI.upOpt && UI.upOpt.note) || '';
+  UI.up = {busy:true, err:''}; render();
   try{
     const img = await shrinkImage(file);
-    const j = await api('inv_read', {br:b, mime:img.mime, data:img.data, nosave:true});
-    const p = j.parsed || {supplier:'', date:'', invoice_no:'', total:null, items:[]};
-    const m = matchSupplier(b, p.supplier), sec = m ? m.sec : 'expense';
-    const tot = p.total !== null && p.total !== undefined ? p.total : r2(p.items.reduce((a, i) => a + i.amt, 0));
-    const votes = {}; p.items.forEach(i => votes[i.cat] = (votes[i.cat] || 0) + i.amt);
-    const top = Object.entries(votes).sort((x, y) => y[1] - x[1])[0];
-    UI.inv = {busy:false, file:null, err:'', items:p.items, total:p.total};
-    UI.up = {busy:false, err:j.perr || '', dup:false, d:{date:p.date ? fd(p.date) : '', cat:m ? m.label : p.supplier, ref:p.invoice_no || '', amt:tot ? String(tot) : '', sec, grp:sec === 'cash' ? (top && ['Grocery', 'Liquor', 'Equipment'].includes(top[0]) ? top[0] : classify(p.supplier)) : 'ETC'}};
-  }catch(e){ UI.up = {busy:false, err:e.message, d:null}; UI.inv = null; if(e.auth) return; }
+    const j = await api('up_submit', {br:b, mime:img.mime, data:img.data, sec, note});
+    S.pending = [...(S.pending || []), j.item]; UI.up = {busy:false, err:'', ok:true}; UI.upOpt = {sec, note:''};
+  }catch(e){ UI.up = {busy:false, err:e.message}; if(e.auth) return; }
   render();
 }
 function upCard(){
-  const k = UI.up;
-  if(!k) return `<div class="card imp"><h2>Invoices &amp; receipts <small>Upload one invoice or receipt (photo or PDF). The date, supplier, reference, total and lines are read automatically. Nothing is saved until you confirm.</small></h2><div class="pad"><div class="row">${upUploadBtn()}</div></div></div>`;
-  if(k.busy) return `<div class="card imp"><h2>Invoices &amp; receipts</h2><div class="pad"><div class="hint" role="status"><b>Reading the invoice…</b> This takes a few seconds. Please wait.</div></div></div>`;
-  const d = k.d, b = UI.branch;
-  if(!d) return `<div class="card imp"><h2>Invoices &amp; receipts</h2><div class="pad"><div class="err" role="alert">${esc(k.err || 'Could not read the file.')}</div><div class="row">${upUploadBtn()}</div></div></div>`;
-  const iv = UI.inv || {items:[]};
-  const names = [...new Set(S.cats[b].filter(c => ['expense', 'card', 'cash'].includes(c.sec)).map(c => c.label))];
-  const sum = r2(iv.items.reduce((a, i) => a + (+i.amt || 0), 0));
-  return `<div class="card imp"><h2>Invoice / receipt <small>Check everything against the paper before you save.</small></h2><div class="pad">
-    ${k.err ? `<div class="err" role="alert">${esc(k.err)} Fill in the details by hand.</div>` : ''}
-    <div class="form" style="margin-bottom:12px">
-      <label>Date (DD/MM/YYYY)<input type="text" data-up="date" value="${esc(d.date)}" inputmode="numeric"></label>
-      <label>Supplier<input type="text" data-up="cat" list="up-sup" value="${esc(d.cat)}"><datalist id="up-sup">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist></label>
-      <label>Reference / invoice no.<input type="text" data-up="ref" value="${esc(d.ref)}"></label>
-      <label>Total (AUD)<input type="number" step="0.01" min="0" data-up="amt" value="${esc(d.amt)}"></label>
-      <label>Paid how<select data-up="sec"><option value="expense" ${d.sec === 'expense' ? 'selected' : ''}>Invoice (the owner pays)</option><option value="cash" ${d.sec === 'cash' ? 'selected' : ''}>Cash purchase</option><option value="card" ${d.sec === 'card' ? 'selected' : ''}>Card purchase</option></select></label>
-      ${d.sec === 'cash' ? `<label>Group<select data-up="grp">${GROUPS.map(g => `<option ${g === d.grp ? 'selected' : ''}>${g}</option>`).join('')}</select></label>` : ''}</div>
-    ${iv.items.length ? `<div class="scroll"><table class="itbl"><thead><tr><th>Item</th><th>Qty</th><th>Category</th><th class="r">Amount</th><th></th></tr></thead><tbody>
-      ${iv.items.map((i, q) => `<tr><td><input data-iv="item" data-i="${q}" value="${esc(i.item ?? i.name ?? '')}"></td><td><input data-iv="qty" data-i="${q}" type="number" step="any" value="${i.qty ?? ''}"></td>
-        <td><select data-iv="cat" data-i="${q}">${ITEM_CATS.map(c => `<option ${c === i.cat ? 'selected' : ''}>${c}</option>`).join('')}</select></td>
-        <td><input data-iv="amt" data-i="${q}" type="number" step="0.01" value="${i.amt ?? ''}"></td><td><button type="button" class="btn sm" data-act="ivdel" data-i="${q}" aria-label="Remove line">×</button></td></tr>`).join('')}</tbody></table></div>
-      <div class="hint" id="ivsum">${ivSumHtml()}</div>` : ''}
-    <div class="row"><button type="button" class="btn sm" data-act="ivadd">+ Add line</button></div>
-    ${k.dup ? `<div class="chk"><div class="wn"><b>!</b><span>The same supplier, date and amount is already recorded. Press Save again only if this is a different invoice.</span></div></div>` : ''}
-    <div class="row"><button type="button" class="btn primary" data-act="upsave"${d.cat && d.date && parseFloat(d.amt) > 0 ? '' : ' disabled'}>${k.dup ? 'Save anyway' : 'Save to ledger'}</button><button type="button" class="btn" data-act="updiscard">Discard</button> ${upUploadBtn('')}</div></div></div>`;
-}
-function upSave(){
-  const k = UI.up, d = k && k.d, b = UI.branch; if(!d || !allowed().includes(b)) return;
-  const date = parseDate(d.date, UI.week), amt = Math.round(parseFloat(d.amt) * 100) / 100, cat = d.cat.trim(), sec = d.sec;
-  if(!date){ flash('Enter the date as DD/MM/YYYY'); return; }
-  if(!(amt > 0) || !cat){ flash('Supplier and total are required'); return; }
-  if(!k.dup && S.entries.some(e => e.br === b && e.sec === sec && e.date === date && e.cat === cat && Math.abs(e.amt - amt) < 0.005)){ k.dup = true; render(); return; }
-  const ec = S.cats[b].find(c => c.sec === sec && c.label === cat);
-  if(!ec) S.cats[b].push({sec, label:cat, counted:true, ...(sec === 'cash' ? {grp:d.grp || classify(cat)} : {})});
-  const eid = nid(); S.entries.push({id:eid, br:b, date, sec, cat, amt, ref:d.ref.trim(), note:'Uploaded by manager'});
-  const lines = (UI.inv ? UI.inv.items : []).filter(i => String(i.item ?? i.name ?? '').trim());
-  if(lines.length) S.items[eid] = {br:b, date, supplier:cat, lines:lines.map(i => ({item:String(i.item ?? i.name).trim(), qty:i.qty === '' || i.qty === undefined ? null : i.qty, amt:r2(i.amt), cat:i.cat}))};
-  save(); flash(`${cat} ${money(amt)} saved for ${fd(date)}`);
-  UI.up = null; UI.inv = null; UI.week = monday(date); render();
+  const k = UI.up || {}, o = UI.upOpt || (UI.upOpt = {sec:'expense', note:''}), b = UI.branch;
+  const rows = (S.pending || []).filter(x => x.br === b).slice(-8).reverse();
+  const st = x => x.status === 'done' ? '<span class="tag">Registered</span>' : x.status === 'issue' ? '<span class="tag warn">Needs attention</span>' : '<span class="tag">Waiting</span>';
+  return `<div class="card imp"><h2>Invoices &amp; receipts <small>Upload one invoice or receipt (photo or PDF) at a time. Claude reads the date, supplier, reference, total and lines and registers it.</small></h2><div class="pad">
+    <div class="form" style="margin-bottom:12px"><label>Paid how<select data-upopt="sec"><option value="expense" ${o.sec === 'expense' ? 'selected' : ''}>Invoice (the owner pays)</option><option value="cash" ${o.sec === 'cash' ? 'selected' : ''}>Cash purchase</option><option value="card" ${o.sec === 'card' ? 'selected' : ''}>Card purchase</option></select></label>
+      <label>Note (optional)<input type="text" data-upopt="note" value="${esc(o.note)}" placeholder="e.g. delivered Tuesday"></label></div>
+    ${k.busy ? '<div class="hint" role="status"><b>Uploading…</b></div>' : `<div class="row">${upUploadBtn()}</div>`}
+    ${k.err ? `<div class="err" role="alert">${esc(k.err)}</div>` : ''}${k.ok ? '<div class="chk"><div class="ok"><b>✓</b><span>Received. It will appear in the ledger once it has been read.</span></div></div>' : ''}
+    ${rows.length ? `<div class="scroll"><table><thead><tr><th>Uploaded</th><th>Type</th><th>Status</th><th>Result</th></tr></thead><tbody>${rows.map(x => `<tr><td>${esc(x.at.replace('T', ' '))}</td><td>${x.sec === 'cash' ? 'Cash' : x.sec === 'card' ? 'Card' : 'Invoice'}</td><td>${st(x)}</td><td>${esc(x.result)}</td></tr>`).join('')}</tbody></table></div>` : ''}</div></div>`;
 }
 document.addEventListener('change', ev => {
   const t = ev.target;
   if(t.id === 'up-file'){ const f = t.files && t.files[0]; t.value = ''; if(f) runInvoice(f); return; }
-  if(t.dataset && t.dataset.up && UI.up && UI.up.d){ UI.up.d[t.dataset.up] = t.value; UI.up.dup = false; if(t.dataset.up === 'sec'){ const g = UI.up.d.sec === 'cash' ? classify(UI.up.d.cat) : UI.up.d.grp; UI.up.d.grp = g; } render(); }
+  if(t.dataset && t.dataset.upopt){ (UI.upOpt = UI.upOpt || {sec:'expense', note:''})[t.dataset.upopt] = t.value; }
 });
-document.addEventListener('input', ev => { const t = ev.target; if(t.dataset && t.dataset.up && UI.up && UI.up.d && t.tagName === 'INPUT'){ UI.up.d[t.dataset.up] = t.value; UI.up.dup = false; const bt = document.querySelector('[data-act="upsave"]'); if(bt) bt.disabled = !(UI.up.d.cat && UI.up.d.date && parseFloat(UI.up.d.amt) > 0); } });
+document.addEventListener('input', ev => { const t = ev.target; if(t.dataset && t.dataset.upopt){ (UI.upOpt = UI.upOpt || {sec:'expense', note:''})[t.dataset.upopt] = t.value; } });
 async function boot(){
   render();
   try{ const t = lsGet(); if(t && CFG.url){ AUTH.tok = t; await afterLogin(); } }
