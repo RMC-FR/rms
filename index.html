@@ -187,6 +187,7 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .stpgrid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}.awardwrap{max-width:440px}.ffsel{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;padding:12px 14px}.ffsel label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}.ffc input[type=number]{width:72px;text-align:right}@media (max-width:1180px){.stpgrid{grid-template-columns:1fr}.stpgrid>.ffc{position:static}}
 @media (max-width:760px){.two{grid-template-columns:1fr}.top{padding-top:12px}}
+@media (max-width:600px){body{padding-inline:20px;font-size:15px}.demo{margin-inline:-20px;padding-inline:20px}.pad{padding:16px}.card{margin-bottom:18px}.top{gap:10px}.acct{gap:8px}.tab{padding:11px 14px}.homebtns{gap:14px;margin:14px 0}.bigbtn{min-height:130px;padding:22px 20px}.btn,button,select,input[type=text],input[type=number],input[type=date]{min-height:42px}.card h2{padding-inline:16px}.login{margin-top:6vh}}
 </style>
 
 <div class="wrap" id="app"></div>
@@ -1083,7 +1084,7 @@ function analyze(r){
   if(!r.date) checks.push(['bd', 'The date is missing or not valid. Enter it as DD/MM/YYYY.']);
   return {suggest, cashRec, co, checks, hasCash:!!cashLine};
 }
-function viewImport(){ return dkCard() + upCard() + viewReportImport() + uberCard(); }
+function viewImport(){ return dkCard() + upCard() + (ME && ME.role === 'admin' ? viewReportImport() + uberCard() : ''); }
 function viewReportImport(){
   const reps = UI.imp.reports;
   const input = `<div class="card imp"><h2>Import a report <small>Paste the KakaoTalk report text or upload a .txt file. Nothing is saved until you confirm.</small></h2><div class="pad">
@@ -1258,12 +1259,24 @@ async function runDocket(file){
   }catch(e){ UI.dk = {busy:false, msg:'', err:(e && e.message) || 'Could not read the photo.', url:''}; }
   finally{ if(worker) try{ await worker.terminate(); }catch(e){} render(); }
 }
-function dkUploadBtn(cls){ return `<span class="btn ${cls || 'primary'} fileb">Upload sales summary<input type="file" id="dk-file" accept="image/*"${UI.dk && UI.dk.busy ? ' disabled' : ''}></span>`; }
+function dkUploadBtn(cls){ return `<span class="btn ${cls || 'primary'} fileb">Upload sales summary<input type="file" id="dk-file" accept="image/*,application/pdf"${UI.dk && UI.dk.busy ? ' disabled' : ''}></span>`; }
+async function runSales(file){
+  const b = UI.branch;
+  if(b === 'ALL' || !allowed().includes(b)){ flash('Select a branch first'); return; }
+  UI.tab = 'import'; UI.dk = {busy:true, err:''}; render();
+  try{
+    const img = await shrinkImage(file);
+    const j = await api('up_submit', {br:b, kind:'sales', mime:img.mime, data:img.data, note:''});
+    S.pending = [...(S.pending || []), j.item]; UI.dk = {busy:false, err:'', ok:true};
+  }catch(e){ UI.dk = {busy:false, err:e.message}; if(e.auth) return; }
+  render();
+}
 function dkCard(){
-  const k = UI.dk || {};
-  return `<div class="card imp"><h2>Sales summary <small>Take a flat, well-lit photo of the whole POS "Daily Report" docket. The date, sales, cash-out and closing cash are read automatically. Nothing is saved until you confirm.</small></h2><div class="pad">
-    ${k.busy ? `<div class="hint" role="status">${esc(k.msg)}</div>` : `<div class="row">${dkUploadBtn()}</div>`}
-    ${k.err ? `<div class="err" role="alert">${esc(k.err)}</div>` : ''}</div></div>`;
+  const k = UI.dk || {}, rows = (S.pending || []).filter(x => x.br === UI.branch && x.sec === 'sales').slice(-5).reverse();
+  return `<div class="card imp"><h2>Sales summary <small>Take a flat, well-lit photo of the whole POS "Daily Report" docket and upload it. It is filed in the Sales folder for this week.</small></h2><div class="pad">
+    ${k.busy ? '<div class="hint" role="status"><b>Uploading…</b></div>' : `<div class="row">${dkUploadBtn()}</div>`}
+    ${k.err ? `<div class="err" role="alert">${esc(k.err)}</div>` : ''}${k.ok ? '<div class="chk"><div class="ok"><b>✓</b><span>Received and filed.</span></div></div>' : ''}
+    ${rows.length ? `<div class="scroll"><table><thead><tr><th>Uploaded</th><th>Status</th></tr></thead><tbody>${rows.map(x => `<tr><td>${esc(x.at.replace('T', ' '))}</td><td>${x.status === 'done' ? '<span class="tag">Registered</span>' : x.status === 'issue' ? '<span class="tag warn">Needs attention</span>' : '<span class="tag">Filed</span>'}</td></tr>`).join('')}</tbody></table></div>` : ''}</div></div>`;
 }
 function dkNote(d, url){
   const closing = d.cash !== null ? Math.round((d.cash - (d.expense || 0)) * 100) / 100 : null, m = x => x === null || x === undefined ? '–' : money(x);
@@ -1716,7 +1729,7 @@ document.addEventListener('change', ev => {
     const f = t.files && t.files[0]; if(!f) return; const br = UI.branch;
     const rd = new FileReader(); rd.onload = () => { UI.uber = parseUber(String(rd.result || ''), br); render(); }; rd.readAsText(f); return;
   }
-  else if(t.id === 'dk-file'){ const f = t.files && t.files[0]; t.value = ''; if(f) runDocket(f); return; }
+  else if(t.id === 'dk-file'){ const f = t.files && t.files[0]; t.value = ''; if(f) runSales(f); return; }
   else if(t.id === 'imp-file'){
     const f = t.files && t.files[0]; if(!f) return;
     const rd = new FileReader(); rd.onload = () => { UI.imp.text = String(rd.result || ''); UI.imp.reports = parseReports(UI.imp.text); render(); }; rd.readAsText(f); return;
@@ -1818,20 +1831,20 @@ async function runInvoice(file){
   UI.up = {busy:true, err:''}; render();
   try{
     const img = await shrinkImage(file);
-    const j = await api('up_submit', {br:b, mime:img.mime, data:img.data, sec, note});
+    const j = await api('up_submit', {br:b, kind:'inv', mime:img.mime, data:img.data, sec, note});
     S.pending = [...(S.pending || []), j.item]; UI.up = {busy:false, err:'', ok:true}; UI.upOpt = {sec, note:''};
   }catch(e){ UI.up = {busy:false, err:e.message}; if(e.auth) return; }
   render();
 }
 function upCard(){
   const k = UI.up || {}, o = UI.upOpt || (UI.upOpt = {sec:'expense', note:''}), b = UI.branch;
-  const rows = (S.pending || []).filter(x => x.br === b).slice(-8).reverse();
+  const rows = (S.pending || []).filter(x => x.br === b && x.sec !== 'sales').slice(-8).reverse();
   const st = x => x.status === 'done' ? '<span class="tag">Registered</span>' : x.status === 'issue' ? '<span class="tag warn">Needs attention</span>' : '<span class="tag">Waiting</span>';
-  return `<div class="card imp"><h2>Invoices &amp; receipts <small>Upload one invoice or receipt (photo or PDF) at a time. Claude reads the date, supplier, reference, total and lines and registers it.</small></h2><div class="pad">
+  return `<div class="card imp"><h2>Invoices &amp; receipts <small>Upload one invoice or receipt (photo or PDF) at a time. It is filed in the Invoices folder for this week.</small></h2><div class="pad">
     <div class="form" style="margin-bottom:12px"><label>Paid how<select data-upopt="sec"><option value="expense" ${o.sec === 'expense' ? 'selected' : ''}>Invoice (the owner pays)</option><option value="cash" ${o.sec === 'cash' ? 'selected' : ''}>Cash purchase</option><option value="card" ${o.sec === 'card' ? 'selected' : ''}>Card purchase</option></select></label>
       <label>Note (optional)<input type="text" data-upopt="note" value="${esc(o.note)}" placeholder="e.g. delivered Tuesday"></label></div>
     ${k.busy ? '<div class="hint" role="status"><b>Uploading…</b></div>' : `<div class="row">${upUploadBtn()}</div>`}
-    ${k.err ? `<div class="err" role="alert">${esc(k.err)}</div>` : ''}${k.ok ? '<div class="chk"><div class="ok"><b>✓</b><span>Received. It will appear in the ledger once it has been read.</span></div></div>' : ''}
+    ${k.err ? `<div class="err" role="alert">${esc(k.err)}</div>` : ''}${k.ok ? '<div class="chk"><div class="ok"><b>✓</b><span>Received and filed in the Invoices folder.</span></div></div>' : ''}
     ${rows.length ? `<div class="scroll"><table><thead><tr><th>Uploaded</th><th>Type</th><th>Status</th><th>Result</th></tr></thead><tbody>${rows.map(x => `<tr><td>${esc(x.at.replace('T', ' '))}</td><td>${x.sec === 'cash' ? 'Cash' : x.sec === 'card' ? 'Card' : 'Invoice'}</td><td>${st(x)}</td><td>${esc(x.result)}</td></tr>`).join('')}</tbody></table></div>` : ''}</div></div>`;
 }
 document.addEventListener('change', ev => {

@@ -155,9 +155,10 @@ function upSubmit_(me, b) {
   const mime = String(b.mime || ''), data = String(b.data || '');
   if (!EXT_[mime]) throw new Error('Use a JPG, PNG or PDF file.');
   if (data.length > 9e6) throw new Error('The file is too large. Take the photo again or use a smaller file.');
-  const sec = ['expense', 'cash', 'card'].indexOf(b.sec) >= 0 ? b.sec : 'expense';
+  const kind = b.kind === 'sales' ? 'sales' : 'inv';
+  const sec = kind === 'sales' ? 'sales' : (['expense', 'cash', 'card'].indexOf(b.sec) >= 0 ? b.sec : 'expense');
   const stamp = Utilities.formatDate(new Date(), 'Australia/Sydney', 'yyyyMMdd-HHmmss');
-  const file = folder_(br).createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, 'PENDING_' + br + '_' + stamp + '.' + EXT_[mime]));
+  const file = sub_(br, kind).createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, (kind === 'sales' ? 'SALES_' : 'INV_') + br + '_' + stamp + '.' + EXT_[mime]));
   file.setDescription(br);
   const id = Date.now(), at = Utilities.formatDate(new Date(), 'Australia/Sydney', "yyyy-MM-dd'T'HH:mm"), note = String(b.note || '').slice(0, 200);
   const sh = SHEET_('pending'), n = sh.getLastRow() + 1;
@@ -339,6 +340,13 @@ function folder_(br) {
   const f = root.createFolder(br);
   p.setProperty('INV_' + br, f.getId());
   return f;
+}
+/* <branch folder>/Week yyyy-MM-dd (Monday)/Sales | Invoices, created on first use */
+function sub_(br, kind) {
+  const now = new Date(), dow = (Number(Utilities.formatDate(now, 'Australia/Sydney', 'u')) + 6) % 7;
+  const mon = Utilities.formatDate(new Date(now.getTime() - dow * 864e5), 'Australia/Sydney', 'yyyy-MM-dd');
+  const get = (parent, name) => { const it = parent.getFoldersByName(name); return it.hasNext() ? it.next() : parent.createFolder(name); };
+  return get(get(folder_(br), 'Week ' + mon), kind === 'sales' ? 'Sales' : 'Invoices');
 }
 const EXT_ = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
 function invRead_(me, b) {
