@@ -1695,8 +1695,8 @@ document.addEventListener('click', ev => {
     const u = t.dataset.v, inp = document.querySelector('.mgr-pw[data-u="' + u + '"]'), np = a === 'mgrreset' ? '1234' : (inp ? inp.value : '');
     if(np.length < 4){ MGR.err = 'Use at least 4 characters.'; render(); return; }
     UI.busy = true; MGR.err = ''; render();
-    api('mgr_set', {gate:MGR.gate, user:u, np, must_change:true})
-      .then(() => { const p = PROFILES.find(x => x.username === u); if(p) p.must_change = true; flash('Password set for ' + u); })
+    api('mgr_set', {gate:MGR.gate, user:u, np, must_change:false})
+      .then(() => { const p = PROFILES.find(x => x.username === u); if(p) p.must_change = false; flash('Password set for ' + u); })
       .catch(e => { MGR.err = e.message; if(e.message === 'Wrong code.') MGR.gate = ''; })
       .finally(() => { UI.busy = false; render(); });
     return;
