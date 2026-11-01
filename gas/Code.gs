@@ -184,7 +184,7 @@ function load_(me) {
     digital: me.role === 'admin' ? digitalOf_() : [],
     staff: me.role === 'admin' ? staffOf_() : [],
     pending: pendingOf_(me),
-    wages: me.role === 'admin' ? wagesOf_(me) : [], hiddenWage: me.role === 'admin' ? hiddenWage_(me) : {}, costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
+    wages: me.role === 'admin' ? wagesOf_(me) : [], hiddenWage: me.role === 'admin' ? hiddenWage_(me) : [], costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
     deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
 }
