@@ -735,13 +735,17 @@ function invSet(e, patch){
     UI.syncErr = err.message || 'Could not save'; render();
   });
 }
-/* The digital invoice is the source of truth for the reference: set it on every matched entry. Fixed-reference suppliers (the payment reference is fixed) keep it in the note as "Invoice N". Idempotent. */
+/* The digital invoice is the source of truth for the amount and the reference: set it on every matched entry. Fixed-reference suppliers (the payment reference is fixed) keep it in the note as "Invoice N". Idempotent. */
 function dgApplyRefs(){
   if(user().role !== 'admin') return false;
   let n = 0;
   S.entries.forEach(e => {
     if(e.sec !== 'expense' || e.date < '2026-10-01') return;
     const m = dgMatch(e), no = m && String(m.d.no || '').trim();
+    if(m && m.d.total !== null && m.d.total > 0 && Math.abs(m.d.total - e.amt) > 0.004){
+      e.note = (e.note ? e.note + ' · ' : '') + 'Amount set to the digital invoice ' + m.d.total.toFixed(2) + ' (sales report said ' + e.amt.toFixed(2) + ')';
+      e.amt = Math.round(m.d.total * 100) / 100; n++;
+    }
     if(!no) return;
     if(isFixedRef(e)){
       const note = e.note || '';
