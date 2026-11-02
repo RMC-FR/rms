@@ -755,6 +755,7 @@ function viewInvPay(){
       const act = st === 'diff' || st === 'det' ? `<button class="btn sm" type="button" data-act="ivacc" data-id="${e.id}" title="The sheet amount is right (supplier digital invoice is wrong). Pay the sheet amount.">Accept</button>` : st === 'acc' ? `<button class="btn sm" type="button" data-act="ivunacc" data-id="${e.id}">Undo</button>` : '';
       const dtail = dm ? `<tr class="dgd ${dl.some(x => x.sev === 'diff') ? 'bad' : ''}"><td></td><td colspan="8"><small class="dgsrc">✉ ${esc(dm.d.supplier)} ${esc(dm.d.no)} · ${dm.d.total !== null ? money(dm.d.total) : ''} · to ${esc(String(dm.d.to).replace(/<|>/g, '').split(',')[0].split('@')[0].slice(0, 40))}${dm.how === 'amt' ? ' · matched by supplier, amount and date' : ''}</small>${dl.length ? '<ul>' + dl.map(x => `<li class="${x.sev}"><span>${esc(x.k)}</span> ${x.txt}</li>`).join('') + '</ul>' : ' <small class="dgok">identical</small>'}</td></tr>` : '';
       const lg = (c.log || '').split('\n').filter(Boolean), ltail = lg.length ? `<tr class="dgd bad"><td></td><td colspan="8"><small class="dgsrc">Log</small><ul class="dgl">${lg.map(x => `<li>${esc(x)}</li>`).join('')}</ul></td></tr>` : '';
+      const nt = (e.note || '').match(/Amount set to[\s\S]*$/), ntail = nt ? `<tr class="dgd bad"><td></td><td colspan="8"><small class="dgsrc">Registered from the digital invoice</small> ${esc(nt[0].slice(0, 220))}</td></tr>` : '';
       return `<tr class="${physOf(e) ? '' : 'nophys'}"><td><input type="checkbox" data-act="ipsel" data-id="${e.id}" ${ip.sel[e.id] ? 'checked' : ''} ${st === 'diff' ? 'disabled' : ''} aria-label="Include in the ABA file" title="${st === 'diff' ? 'Resolve the price difference first' : ''}"></td>
         <td>${fs2(e.date)}</td>
         <td>${editable ? `<input type="text" class="${t && t.err === 'Reference' ? 'bad' : ''}" data-payref="${e.id}" value="${esc(e.ref)}" placeholder="Invoice no." maxlength="40">${t && t.cut ? '<small class="warn">Cut to 18 characters: ' + esc(t.refTxt) + '</small>' : ''}` : g.kind === 'bulk' ? '' : esc(e.ref ? '#' + e.ref : '')}</td>
@@ -763,7 +764,7 @@ function viewInvPay(){
         <td>${c.dstat === 'na' && dig === null ? vtag('na', 'Digital') : digTick(e, st === 'ok')} ${c.dstat === 'na' ? '' : vtag(c.dstat, 'Digital')}</td>
         <td><input type="checkbox" data-ivphys="${e.id}" ${physOf(e) ? 'checked' : ''} ${e.file ? 'disabled' : ''} aria-label="Physical invoice received" title="${e.file ? 'A photo is attached to this invoice' : 'Tick when the physical invoice has been received'}">${e.file ? ` <span role="button" tabindex="0" data-act="vphoto" data-id="${e.id}" title="View the photo" style="cursor:pointer">📎</span>` : ''} ${vtag(c.pstat, 'Physical')}</td>
         <td><span class="tag ${st === 'diff' || st === 'det' ? 'warn' : ''}" style="${st === 'ok' ? 'color:var(--good)' : st === 'diff' || st === 'det' ? 'color:var(--bad)' : ''}">${STAT[st][0]}</span> ${physOf(e) ? '' : '<span class="tag nph">No physical invoice</span>'} ${/^Added from/.test(e.note || '') ? '<span class="tag nph" title="The manager did not report this expense, but the invoice confirms it">Not in sales report</span>' : ''} ${act}</td>
-        <td class="num"></td></tr>${dtail}${ltail}`;
+        <td class="num"></td></tr>${dtail}${ntail}${ltail}`;
     }).join('');
     return head + body;
   }).join('');
