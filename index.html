@@ -769,6 +769,7 @@ function viewInvPay(){
     return head + body;
   }).join('');
   const wk = new Set(days), mx = UI.mail || {}, loose = (S.digital || []).filter(d => !d.err && (d.no || d.total !== null) && !S._dg.used[d.id] && wk.has(d.date || d.mail_date)).slice(0, 40);
+  UI.kakao = (() => { const g = {}; nPhys.slice().sort((x, y) => x.date < y.date ? -1 : 1).forEach(e => { (g[e.cat || 'Other'] = g[e.cat || 'Other'] || []).push(fs2(e.date) + ' $' + e.amt.toFixed(2)); }); return Object.keys(g).length ? '매니저님, 아래 인보이스 사진 전송 부탁드립니다.\n\n' + Object.keys(g).map(k => k + '\n' + g[k].join('\n')).join('\n\n') : ''; })();
   const mailBar = `<div class="mailbar"><button class="btn" type="button" data-act="mailsync" ${mx.busy ? 'disabled' : ''}>${mx.busy ? 'Reading…' : 'Check emails'}</button><small>${esc(mx.msg || (S.digital.length ? S.digital.length + ' digital invoices from the mailbox (since 05/10)' : 'Reads the supplier invoice PDFs in the mailbox (since 05/10) and compares them with the sheet'))}</small>${mx.err ? `<small class="warn">${esc(mx.err)} ${mx.busy ? '' : '<a href="#" data-act="mailretry">Retry unreadable</a>'}</small>` : ''}</div>`;
   const dIso = parseDate(ip.date, UI.week), dateBad = !dIso || dIso < addDays(todayIso(), -7) || dIso > addDays(todayIso(), 730);
   const bad = pl.txns.filter(t => t.err).length, can = pl.payer && pl.txns.length && !bad && !dateBad;
@@ -785,7 +786,7 @@ function viewInvPay(){
   return weekBar() + kpis + `<div class="card"><h2>Invoice payment <small>${esc(DATA[b].name)}. Compare each invoice with the supplier's digital invoice, mark the physical invoice, then pay. A price difference blocks the invoice from the ABA file until it is fixed (edit the amount in the weekly sheet, or accept the difference).</small></h2><div class="pad">
     ${mailBar}
     <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(ip.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span>
-      <button class="btn" type="button" data-act="ipok">Select matched</button><button class="btn" type="button" data-act="ipall">Select all</button><button class="btn" type="button" data-act="ipnone">Clear</button></div>
+      <button class="btn" type="button" data-act="ipok">Select matched</button><button class="btn" type="button" data-act="ipall">Select all</button><button class="btn" type="button" data-act="ipnone">Clear</button><button class="btn" type="button" data-act="kakao" ${nPhys.length ? '' : 'disabled'} title="Copies a KakaoTalk message asking the manager to send the missing physical invoice photos">Copy message for manager (${nPhys.length})</button></div>
     ${pl.groups.length ? `<div class="scroll"><table class="pay"><thead><tr><th></th><th>Date</th><th>Invoice no.</th><th class="num">Sheet</th><th class="num">Diff</th><th title="Confirmed against the supplier's digital invoice from the mailbox">Digital</th><th title="Physical invoice received">Physical</th><th>Status</th><th class="num">Selected</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p>No invoices this week.</p>'}
     ${oth}${bad ? `<div class="hint warn">${bad} payment${bad > 1 ? 's' : ''} need fixing (${esc([...new Set(pl.txns.filter(t => t.err).map(t => t.err))].join(', '))}) before the file can be downloaded.</div>` : ''}
     ${!pl.payer ? '<div class="hint warn">No paying account is saved for this branch (payers sheet).</div>' : ''}
@@ -1691,6 +1692,7 @@ document.addEventListener('click', ev => {
   }
   else if(a === 'del'){ const id = +t.dataset.id; if(UI.confirmDel === id){ S.entries = S.entries.filter(e => e.id !== id); UI.confirmDel = null; UI.editId = null; UI.draft = {}; save(); flash('Entry deleted'); } else { UI.confirmDel = id; } }
   else if(a === 'theme'){ const n = getTheme() === 'dark' ? 'light' : 'dark'; try{ localStorage.setItem('rms-theme', n); }catch(e){} document.documentElement.dataset.theme = n; }
+  else if(a === 'kakao'){ const tx = UI.kakao || ''; if(!tx) return; const done = () => flash('Message copied. Paste it into KakaoTalk'); (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(tx) : Promise.reject()).then(done).catch(() => { const ta = document.createElement('textarea'); ta.value = tx; document.body.append(ta); ta.select(); try{ document.execCommand('copy'); done(); }catch(e){ flash('Copy failed'); } ta.remove(); }); return; }
   else if(a === 'mailsync'){ mailSync(false); return; }
   else if(a === 'mailretry'){ ev.preventDefault(); mailSync(true); return; }
   else if(a === 'ipsel'){ UI.ip.sel[+t.dataset.id] = t.checked; }
