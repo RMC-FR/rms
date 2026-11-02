@@ -735,9 +735,31 @@ function invSet(e, patch){
     UI.syncErr = err.message || 'Could not save'; render();
   });
 }
+/* The digital invoice is the source of truth for the reference: set it on every matched entry. Fixed-reference suppliers (the payment reference is fixed) keep it in the note as "Invoice N". Idempotent. */
+function dgApplyRefs(){
+  if(user().role !== 'admin') return false;
+  let n = 0;
+  S.entries.forEach(e => {
+    if(e.sec !== 'expense' || e.date < '2026-10-01') return;
+    const m = dgMatch(e), no = m && String(m.d.no || '').trim();
+    if(!no) return;
+    if(isFixedRef(e)){
+      const note = e.note || '';
+      if(note.includes(no)) return;
+      e.note = /Invoice\s+\S+/.test(note) ? note.replace(/Invoice\s+\S+/, 'Invoice ' + no) : (note ? note + ' · ' : '') + 'Invoice ' + no;
+      n++;
+    }else if(String(e.ref || '') !== no){
+      if(e.ref) e.note = (e.note ? e.note + ' · ' : '') + 'Reference set from the digital invoice (was ' + e.ref + ')';
+      e.ref = no; n++;
+    }
+  });
+  if(n) save();
+  return n > 0;
+}
 function viewInvPay(){
   const b = UI.branch, days = weekDays(UI.week), ip = UI.ip;
   S._dg = dgBuild();
+  if(dgApplyRefs()) S._dg = dgBuild();
   if(!ip.date) ip.date = fd(todayIso());
   const m = {br:b, week:UI.week, date:ip.date, sel:ip.sel}, pl = payPlan(m);
   const all = pl.groups.flatMap(g => g.invs), sum = l => l.reduce((a, e) => a + e.amt, 0);
