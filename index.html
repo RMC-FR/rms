@@ -742,6 +742,13 @@ function dgApplyRefs(){
   S.entries.forEach(e => {
     if(e.sec !== 'expense' || e.date < '2026-10-01') return;
     const m = dgMatch(e), no = m && String(m.d.no || '').trim();
+    if(m && m.d.total !== null && m.d.total > 0){
+      const tot = Math.round(m.d.total * 100) / 100, c = invOf(e);
+      if(c.digital !== null && c.digital !== undefined && Math.abs(c.digital - tot) > 0.004){
+        S.inv[e.id] = {...c, digital:tot, acc:false}; if(S.checks[e.id] !== undefined) S.checks[e.id] = tot;
+        queue = queue.then(() => api('inv', {id:e.id, digital:tot})).catch(() => {}); n++;
+      }
+    }
     if(m && m.d.total !== null && m.d.total > 0 && Math.abs(m.d.total - e.amt) > 0.004){
       e.note = (e.note ? e.note + ' · ' : '') + 'Amount set to the digital invoice ' + m.d.total.toFixed(2) + ' (sales report said ' + e.amt.toFixed(2) + ')';
       e.amt = Math.round(m.d.total * 100) / 100; n++;
@@ -782,7 +789,7 @@ function viewInvPay(){
       const dtail = dm ? `<tr class="dgd ${dl.some(x => x.sev === 'diff') ? 'bad' : ''}"><td></td><td colspan="8"><small class="dgsrc">✉ ${esc(dm.d.supplier)} ${esc(dm.d.no)} · ${dm.d.total !== null ? money(dm.d.total) : ''} · to ${esc(String(dm.d.to).replace(/<|>/g, '').split(',')[0].split('@')[0].slice(0, 40))}${dm.how === 'amt' ? ' · matched by supplier, amount and date' : ''}</small>${dl.length ? '<ul>' + dl.map(x => `<li class="${x.sev}"><span>${esc(x.k)}</span> ${x.txt}</li>`).join('') + '</ul>' : ' <small class="dgok">identical</small>'}</td></tr>` : '';
       const lg = (c.log || '').split('\n').filter(Boolean), ltail = lg.length ? `<tr class="dgd bad"><td></td><td colspan="8"><small class="dgsrc">Log</small><ul class="dgl">${lg.map(x => `<li>${esc(x)}</li>`).join('')}</ul></td></tr>` : '';
       const nt = (e.note || '').match(/Amount set to[\s\S]*$/), ntail = nt ? `<tr class="dgd bad"><td></td><td colspan="8"><small class="dgsrc">Registered from the digital invoice</small> ${esc(nt[0].slice(0, 220))}</td></tr>` : '';
-      return `<tr class="${physOf(e) ? '' : 'nophys'}"><td><input type="checkbox" data-act="ipsel" data-id="${e.id}" ${ip.sel[e.id] ? 'checked' : ''} ${st === 'diff' ? 'disabled' : ''} aria-label="Include in the ABA file" title="${st === 'diff' ? 'Resolve the price difference first' : ''}"></td>
+      return `<tr class="${physOf(e) ? '' : 'nophys'}"><td><input type="checkbox" data-act="ipsel" data-id="${e.id}" ${ip.sel[e.id] ? 'checked' : ''} aria-label="Include in the ABA file"></td>
         <td>${fs2(e.date)}</td>
         <td>${editable ? `<input type="text" class="${t && t.err === 'Reference' ? 'bad' : ''}" data-payref="${e.id}" value="${esc(e.ref)}" placeholder="Invoice no." maxlength="40">${t && t.cut ? '<small class="warn">Cut to 18 characters: ' + esc(t.refTxt) + '</small>' : ''}` : g.kind === 'bulk' ? '' : esc(e.ref ? '#' + e.ref : '')}</td>
         <td class="num">${e.amt.toFixed(2)}</td>
@@ -809,7 +816,7 @@ function viewInvPay(){
       <td><input type="checkbox" data-ivphys="${e.id}" ${physOf(e) ? 'checked' : ''} ${e.file ? 'disabled' : ''} aria-label="Receipt received"> ${physOf(e) ? vtag(c.pstat, 'Receipt') : '<span class="tag nph">Missing</span>'}${e.file ? ` <span role="button" tabindex="0" data-act="vphoto" data-id="${e.id}" title="View the photo" style="cursor:pointer">📎</span>` : ''}</td></tr>${lg.length ? `<tr class="dgd bad"><td></td><td colspan="3"><small class="dgsrc">Log</small><ul class="dgl">${lg.map(x => `<li>${esc(x)}</li>`).join('')}</ul></td></tr>` : ''}`;
   }).join('');
   const cashCard = `<div class="card"><h2>Cash purchases <small>Paid in cash from the till. Each needs a receipt or invoice as proof; ${cashE.length ? cashMiss.length ? cashMiss.length + ' without proof' : 'all have proof' : 'none this week'}.</small></h2><div class="pad">${cashE.length ? `<div class="scroll"><table class="pay"><thead><tr><th>Date</th><th>Item</th><th class="num">Amount</th><th>Receipt</th></tr></thead><tbody>${cashRows}<tr class="grp"><td colspan="2">Total</td><td class="num">${sum(cashE).toFixed(2)}</td><td></td></tr></tbody></table></div>` : '<p>No cash purchases this week.</p>'}</div></div>`;
-  return weekBar() + kpis + `<div class="card"><h2>Invoice payment <small>${esc(DATA[b].name)}. Compare each invoice with the supplier's digital invoice, mark the physical invoice, then pay. A price difference blocks the invoice from the ABA file until it is fixed (edit the amount in the weekly sheet, or accept the difference).</small></h2><div class="pad">
+  return weekBar() + kpis + `<div class="card"><h2>Invoice payment <small>${esc(DATA[b].name)}. Compare each invoice with the supplier's digital invoice, mark the physical invoice, then pay. Amounts follow the digital invoice. Differences are shown but never block selecting an invoice for the ABA file.</small></h2><div class="pad">
     ${mailBar}
     <div class="paybox"><label>Payment date <input type="text" id="pay-date" value="${esc(ip.date)}" placeholder="DD/MM/YYYY" class="${dateBad ? 'bad' : ''}"></label>${dateBad ? '<small class="warn">Must be within the last 7 days or up to 24 months ahead</small>' : ''}<span style="flex:1"></span>
       <button class="btn" type="button" data-act="ipok">Select matched</button><button class="btn" type="button" data-act="ipall">Select all</button><button class="btn" type="button" data-act="ipnone">Clear</button><button class="btn" type="button" data-act="kakao" ${nPhys.length ? '' : 'disabled'} title="Copies a KakaoTalk message asking the manager to send the missing physical invoice photos">Copy message for manager (${nPhys.length})</button></div>
@@ -1722,7 +1729,7 @@ document.addEventListener('click', ev => {
   else if(a === 'mailsync'){ mailSync(false); return; }
   else if(a === 'mailretry'){ ev.preventDefault(); mailSync(true); return; }
   else if(a === 'ipsel'){ UI.ip.sel[+t.dataset.id] = t.checked; }
-  else if(a === 'ipall'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = invStat(e) !== 'diff'; }); }
+  else if(a === 'ipall'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = true; }); }
   else if(a === 'ipok'){ entriesFor(UI.branch, weekDays(UI.week), ['expense']).forEach(e => { UI.ip.sel[e.id] = ['ok', 'acc', 'na'].includes(invStat(e)); }); }
   else if(a === 'ipnone'){ UI.ip.sel = {}; }
   else if(a === 'ipdl'){ payDownload({br:UI.branch, week:UI.week, date:UI.ip.date, sel:UI.ip.sel}); return; }
