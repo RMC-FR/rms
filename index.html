@@ -260,7 +260,7 @@ function applyLoad(j){
   if(fixed) setTimeout(save, 0);
 }
 const loadAll = async () => applyLoad(await api('load'));
-const latestWeek = () => { const d = S.entries.reduce((m, e) => e.date > m ? e.date : m, ''); return d ? monday(d) : UI.week; };
+const latestWeek = () => monday(new Intl.DateTimeFormat('en-CA', {timeZone:'Australia/Sydney'}).format(new Date()));   // default = the current week (Sydney), not the newest entry: forecast entries can sit in future weeks
 async function afterLogin(){
   await loadAll();
   UI.branch = ME.role === 'admin' ? 'ALL' : ME.br; UI.tab = ME.role === 'admin' ? 'summary' : 'home';
@@ -392,7 +392,7 @@ function weekBar(){
   return `<div class="bar"><div class="week"><button class="btn" data-act="wk" data-v="-7" aria-label="Previous week">‹</button>
     <b>${fd(UI.week)} – ${fd(addDays(UI.week, 6))}</b>
     <button class="btn" data-act="wk" data-v="7" aria-label="Next week">›</button>
-    <button class="btn" data-act="wk" data-v="0">Week 28/09</button><button class="btn" data-act="wk" data-v="latest">Latest week</button></div></div>`;
+    <button class="btn" data-act="wk" data-v="0">Week 28/09</button><button class="btn" data-act="wk" data-v="latest">This week</button></div></div>`;
 }
 function kpis(t, cash){
   const nw = t.hasWage;
