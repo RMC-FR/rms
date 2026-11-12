@@ -1532,10 +1532,6 @@ function ffcCard(){
 }
 const AWARD_OF = {GN:'Fast Food', LE:'Fast Food', WT:'Restaurant', BO:'Restaurant', TM:'Restaurant', CT:'Restaurant'};   // award each branch's staff are paid under
 const TOP_STAFF = ['Oyundulam', 'Bhuwaneshwor'];   // listed first in their branch's wage table
-function classCard(list){
-  const tg = w => { const t = empMeta(w), m = t.match(/<span class="tag t-lv">.*?<\/span>/), st = t.match(/<span class="tag (?:t-st[^"]*|warn)"[^>]*>(?:Kitchen|F&amp;B|F&B|Stream –)<\/span>/), ag = t.match(/<span class="tag t-age[^"]*">.*?<\/span>/); return [m ? m[0] : '', st ? st[0] : '', ag ? ag[0] : '']; };
-  return `<div class="card"><h2>Award classification <small>Restaurant Industry Award · level, stream and age per employee</small></h2><div class="scroll"><table class="wtbl"><thead><tr><th class="emp">Employee</th><th>Work mode</th><th>Level</th><th>Stream</th><th>Age</th></tr></thead><tbody>${list.map(w => { const [lv, st, ag] = tg(w); return `<tr><td class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span></td><td>${lv}</td><td>${st}</td><td>${ag}</td></tr>`; }).join('')}</tbody></table></div></div>`;
-}
 function viewWageNew(b, ws, rows){
   const adm = ME.role === 'admin', hid = S.hiddenWage[b + '|' + ws] || 0, c = calc(b, ws), award = AWARD_OF[b] || (rows[0] || {}).award || '';
   const dayStaff = w => (w.dayN && w.dayR) || TOP_STAFF.includes(w.name) ? 0 : 1, sorted = [...rows].sort((x, y) => dayStaff(x) - dayStaff(y) || modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0));
@@ -1546,14 +1542,13 @@ function viewWageNew(b, ws, rows){
     <div class="kpi"><small>Total hours${hid && !adm ? ' (listed staff)' : ''}</small><strong>${Math.round(hrs * 100) / 100} h</strong></div>
     ${hasCash ? `<div class="kpi"><small>STP wage / cash part</small><strong style="font-size:15px">${money(stpTot)} / ${money(cashTot)}</strong></div>` : ''}
     <div class="kpi"><small>Award</small><strong style="font-size:15px">${award ? esc(award) + ' Award' : '–'}</strong></div></div>
-    ${award === 'Restaurant' ? classCard(sorted) : ''}
     ${(() => {
       const G = [['Ordinary','ordH','ordR'], ['Saturday','satH','satR'], ['Sunday','sunH','sunR'], ['Overtime','otH','otR'], ['Day rate','dayN','dayR']];
       const r2 = n => Math.round(n * 100) / 100;
       const body = sorted.map(w => {
         const L = wageLines(w);
         const n = L.length, d = '<span class="dim">–</span>';
-        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span>${ffTag(w)}${award === 'Restaurant' ? '' : empMeta(w)}</td>` : '')
+        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span>${ffTag(w)}${empMeta(w)}</td>` : '')
           + `<td class="k">${g.label}</td><td class="num">${g.act != null ? g.act + ' hr' : d}</td><td class="num">${g.q ? g.q + ' ' + g.u : d}${g.adj ? `<br><small class="topup">+${g.adj} top-up</small>` : ''}${g.note ? `<br><small class="dim">${g.note}</small>` : ''}</td><td class="num">${g.r ? money(g.r) : d}</td><td class="num">${g.sub != null ? money(g.sub) : d}</td>`
           + (i === 0 ? `<td rowspan="${n}" class="num k"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b>${w.adjH > 0 ? `<br><small class="topup">${Math.round((wHours(w) - w.adjH) * 100) / 100} worked</small>` : ''}</td><td rowspan="${n}" class="num"><b>${money(w.stp)}</b></td>` : '') + '</tr>').join('');
       }).join('');
