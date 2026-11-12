@@ -1515,7 +1515,7 @@ function levelOf(w){ const a = String(w.award || ''), m = /\bL(\d)(\+)?/i.exec(a
 const STREAM = {cook:['Kitchen', 'Kitchen (cook / kitchen attendant)'], kitchen:['Kitchen', 'Kitchen (cook / kitchen attendant)'], 'f&b':['F&B', 'Food & beverage attendant']};
 function empMeta(w){
   const a = String(w.award || ''), aw = /fast food/i.test(a) ? 'Fast Food' : /restaurant/i.test(a) ? 'Restaurant' : '', lv = levelOf(w), sm = /\bL\d\+?\s+(cook|kitchen|f&b)\b/i.exec(a), st = sm ? STREAM[sm[1].toLowerCase()] : null, ag = ageOf(w);
-  return `<div class="tagrow">${aw ? `<span class="tag t-aw">${aw}</span>` : ''}<span class="tag t-lv">${lv ? 'Level ' + lv.slice(1) : 'Level –'}</span>${st ? `<span class="tag t-st t-${sm[1].toLowerCase() === 'f&b' ? 'fb' : 'kitchen'}" title="${st[1]}">${st[0]}</span>` : (aw === 'Restaurant' ? '<span class="tag warn">Stream –</span>' : '')}<span class="tag t-age${ag === null ? ' warn' : ''}">${ag === null ? 'age n/a' : 'age ' + ag}</span></div>`;
+  return `<div class="tagrow"><span class="tag t-lv">${lv ? 'Level ' + lv.slice(1) : 'Level –'}</span>${st ? `<span class="tag t-st t-${sm[1].toLowerCase() === 'f&b' ? 'fb' : 'kitchen'}" title="${st[1]}">${st[0]}</span>` : (aw === 'Restaurant' ? '<span class="tag warn">Stream –</span>' : '')}<span class="tag t-age${ag === null ? ' warn' : ''}">${ag === null ? 'age n/a' : 'age ' + ag}</span></div>`;
 }
 const ffTag = w => w._ff ? ` <span class="tag" title="Paid by the Fast Food Award pay guide table (${esc(w.award)}, ${esc(w.mode)})">${esc(w._ff)}</span>` : '';
 UI.ffc = UI.ffc || {type:'adult', age:'18', emp:'casual', lv:'1', h:{}};
