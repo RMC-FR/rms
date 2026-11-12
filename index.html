@@ -85,6 +85,8 @@ td.zero{color:var(--line)}
 .pierow{display:flex;gap:12px;align-items:center}.pierow dl{flex:1;min-width:0}.pierow dt{white-space:nowrap}.mpie{width:80px;height:80px;flex:none}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
 .tag{font-size:11px;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--muted);white-space:nowrap}
 .tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tagrow{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}.tag.t-aw{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}.tag.t-lv{background:rgba(120,90,200,.14);color:#6a4bc0}.tag.t-cook{background:rgba(214,110,40,.16);color:#b2531a}.tag.t-kitchen{background:rgba(60,160,120,.16);color:#1f7f5a}.tag.t-fb{background:rgba(40,150,200,.16);color:#17789f}.tag.t-age{background:var(--surface2);color:var(--text,inherit)}
+:root[data-theme="dark"] .tag.t-lv{color:#b9a3f2}:root[data-theme="dark"] .tag.t-cook{color:#f0a678}:root[data-theme="dark"] .tag.t-kitchen{color:#7fd5b0}:root[data-theme="dark"] .tag.t-fb{color:#7fc9e6}
 .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
 .form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
 .form input,.form select{width:100%;color:var(--fg)}
@@ -1509,8 +1511,12 @@ function ageOf(w){
   const t = new Date(), by = +m[3], bm = +m[2], bd = +m[1]; let a = t.getFullYear() - by; if(t.getMonth() + 1 < bm || (t.getMonth() + 1 === bm && t.getDate() < bd)) a--;
   return a;
 }
-function levelOf(w){ const a = String(w.award || ''), m = /\bL(\d)(\+)?/i.exec(a); return m ? 'Level ' + m[1] + (m[2] || '') : /fast food/i.test(a) ? 'Level 1' : ''; }
-function empMeta(w){ const lv = levelOf(w), ag = ageOf(w); return `<br><small class="dim">${lv ? esc(lv) : 'Level –'} · ${ag === null ? 'age n/a' : 'age ' + ag}</small>`; }
+function levelOf(w){ const a = String(w.award || ''), m = /\bL(\d)(\+)?/i.exec(a); return m ? 'L' + m[1] + (m[2] || '') : /fast food/i.test(a) ? 'L1' : ''; }
+const STREAM = {cook:['Cook', 'Cook'], kitchen:['Kitchen', 'Kitchen attendant'], 'f&b':['F&B', 'Food & beverage attendant']};
+function empMeta(w){
+  const a = String(w.award || ''), aw = /fast food/i.test(a) ? 'Fast Food' : /restaurant/i.test(a) ? 'Restaurant' : '', lv = levelOf(w), sm = /\bL\d\+?\s+(cook|kitchen|f&b)\b/i.exec(a), st = sm ? STREAM[sm[1].toLowerCase()] : null, ag = ageOf(w);
+  return `<div class="tagrow">${aw ? `<span class="tag t-aw">${aw}</span>` : ''}<span class="tag t-lv">${lv ? 'Level ' + lv.slice(1) : 'Level –'}</span>${st ? `<span class="tag t-st t-${sm[1].toLowerCase() === 'f&b' ? 'fb' : sm[1].toLowerCase()}" title="${st[1]}">${st[0]}</span>` : (aw === 'Restaurant' ? '<span class="tag warn">Stream –</span>' : '')}<span class="tag t-age${ag === null ? ' warn' : ''}">${ag === null ? 'age n/a' : 'age ' + ag}</span></div>`;
+}
 const ffTag = w => w._ff ? ` <span class="tag" title="Paid by the Fast Food Award pay guide table (${esc(w.award)}, ${esc(w.mode)})">${esc(w._ff)}</span>` : '';
 UI.ffc = UI.ffc || {type:'adult', age:'18', emp:'casual', lv:'1', h:{}};
 function ffcRows(c){ const r = ffRates(c.emp === 'casual', c.lv, c.type === 'junior' ? c.age : ''); return {r, rows:FF_CATS.map(x => { const h = parseFloat(c.h[x[0]]) || 0, rate = r ? r[x[0]] : null; return {k:x[0], l:x[1], rate, h, amt:rate ? ffR2(h * rate) : 0}; })}; }
