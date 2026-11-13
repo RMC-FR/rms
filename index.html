@@ -1483,6 +1483,8 @@ const wageLines = w => {   // pay lines of one wage row: ordinary / Saturday / S
   if(sa && su && sa.r === su.r){   // Saturday and Sunday share one rate: one Weekend line (easy to copy into payroll), the split goes in a note
     const q = r2(sa.q + su.q); L.splice(L.indexOf(sa), 2, {label:'Weekend', q, u:'hr', r:sa.r, sub:r2(q * sa.r), act:r2(sa.act + su.act), note:'Sat ' + sa.q + ' h · Sun ' + su.q + ' h'});
   }
+  const bm = /\bbonus\b[^0-9]{0,20}(\d+(?:\.\d+)?)/i.exec(String(w.note || ''));   // note such as "Bonus: STP gross 384" shows as its own Bonus line (already inside the STP wage)
+  if(bm) L.push({label:'Bonus', sub:+bm[1], r:+bm[1], note:'gross, in STP wage'});
   if(!L.length) L.push({label:'–'});
   return L;
 };
