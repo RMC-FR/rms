@@ -145,6 +145,13 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .itbl td{padding:3px 4px}.itbl input,.itbl select{width:100%;min-width:0;padding:5px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}
 .itbl td:nth-child(2){width:62px}.itbl td:nth-child(3){width:104px}.itbl td:nth-child(4){width:88px}.itbl td:nth-child(5){width:34px}.itbl.ro td{padding:5px 6px;border-top:1px solid var(--line)}
 .btn.sm{padding:4px 10px;font-size:12px}
+.elink{background:none;border:0;padding:0;font-weight:700;color:var(--accent);text-align:left;cursor:pointer}.elink:hover{text-decoration:underline}
+.modal.emp{max-width:1180px}.modal.emp h2{color:var(--fg);margin:0}
+.ehead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.einfo{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0 14px}.einfo div{background:var(--surface2);border-radius:8px;padding:7px 10px}.einfo small{display:block;color:var(--muted);font-size:11.5px}.einfo b{font-size:14px}
+.wkcard{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}.wkcard h3{margin:0 0 8px;font-size:14.5px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.tsw{overflow-x:auto}.tst{border-collapse:collapse;font-size:12px;width:100%;min-width:980px}.tst th,.tst td{border:1px solid var(--line);padding:3px 5px;text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}.tst thead th{background:var(--surface2);font-weight:700}.tst .dh{border-left:2px solid var(--muted)}.tst td.tt{background:var(--surface2);font-weight:700}.tst td.lab{font-weight:600;color:var(--muted);background:var(--surface)}.tst tr.net td{border-top:2px solid var(--muted);font-weight:700}.tst td.wt{border-left:2px solid var(--muted);font-weight:700}.tst .off{color:var(--muted)}
+.tsnote{color:var(--muted);font-size:12px;margin-top:6px}.paybox{margin-top:10px}.paybox table{font-size:12.5px;width:auto;margin:0}.paybox th,.paybox td{padding:3px 12px 3px 0;text-align:left}
 .modal.wide{max-width:680px}.invimg{max-width:100%;max-height:60vh;display:block;margin:0 auto 12px;border-radius:6px;border:1px solid var(--line)}
 .pay{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}.pay th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px}.pay td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:middle}.pay tr.grp td{background:var(--bg2,rgba(127,127,127,.08));font-weight:600}.pay input[type=text]{width:100%;min-width:0;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input.bad{border-color:var(--bad)}.pay .warn{color:var(--bad)}.pay tr.nophys td{background:var(--warn-soft);border-top-color:var(--warn)}.pay tr.nophys td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.pay tr.nophys td:nth-child(2){font-weight:700}.tag.vok{background:var(--good);color:#fff;font-weight:600}.tag.vna{background:var(--line);color:var(--muted);font-weight:600}.tag.nph{background:var(--bad);color:#fff;font-weight:600}.mailbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}.mailbar small{color:var(--muted)}.pay tr.dgd td{border-top:0;padding-top:0;font-size:12px}.pay tr.dgd.bad td{background:var(--warn-soft)}.pay tr.dgd ul,.dgl{margin:3px 0 6px;padding-left:16px}.pay tr.dgd li span{display:inline-block;min-width:74px;font-weight:600;color:var(--muted)}.pay tr.dgd li.diff{color:var(--bad)}.pay tr.dgd li.diff span{color:var(--bad)}.dgsrc{color:var(--muted)}.dgok{color:var(--good)}.iprow{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:22px 0 14px;padding-top:16px;border-top:1px solid var(--line)}.iprow .btn.primary{padding:10px 22px}.pay input.dig{width:84px;text-align:right;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input[type=checkbox]{width:16px;height:16px}.pay td .tick{margin-right:0}.pay .num{text-align:right}.pay th.num{text-align:right}.paybox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.paybox label{display:flex;gap:6px;align-items:center;color:var(--muted)}.paybox input{padding:5px 8px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:120px}
 .mback{position:fixed;inset:0;background:rgba(10,14,12,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
@@ -253,7 +260,7 @@ function applyLoad(j){
   BR = Object.keys(DATA).sort((a, b) => (order.indexOf(a) + 99) % 99 - (order.indexOf(b) + 99) % 99 || a.localeCompare(b));
   S = {entries:j.entries.map(e => ({id:e.id, br:e.br, date:e.date, sec:e.sec, cat:e.cat, amt:Number(e.amt), ref:e.ref || '', note:e.note || '', file:e.file || ''})), cats:{}, items:{}};
   (j.items || []).forEach(it => S.items[it.entry] = {br:it.br, date:it.date, supplier:it.supplier, lines:it.lines});
-  S.pending = j.pending || []; S.staff = j.staff || []; S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc, pstat:c.pstat || '', dstat:c.dstat || '', log:c.log || ''}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; applyAwards(); S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || []; S.costs = j.costs || [];
+  S.pending = j.pending || []; S.staff = j.staff || []; S.pay = j.pay || {payees:[], payers:[]}; S.checks = {}; S.inv = {}; (j.checks || []).forEach(c => { if(c.amt !== null && c.amt !== undefined) S.checks[c.id] = c.amt; S.inv[c.id] = {phys:!!c.phys, digital:c.digital === null || c.digital === undefined ? null : c.digital, acc:!!c.acc, pstat:c.pstat || '', dstat:c.dstat || '', log:c.log || ''}; }); S.digital = j.digital || []; S._dg = null; S.wages = j.wages || []; S.shifts = (j.shifts || []).map(x => { let d = {}; try{ d = JSON.parse(x.json); }catch(e){} return {week:String(x.week), br:x.br, name:x.name, days:d}; }); applyAwards(); S.hiddenWage = {}; (j.hiddenWage || []).forEach(h => S.hiddenWage[h.br + '|' + h.week] = h.cost); S.deductions = j.deductions || []; S.costs = j.costs || [];
   BR.forEach(b => S.cats[b] = []);
   j.cats.forEach(c => (S.cats[c.br] = S.cats[c.br] || []).push({sec:c.sec, label:c.label, counted:c.counted, ...(c.sec === 'cash' ? {grp:c.grp || ''} : {})}));
   SNAP = {e:new Map(S.entries.map(e => [e.id, pack(e)])), c:new Map(), i:new Map(Object.entries(S.items).map(([k, v]) => [+k, JSON.stringify(v)]))};
@@ -1410,8 +1417,55 @@ function closingMismatch(r){
   const expected = Math.round((a.cashRec - a.co) * 100) / 100, D = Math.round((r.closingRep - expected) * 100) / 100;
   return Math.abs(D) < 0.005 ? null : {cash:a.cashRec, co:a.co, expected, reported:r.closingRep, D};
 }
+
+/* ---------- Staff timesheet window: click an employee name in the wage / STP tables ---------- */
+const empLink = n => `<button class="elink" data-act="emp" data-v="${esc(n)}">${esc(n)}</button>`;
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const tMin = t => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim()); return m ? +m[1] * 60 + +m[2] : null; };
+const durMin = (a, b) => { const x = tMin(a), y = tMin(b); return x === null || y === null ? null : (y >= x ? y - x : y + 1440 - x); };
+const hh = m => m === null || m === undefined ? '' : (Math.round(m / 60 * 100) / 100) + ' h';
+const tfmt = t => { const m = tMin(t); return m === null ? '' : Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
+function shiftsOf(w){ const r = (S.shifts || []).find(x => x.week === w.week && x.br === w.br && _nm(x.name) === _nm(w.name)); return r ? r.days : null; }
+function tsTable(w, days){
+  const KINDS = [['w', 'Work Shift'], ['r1', 'Rest Break 1'], ['r2', 'Rest Break 2'], ['m', 'Meal Break'], ['m2', 'Meal Break 2']], W = {w:0, r1:0, r2:0, m:0, m2:0, net:0};
+  const maxSeq = DAYS.map(d => (days[d] || []).length), blocks = Math.max(1, ...maxSeq);
+  const used = k => DAYS.some(d => (days[d] || []).some(sh => sh[k] && sh[k][0]));
+  const head = `<thead><tr><th rowspan="2">Time entry</th>${DAYS.map((d, i) => `<th colspan="3" class="dh">${d} ${fd(addDays(w.week, i)).slice(0, 5)}</th>`).join('')}<th rowspan="2" class="dh">Week total</th></tr><tr>${DAYS.map(() => '<th class="dh">In</th><th>Out</th><th>Total</th>').join('')}</tr></thead>`;
+  let body = '';
+  for(let b = 0; b < blocks; b++){
+    KINDS.filter(k => k[0] === 'w' || k[0] === 'r1' || used(k[0])).forEach(([k, lab]) => {
+      let wk = 0;
+      const cells = DAYS.map(d => { const sh = (days[d] || [])[b], v = sh && sh[k], m = v ? durMin(v[0], v[1]) : null;
+        if(!v || !v[0]) return '<td class="dh off">:</td><td class="off">:</td><td class="tt"></td>';
+        if(m !== null){ wk += m; W[k] += m; }
+        return `<td class="dh">${tfmt(v[0])}</td><td>${tfmt(v[1])}</td><td class="tt">${hh(m)}</td>`; }).join('');
+      body += `<tr><td class="lab">${lab}${blocks > 1 ? ' #' + (b + 1) : ''}</td>${cells}<td class="wt">${wk ? hh(wk) : ''}</td></tr>`;
+    });
+  }
+  // net paid hours per day = all work shifts − every break listed (the rule used when the timesheets were read)
+  const nets = DAYS.map(d => { const L = days[d] || []; if(!L.length) return null; let g = 0, br = 0; L.forEach(sh => { const m = sh.w ? durMin(sh.w[0], sh.w[1]) : null; if(m === null) g = NaN; else g += m; ['r1', 'r2', 'm', 'm2'].forEach(k => { if(sh[k]){ const x = durMin(sh[k][0], sh[k][1]); if(x !== null) br += x; } }); }); return g - br; });
+  W.net = nets.reduce((a, x) => a + (x && x === x ? x : 0), 0);
+  body += `<tr class="net"><td class="lab">Net hours</td>${nets.map(m => m === null ? '<td class="dh off">:</td><td class="off">:</td><td class="tt"></td>' : `<td class="dh"></td><td></td><td class="tt">${m !== m ? '?' : hh(m)}</td>`).join('')}<td class="wt">${hh(W.net)}</td></tr>`;
+  const sum = `<div class="tsnote">Week: worked ${hh(W.w)} · rest breaks ${hh(W.r1 + W.r2) || '0 h'} · meal breaks ${hh(W.m + W.m2) || '0 h'} · <b>net ${hh(W.net)}</b>${nets.some(x => x !== null && x !== x) ? ' (a day with an unreadable time is not counted)' : ''}. Net = work shift minus every break written on the timesheet.</div>`;
+  return `<div class="tsw"><table class="tst">${head}<tbody>${body}</tbody></table></div>${sum}`;
+}
+function empModal(m){
+  const rows = (S.wages || []).filter(w => _nm(w.name) === _nm(m.name)).sort((a, b) => b.week.localeCompare(a.week) || a.br.localeCompare(b.br));
+  if(!rows.length) return `<div class="mback"><div class="modal emp"><h2>${esc(m.name)}</h2><p>No wage rows found.</p><div class="row"><button class="btn" data-act="mclose">Close</button></div></div></div>`;
+  const last = rows[0], brs = [...new Set(rows.map(w => w.br))], d = '–', lv = levelOf(last), ag = ageOf(last), r = n => n ? money(n) + '/h' : d;
+  const info = `<div class="einfo"><div><small>Branch</small><b>${brs.map(esc).join(', ')}</b></div><div><small>Award</small><b>${esc(AWARD_OF[last.br] || (/fast food/i.test(last.award) ? 'Fast Food' : /restaurant/i.test(last.award) ? 'Restaurant' : '') || d)}</b></div><div><small>Level</small><b>${lv ? 'Level ' + lv.slice(1) : d}</b></div><div><small>Employment</small><b>${esc(last.mode)}</b></div><div><small>Age</small><b>${ag === null ? d : ag}</b></div>
+    <div><small>Ordinary rate</small><b>${r(last.ordR)}</b></div><div><small>Saturday rate</small><b>${r(last.satR)}</b></div><div><small>Sunday rate</small><b>${r(last.sunR)}</b></div><div><small>Overtime 1.5x</small><b>${r(last.otR)}</b></div>${last.ot2R ? `<div><small>Overtime 2.0x</small><b>${r(last.ot2R)}</b></div>` : ''}</div>`;
+  const cards = rows.map(w => {
+    const days = shiftsOf(w), L = wageLines(w);
+    const pay = `<div class="paybox"><table><thead><tr><th>Pay type</th><th>Hours</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${L.map(g => `<tr><td>${g.label}${g.note ? ` <small class="dim">${g.note}</small>` : ''}</td><td>${g.q ? g.q + ' ' + g.u + (g.adj ? ` <small class="topup">(+${g.adj} top-up)</small>` : '') : d}</td><td>${g.r ? money(g.r) : d}</td><td>${g.sub != null ? money(g.sub) : d}</td></tr>`).join('')}<tr class="tot"><td colspan="3"><b>STP wage</b></td><td><b>${money(w.stp)}</b></td></tr></tbody></table></div>`;
+    return `<div class="wkcard"><h3>Week ${fd(w.week).slice(0, 5)} – ${fd(addDays(w.week, 6)).slice(0, 5)}<span class="tag">${esc(w.br)}</span><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span>${w._ff ? `<span class="tag">${esc(w._ff)}</span>` : ''}</h3>
+      ${days ? tsTable(w, days) : '<div class="tsnote">Timesheet detail has not been recorded for this week yet.</div>'}${pay}${w.note ? `<div class="tsnote">${esc(w.note)}</div>` : ''}</div>`;
+  }).join('');
+  return `<div class="mback"><div class="modal emp" role="dialog" aria-modal="true"><div class="ehead"><div><h2>${esc(last.name)}${last.nick ? ` <span class="dim">(${esc(last.nick)})</span>` : ''}</h2><span class="dim">Weekly timesheets, newest first</span></div><button class="btn" data-act="mclose">Close</button></div>${info}${cards}</div></div>`;
+}
 function modalHtml(){
   if(UI.modal.kind === 'photo') return photoModal(UI.modal);
+  if(UI.modal.kind === 'emp') return empModal(UI.modal);
   const m = UI.modal, sg = x => (x > 0 ? '+' : x < 0 ? '−' : '') + money(Math.abs(x));
   return `<div class="mback"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-t">
     <h2 id="m-t">Closing cash does not match</h2>
@@ -1550,7 +1604,7 @@ function viewWageNew(b, ws, rows){
       const body = sorted.map(w => {
         const L = wageLines(w);
         const n = L.length, d = '<span class="dim">–</span>';
-        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span>${ffTag(w)}${empMeta(w)}</td>` : '')
+        return L.map((g, i) => `<tr class="${i === 0 ? 'wfirst' : ''}${g.dim ? ' dim' : ''}">` + (i === 0 ? `<td rowspan="${n}" class="emp">${empLink(w.name)}${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}<br><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span>${ffTag(w)}${empMeta(w)}</td>` : '')
           + `<td class="k">${g.label}</td><td class="num">${g.act != null ? g.act + ' hr' : d}</td><td class="num">${g.q ? g.q + ' ' + g.u : d}${g.adj ? `<br><small class="topup">+${g.adj} top-up</small>` : ''}${g.note ? `<br><small class="dim">${g.note}</small>` : ''}</td><td class="num">${g.r ? money(g.r) : d}</td><td class="num">${g.sub != null ? money(g.sub) : d}</td>`
           + (i === 0 ? `<td rowspan="${n}" class="num k"><b>${wHours(w) ? wHours(w) + ' hr' : '–'}</b>${w.adjH > 0 ? `<br><small class="topup">${Math.round((wHours(w) - w.adjH) * 100) / 100} worked</small>` : ''}</td><td rowspan="${n}" class="num"><b>${money(w.stp)}</b></td>` : '') + '</tr>').join('');
       }).join('');
@@ -1561,13 +1615,13 @@ function viewWageNew(b, ws, rows){
     })()}
     ${hasCash ? (() => {
       const cs = [...rows].filter(hasCashW).sort((x, y) => modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0)), sg = n => (n < 0 ? '−' : '') + money(Math.abs(n));
-      const crow = w => `<tr><td class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${w.realH ? w.realH + ' hr' : '–'}</td><td class="num">${w.cashH ? w.cashH + ' hr' : '–'}</td><td class="num">${w.cashR ? money(w.cashR) : '–'}</td><td class="num">${w.cashH ? money(Math.round(w.cashH * w.cashR * 100) / 100) : '–'}</td><td class="num ${w.rent < 0 ? 'neg' : ''}">${w.rent ? sg(w.rent) : '–'}</td><td class="num ${cashPay(w) < 0 ? 'neg' : ''}"><b>${cashPay(w) ? sg(cashPay(w)) : '–'}</b></td></tr>`;
+      const crow = w => `<tr><td class="emp">${empLink(w.name)}${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${w.realH ? w.realH + ' hr' : '–'}</td><td class="num">${w.cashH ? w.cashH + ' hr' : '–'}</td><td class="num">${w.cashR ? money(w.cashR) : '–'}</td><td class="num">${w.cashH ? money(Math.round(w.cashH * w.cashR * 100) / 100) : '–'}</td><td class="num ${w.rent < 0 ? 'neg' : ''}">${w.rent ? sg(w.rent) : '–'}</td><td class="num ${cashPay(w) < 0 ? 'neg' : ''}"><b>${cashPay(w) ? sg(cashPay(w)) : '–'}</b></td></tr>`;
       const sumRows = [...rows].sort((x, y) => modeRank(x) - modeRank(y) || (y.stp || 0) - (x.stp || 0));
       return `<div class="card"><h2>Cash part <small>Cash hours × cash rate, less rent</small></h2><div class="scroll"><table class="wtbl">
         <thead><tr><th class="emp">Employee</th><th>Real hours</th><th>Cash hours</th><th>Cash rate</th><th>Cash</th><th>Rent</th><th>Cash total</th></tr></thead><tbody>${cs.map(crow).join('')}
         <tr class="tot"><td colspan="6" class="emp">Total</td><td class="num">${sg(cashTot)}</td></tr></tbody></table></div></div>
       <div class="card"><h2>Total wage <small>STP part + cash part = wage cost</small></h2><div class="scroll"><table class="wtbl">
-        <thead><tr><th class="emp">Employee</th><th>STP wage</th><th>Cash total</th><th>Total wage</th></tr></thead><tbody>${sumRows.map(w => `<tr><td class="emp"><b>${esc(w.name)}</b>${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${money(w.stp)}</td><td class="num ${cashPay(w) < 0 ? 'neg' : ''}">${hasCashW(w) ? sg(cashPay(w)) : '–'}</td><td class="num"><b>${money((w.stp || 0) + cashPay(w))}</b></td></tr>`).join('')}
+        <thead><tr><th class="emp">Employee</th><th>STP wage</th><th>Cash total</th><th>Total wage</th></tr></thead><tbody>${sumRows.map(w => `<tr><td class="emp">${empLink(w.name)}${w.nick ? ` <span class="dim">(${esc(w.nick)})</span>` : ''}</td><td class="num">${money(w.stp)}</td><td class="num ${cashPay(w) < 0 ? 'neg' : ''}">${hasCashW(w) ? sg(cashPay(w)) : '–'}</td><td class="num"><b>${money((w.stp || 0) + cashPay(w))}</b></td></tr>`).join('')}
         ${hid && !adm ? `<tr><td class="emp"><i>Other staff (admin only)</i></td><td colspan="2"></td><td class="num">${money(hid)}</td></tr>` : ''}
         <tr class="tot"><td class="emp">Total</td><td class="num">${money(stpTot)}</td><td class="num">${sg(cashTot)}</td><td class="num">${money(vis + hid)}</td></tr></tbody></table></div></div>`;
     })() : ''}
@@ -1618,7 +1672,7 @@ function viewStpPay(){
   const cards = gs.map(g => { const L = Object.values(g.P).sort((x, y) => x.name.localeCompare(y.name, 'en', {sensitivity:'base'})), tot = r2(L.reduce((a, p) => a + p.stp, 0));
     const body = L.map(p => { const rs = p.rows.sort((x, y) => x.br.localeCompare(y.br)), lines = rs.map(w => ({w, L:wageLines(w)})), n = lines.reduce((a, x) => a + x.L.length, 0);
       return lines.map((x, ri) => x.L.map((l, i) => `<tr class="${ri === 0 && i === 0 ? 'wfirst' : ''}${l.dim ? ' dim' : ''}">`
-        + (ri === 0 && i === 0 ? `<td rowspan="${n}" class="emp"><b>${esc(p.name)}</b>${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}<br><span class="tag t-${String(x.w.mode).toLowerCase()}">${esc(x.w.mode)}</span>${ffTag(x.w)}${empMeta(x.w)}</td>` : '')
+        + (ri === 0 && i === 0 ? `<td rowspan="${n}" class="emp">${empLink(p.name)}${p.nick ? ` <span class="dim">(${esc(p.nick)})</span>` : ''}<br><span class="tag t-${String(x.w.mode).toLowerCase()}">${esc(x.w.mode)}</span>${ffTag(x.w)}${empMeta(x.w)}</td>` : '')
         + (i === 0 ? `<td rowspan="${x.L.length}"><b>${esc(x.w.br)}</b></td>` : '')
         + `<td class="k">${l.label}</td><td class="num">${l.act != null ? l.act + ' hr' : d}</td><td class="num">${l.q ? l.q + ' ' + l.u : d}${l.adj ? `<br><small class="topup">+${l.adj} top-up</small>` : ''}${l.note ? `<br><small class="dim">${l.note}</small>` : ''}</td><td class="num">${l.r ? money(l.r) : d}</td><td class="num">${l.sub != null ? money(l.sub) : d}</td>`
         + (i === 0 ? `<td rowspan="${x.L.length}" class="num k"><b>${wHours(x.w) ? wHours(x.w) + ' hr' : '–'}</b>${x.w.adjH > 0 ? `<br><small class="topup">${Math.round((wHours(x.w) - x.w.adjH) * 100) / 100} worked</small>` : ''}</td><td rowspan="${x.L.length}" class="num">${money(x.w.stp)}</td>` : '')
@@ -1730,6 +1784,7 @@ document.addEventListener('click', ev => {
   else if(a === 'ivdel'){ readDraft(); UI.inv.items.splice(+t.dataset.i, 1); }
   else if(a === 'ivadd'){ readDraft(); UI.inv.items.push({item:'', qty:null, amt:0, cat:'Other'}); }
   else if(a === 'ivclear'){ readDraft(); UI.inv = null; }
+  else if(a === 'emp'){ UI.modal = {kind:'emp', name:t.dataset.v}; }
   else if(a === 'mclose'){ UI.modal = null; }
   else if(a === 'vinv'){
     const en = S.entries.find(e => e.id === +t.dataset.id); if(!en) return;

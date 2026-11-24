@@ -8,7 +8,7 @@ const P_ = () => PropertiesService.getScriptProperties();
 const SHEET_ = n => {
   const ss = SpreadsheetApp.openById(P_().getProperty('SSID'));
   let sh = ss.getSheetByName(n);
-  if (!sh && HEAD_[n]) { sh = ss.insertSheet(n); sh.getRange(1, 1, 1, HEAD_[n].length).setValues([HEAD_[n]]).setFontWeight('bold'); sh.setFrozenRows(1); if (n === 'wages' || n === 'deductions' || n === 'costs') sh.getRange('A:A').setNumberFormat('@'); if (n === 'deductions') sh.getRange('E:E').setNumberFormat('@'); }
+  if (!sh && HEAD_[n]) { sh = ss.insertSheet(n); sh.getRange(1, 1, 1, HEAD_[n].length).setValues([HEAD_[n]]).setFontWeight('bold'); sh.setFrozenRows(1); if (n === 'wages' || n === 'deductions' || n === 'costs' || n === 'shifts') sh.getRange('A:A').setNumberFormat('@'); if (n === 'deductions') sh.getRange('E:E').setNumberFormat('@'); }
   return sh;
 };
 const HEAD_ = {
@@ -19,6 +19,7 @@ const HEAD_ = {
   items: ['entry', 'br', 'date', 'supplier', 'item', 'qty', 'amt', 'cat'],
   wages: ['week', 'br', 'name', 'nick', 'mode', 'award', 'restricted', 'ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'dayN', 'dayR', 'stp', 'stpReal', 'paid', 'note', 'realH', 'cashH', 'cashR', 'rent', 'adjH', 'ot2H', 'ot2R'],
   deductions: ['week', 'br', 'name', 'amount', 'apply_week', 'status', 'note'],
+  shifts: ['week', 'br', 'name', 'json'],   // admin-only: timesheet detail per staff and week; json = {Mon:[{w:[in,out], r1:[in,out], r2:[in,out], m:[in,out]}], ...}
   costs: ['week', 'br', 'rent', 'leave', 'super', 'note'],   // admin-only estimated overheads per branch and week (premises rent, annual leave accrual, super)
   checks: ['entry', 'br', 'amt', 'checked_by', 'checked_at', 'phys', 'digital', 'acc', 'pstat', 'dstat', 'log'],   // pstat/dstat: '' | 'ok' (read and confirmed) | 'issue' | 'na' (digital only); log: one issue per line
   payees: ['br', 'supplier', 'account_name', 'bsb', 'acct', 'ref_mode', 'fixed_ref', 'bpay_biller', 'bpay_crn', 'note'],
@@ -186,6 +187,7 @@ function load_(me) {
     staff: me.role === 'admin' ? staffOf_() : [],
     pending: pendingOf_(me),
     wages: me.role === 'admin' ? wagesOf_(me) : [], hiddenWage: me.role === 'admin' ? hiddenWage_(me) : [], costs: me.role === 'admin' ? read_('costs').map(c => ({ week: String(c.week), br: String(c.br), rent: Number(c.rent) || 0, leave: Number(c.leave) || 0, super: Number(c.super) || 0, note: String(c.note || '') })) : [],
+    shifts: me.role === 'admin' ? read_('shifts').map(x => ({ week: String(x.week), br: String(x.br), name: String(x.name), json: String(x.json || '') })) : [],
     deductions: me.role === 'admin' ? read_('deductions').map(d => ({ week: String(d.week), br: String(d.br), name: String(d.name), amount: Number(d.amount), apply_week: String(d.apply_week), status: String(d.status), note: String(d.note) })) : []
   };
 }
