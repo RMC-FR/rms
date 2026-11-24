@@ -150,7 +150,9 @@ tr.pick{cursor:pointer}tr.pick:hover td{background:var(--accent-soft)}tr.cur td{
 .ehead{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
 .einfo{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0 14px}.einfo div{background:var(--surface2);border-radius:8px;padding:7px 10px}.einfo small{display:block;color:var(--muted);font-size:11.5px}.einfo b{font-size:14px}
 .wkcard{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}.wkcard h3{margin:0 0 8px;font-size:14.5px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
-.tsw{overflow-x:auto}.tst{border-collapse:collapse;font-size:12px;width:100%;min-width:980px}.tst th,.tst td{border:1px solid var(--line);padding:3px 5px;text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}.tst thead th{background:var(--surface2);font-weight:700}.tst .dh{border-left:2px solid var(--muted)}.tst td.tt{background:var(--surface2);font-weight:700}.tst td.lab{font-weight:600;color:var(--muted);background:var(--surface)}.tst tr.net td{border-top:2px solid var(--muted);font-weight:700}.tst td.wt{border-left:2px solid var(--muted);font-weight:700}.tst .off{color:var(--muted)}
+.tsw{overflow-x:auto}.tst{border-collapse:collapse;font-size:12px;width:100%;min-width:0}.tst th,.tst td{border:1px solid var(--line);padding:2px 3px;text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}.tst thead th{background:var(--surface2);font-weight:700}.tst .dh{border-left:2px solid var(--muted)}.tst td.tt{background:var(--surface2);font-weight:700}.tst td.lab{font-weight:600;color:var(--muted);background:var(--surface)}.tst tr.net td{border-top:2px solid var(--muted);font-weight:700}.tst td.wt{border-left:2px solid var(--muted);font-weight:700}.tst .off{color:var(--muted)}
+.tin{width:40px;padding:1px 2px;border:1px solid transparent;background:transparent;border-radius:4px;padding:1px 3px;font:inherit;font-variant-numeric:tabular-nums;color:inherit}.tin:hover{border-color:var(--line)}.tin:focus{border-color:var(--accent);background:var(--surface);outline:none}.tin.unk,.unk{color:#d93025;font-weight:700}.tin.unk{background:rgba(217,48,37,.1);border-color:rgba(217,48,37,.4)}.tin.bad{border-color:#d93025}
+.pform{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:8px}.pform label{font-size:11.5px;color:var(--muted);font-weight:400;margin:0}.pform input{width:100%}.pform .wide{grid-column:1/-1}
 .tsnote{color:var(--muted);font-size:12px;margin-top:6px}.paybox{margin-top:10px}.paybox table{font-size:12.5px;width:auto;margin:0}.paybox th,.paybox td{padding:3px 12px 3px 0;text-align:left}
 .modal.wide{max-width:680px}.invimg{max-width:100%;max-height:60vh;display:block;margin:0 auto 12px;border-radius:6px;border:1px solid var(--line)}
 .pay{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}.pay th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px}.pay td{padding:4px 6px;border-top:1px solid var(--line);vertical-align:middle}.pay tr.grp td{background:var(--bg2,rgba(127,127,127,.08));font-weight:600}.pay input[type=text]{width:100%;min-width:0;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input.bad{border-color:var(--bad)}.pay .warn{color:var(--bad)}.pay tr.nophys td{background:var(--warn-soft);border-top-color:var(--warn)}.pay tr.nophys td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.pay tr.nophys td:nth-child(2){font-weight:700}.tag.vok{background:var(--good);color:#fff;font-weight:600}.tag.vna{background:var(--line);color:var(--muted);font-weight:600}.tag.nph{background:var(--bad);color:#fff;font-weight:600}.mailbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 14px}.mailbar small{color:var(--muted)}.pay tr.dgd td{border-top:0;padding-top:0;font-size:12px}.pay tr.dgd.bad td{background:var(--warn-soft)}.pay tr.dgd ul,.dgl{margin:3px 0 6px;padding-left:16px}.pay tr.dgd li span{display:inline-block;min-width:74px;font-weight:600;color:var(--muted)}.pay tr.dgd li.diff{color:var(--bad)}.pay tr.dgd li.diff span{color:var(--bad)}.dgsrc{color:var(--muted)}.dgok{color:var(--good)}.iprow{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:22px 0 14px;padding-top:16px;border-top:1px solid var(--line)}.iprow .btn.primary{padding:10px 22px}.pay input.dig{width:84px;text-align:right;padding:4px 6px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg)}.pay input[type=checkbox]{width:16px;height:16px}.pay td .tick{margin-right:0}.pay .num{text-align:right}.pay th.num{text-align:right}.paybox{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 10px}.paybox label{display:flex;gap:6px;align-items:center;color:var(--muted)}.paybox input{padding:5px 8px;font:inherit;border:1px solid var(--line);border-radius:5px;background:var(--surface);color:var(--fg);width:120px}
@@ -1421,34 +1423,66 @@ function closingMismatch(r){
 /* ---------- Staff timesheet window: click an employee name in the wage / STP tables ---------- */
 const empLink = n => `<button class="elink" data-act="emp" data-v="${esc(n)}">${esc(n)}</button>`;
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const tMin = t => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(t || '').trim()); return m ? +m[1] * 60 + +m[2] : null; };
+const isUnk = t => /\?$/.test(String(t || '').trim());
+const tMin = t => { const m = /^(\d{1,2}):(\d{2})\??$/.exec(String(t || '').trim()); return m ? +m[1] * 60 + +m[2] : null; };
 const durMin = (a, b) => { const x = tMin(a), y = tMin(b); return x === null || y === null ? null : (y >= x ? y - x : y + 1440 - x); };
 const hh = m => m === null || m === undefined ? '' : (Math.round(m / 60 * 100) / 100) + ' h';
-const tfmt = t => { const m = tMin(t); return m === null ? '' : Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); };
+const tfmt = t => { const m = tMin(t); return m === null ? String(t || '').trim() : Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') + (isUnk(t) ? '?' : ''); };
 function shiftsOf(w){ const r = (S.shifts || []).find(x => x.week === w.week && x.br === w.br && _nm(x.name) === _nm(w.name)); return r ? r.days : null; }
 function tsTable(w, days){
-  const KINDS = [['w', 'Work Shift'], ['r1', 'Rest Break 1'], ['r2', 'Rest Break 2'], ['m', 'Meal Break'], ['m2', 'Meal Break 2']], W = {w:0, r1:0, r2:0, m:0, m2:0, net:0};
-  const maxSeq = DAYS.map(d => (days[d] || []).length), blocks = Math.max(1, ...maxSeq);
-  const used = k => DAYS.some(d => (days[d] || []).some(sh => sh[k] && sh[k][0]));
+  const KINDS = [['w', 'Work Shift'], ['r1', 'Rest Break 1'], ['r2', 'Rest Break 2'], ['m', 'Meal Break'], ['m2', 'Meal Break 2']], W = {w:0, r1:0, r2:0, m:0, m2:0, net:0}, key = esc([w.week, w.br, w.name].join('|'));
+  const ff = /fast food/i.test(w.award || '') || AWARD_OF[w.br] === 'Fast Food', brk = ff ? ['r1', 'r2', 'm', 'm2'] : ['m', 'm2'];   // Fast Food: every break written on the sheet is deducted; Restaurant: rest breaks are paid, only meal breaks are deducted
+  const blocks = Math.max(1, ...DAYS.map(d => (days[d] || []).length)), used = k => DAYS.some(d => (days[d] || []).some(sh => sh[k] && (sh[k][0] || sh[k][1])));
+  const cell = (day, b, k, i, v) => `<input class="tin${isUnk(v) ? ' unk' : ''}" value="${esc(tfmt(v))}" placeholder=":" data-ed="${day}|${b}|${k}|${i}" data-w="${key}" size="5" aria-label="${day} ${k} ${i ? 'out' : 'in'}">`;
   const head = `<thead><tr><th rowspan="2">Time entry</th>${DAYS.map((d, i) => `<th colspan="3" class="dh">${d} ${fd(addDays(w.week, i)).slice(0, 5)}</th>`).join('')}<th rowspan="2" class="dh">Week total</th></tr><tr>${DAYS.map(() => '<th class="dh">In</th><th>Out</th><th>Total</th>').join('')}</tr></thead>`;
   let body = '';
   for(let b = 0; b < blocks; b++){
-    KINDS.filter(k => k[0] === 'w' || k[0] === 'r1' || used(k[0])).forEach(([k, lab]) => {
+    KINDS.filter(k => k[0] === 'w' || k[0] === 'r1' || k[0] === 'm' || used(k[0])).forEach(([k, lab]) => {
       let wk = 0;
-      const cells = DAYS.map(d => { const sh = (days[d] || [])[b], v = sh && sh[k], m = v ? durMin(v[0], v[1]) : null;
-        if(!v || !v[0]) return '<td class="dh off">:</td><td class="off">:</td><td class="tt"></td>';
+      const cells = DAYS.map(d => { const sh = (days[d] || [])[b], v = (sh && sh[k]) || ['', ''], m = v[0] && v[1] ? durMin(v[0], v[1]) : null;
         if(m !== null){ wk += m; W[k] += m; }
-        return `<td class="dh">${tfmt(v[0])}</td><td>${tfmt(v[1])}</td><td class="tt">${hh(m)}</td>`; }).join('');
+        return `<td class="dh">${cell(d, b, k, 0, v[0])}</td><td>${cell(d, b, k, 1, v[1])}</td><td class="tt">${hh(m)}</td>`; }).join('');
       body += `<tr><td class="lab">${lab}${blocks > 1 ? ' #' + (b + 1) : ''}</td>${cells}<td class="wt">${wk ? hh(wk) : ''}</td></tr>`;
     });
   }
-  // net paid hours per day = all work shifts − every break listed (the rule used when the timesheets were read)
-  const nets = DAYS.map(d => { const L = days[d] || []; if(!L.length) return null; let g = 0, br = 0; L.forEach(sh => { const m = sh.w ? durMin(sh.w[0], sh.w[1]) : null; if(m === null) g = NaN; else g += m; ['r1', 'r2', 'm', 'm2'].forEach(k => { if(sh[k]){ const x = durMin(sh[k][0], sh[k][1]); if(x !== null) br += x; } }); }); return g - br; });
+  const nets = DAYS.map(d => { const L = days[d] || []; if(!L.length) return null; let g = 0, br = 0; L.forEach(sh => { const m = sh.w && sh.w[0] && sh.w[1] ? durMin(sh.w[0], sh.w[1]) : null; if(m === null) g = NaN; else g += m; brk.forEach(k => { if(sh[k]){ const x = durMin(sh[k][0], sh[k][1]); if(x !== null) br += x; } }); }); return g - br; });
   W.net = nets.reduce((a, x) => a + (x && x === x ? x : 0), 0);
-  body += `<tr class="net"><td class="lab">Net hours</td>${nets.map(m => m === null ? '<td class="dh off">:</td><td class="off">:</td><td class="tt"></td>' : `<td class="dh"></td><td></td><td class="tt">${m !== m ? '?' : hh(m)}</td>`).join('')}<td class="wt">${hh(W.net)}</td></tr>`;
-  const sum = `<div class="tsnote">Week: worked ${hh(W.w)} · rest breaks ${hh(W.r1 + W.r2) || '0 h'} · meal breaks ${hh(W.m + W.m2) || '0 h'} · <b>net ${hh(W.net)}</b>${nets.some(x => x !== null && x !== x) ? ' (a day with an unreadable time is not counted)' : ''}. Net = work shift minus every break written on the timesheet.</div>`;
+  body += `<tr class="net"><td class="lab">Net hours</td>${nets.map(m => m === null ? '<td class="dh off"></td><td></td><td class="tt"></td>' : `<td class="dh"></td><td></td><td class="tt">${m !== m ? '<span class="unk">?</span>' : hh(m)}</td>`).join('')}<td class="wt">${hh(W.net)}</td></tr>`;
+  const anyUnk = DAYS.some(d => (days[d] || []).some(sh => Object.values(sh).some(v => Array.isArray(v) && v.some(isUnk))));
+  const sum = `<div class="tsnote">Week: worked ${hh(W.w)} · rest breaks ${hh(W.r1 + W.r2) || '0 h'} · meal breaks ${hh(W.m + W.m2) || '0 h'} · <b>net ${hh(W.net)}</b>. Net = work shift minus ${ff ? 'every break written on the timesheet' : 'meal breaks (rest breaks are paid)'}.${anyUnk ? ' <span class="unk">Red = hard to read, please check.</span>' : ''} Click any time to edit; type ? after a time (or alone) to mark it as unsure.</div>`;
   return `<div class="tsw"><table class="tst">${head}<tbody>${body}</tbody></table></div>${sum}`;
 }
+const PAYF = [['ordH', 'Ordinary h'], ['ordR', 'Ordinary rate'], ['satH', 'Saturday h'], ['satR', 'Saturday rate'], ['sunH', 'Sunday h'], ['sunR', 'Sunday rate'], ['otH', 'OT 1.5x h'], ['otR', 'OT 1.5x rate'], ['ot2H', 'OT 2.0x h'], ['ot2R', 'OT 2.0x rate'], ['adjH', 'Top-up h'], ['stp', 'STP wage']];
+function payEditor(w){
+  const k = [w.week, w.br, w.name].join('|'), open = UI.payEd === k;
+  if(!open) return `<div class="paybox"><button class="btn sm" data-act="payed" data-v="${esc(k)}">Edit pay</button></div>`;
+  return `<div class="paybox"><div class="pform" data-wk="${esc(k)}">${PAYF.map(f => `<label>${f[1]}<input type="number" step="any" data-pf="${f[0]}" value="${w[f[0]] == null ? '' : w[f[0]]}"></label>`).join('')}<label class="wide">Note<input type="text" data-pf="note" value="${esc(w.note || '')}"></label></div>
+    <div class="tsnote">STP wage is recalculated from hours × rates unless you type it yourself. ${w._ff ? 'This row uses the Fast Food award table, so rates and STP follow the table.' : ''}</div><button class="btn primary sm" data-act="paysave" data-v="${esc(k)}">Save</button> <button class="btn sm" data-act="payed" data-v="">Cancel</button></div>`;
+}
+/* ---------- editing timesheet cells and pay rows (admin) ---------- */
+let _shTimer = {};
+function saveShift(row){ clearTimeout(_shTimer[row.week + row.br + row.name]); _shTimer[row.week + row.br + row.name] = setTimeout(() => api('shift_save', {week:row.week, br:row.br, name:row.name, days:row.days}).then(() => flash('Saved')).catch(e => flash('Not saved: ' + e.message)), 400); }
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if(t.classList && t.classList.contains('tin')){
+    const [week, br, name] = t.dataset.w.split('|'), [day, b, k, i] = t.dataset.ed.split('|'); let v = t.value.trim().replace('.', ':');
+    if(v && v !== '?' && !/^\d{1,2}:\d{2}\??$/.test(v)){ t.classList.add('bad'); return flash('Use a time like 7:30 (add ? if unsure)'); }
+    if(/^\d{1,2}:\d{2}\??$/.test(v)){ const m = tMin(v); if(m === null || m >= 1440){ t.classList.add('bad'); return flash('Invalid time'); } v = Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') + (isUnk(v) ? '?' : ''); }
+    S.shifts = S.shifts || []; let row = S.shifts.find(x => x.week === week && x.br === br && _nm(x.name) === _nm(name)); if(!row){ row = {week, br, name, days:{}}; S.shifts.push(row); }
+    const L = row.days[day] = row.days[day] || []; while(L.length <= +b) L.push({}); const sh = L[+b]; sh[k] = sh[k] || ['', '']; sh[k][+i] = v;
+    if(!sh[k][0] && !sh[k][1]) delete sh[k]; if(!Object.keys(sh).length) L.splice(+b, 1); if(!L.length) delete row.days[day];
+    saveShift(row); setTimeout(empRefresh, 0); return;
+  }
+});
+function empRefresh(){ const m = document.querySelector('.modal.emp'), top = m ? m.scrollTop : 0; render(); const m2 = document.querySelector('.modal.emp'); if(m2) m2.scrollTop = top; }
+async function paySave(k){
+  const [week, br, name] = k.split('|'), w = S.wages.find(x => x.week === week && x.br === br && x.name === name), box = document.querySelector('.pform'); if(!w || !box) return;
+  const f = {}; let hrsChanged = false, stpTouched = false;
+  box.querySelectorAll('[data-pf]').forEach(el => { const key = el.dataset.pf; if(key === 'note'){ f.note = el.value; return; } const v = el.value === '' ? null : +el.value; if(v !== (w[key] == null ? null : w[key])){ if(key === 'stp') stpTouched = true; else hrsChanged = true; } f[key] = v; });
+  if(hrsChanged && !stpTouched && String(w.mode).toLowerCase() !== 'salary'){ const r2 = n => Math.round(n * 100 + 1e-7) / 100; f.stp = r2([['ordH', 'ordR'], ['satH', 'satR'], ['sunH', 'sunR'], ['otH', 'otR'], ['ot2H', 'ot2R']].reduce((a, x) => a + r2((f[x[0]] || 0) * (f[x[1]] || 0)), 0)); }
+  try{ await api('wage_save', {week, br, name, f}); Object.assign(w, f); applyAwards(); UI.payEd = ''; flash('Saved'); setTimeout(empRefresh, 0); }catch(e){ flash('Not saved: ' + e.message); }
+}
+
 function empModal(m){
   const rows = (S.wages || []).filter(w => _nm(w.name) === _nm(m.name)).sort((a, b) => b.week.localeCompare(a.week) || a.br.localeCompare(b.br));
   if(!rows.length) return `<div class="mback"><div class="modal emp"><h2>${esc(m.name)}</h2><p>No wage rows found.</p><div class="row"><button class="btn" data-act="mclose">Close</button></div></div></div>`;
@@ -1459,7 +1493,7 @@ function empModal(m){
     const days = shiftsOf(w), L = wageLines(w);
     const pay = `<div class="paybox"><table><thead><tr><th>Pay type</th><th>Hours</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${L.map(g => `<tr><td>${g.label}${g.note ? ` <small class="dim">${g.note}</small>` : ''}</td><td>${g.q ? g.q + ' ' + g.u + (g.adj ? ` <small class="topup">(+${g.adj} top-up)</small>` : '') : d}</td><td>${g.r ? money(g.r) : d}</td><td>${g.sub != null ? money(g.sub) : d}</td></tr>`).join('')}<tr class="tot"><td colspan="3"><b>STP wage</b></td><td><b>${money(w.stp)}</b></td></tr></tbody></table></div>`;
     return `<div class="wkcard"><h3>Week ${fd(w.week).slice(0, 5)} – ${fd(addDays(w.week, 6)).slice(0, 5)}<span class="tag">${esc(w.br)}</span><span class="tag t-${String(w.mode).toLowerCase()}">${esc(w.mode)}</span>${w._ff ? `<span class="tag">${esc(w._ff)}</span>` : ''}</h3>
-      ${days ? tsTable(w, days) : '<div class="tsnote">Timesheet detail has not been recorded for this week yet.</div>'}${pay}${w.note ? `<div class="tsnote">${esc(w.note)}</div>` : ''}</div>`;
+      ${days ? tsTable(w, days) : tsTable(w, {})}${pay}${payEditor(w)}${w.note ? `<div class="tsnote">${esc(w.note)}</div>` : ''}</div>`;
   }).join('');
   return `<div class="mback"><div class="modal emp" role="dialog" aria-modal="true"><div class="ehead"><div><h2>${esc(last.name)}${last.nick ? ` <span class="dim">(${esc(last.nick)})</span>` : ''}</h2><span class="dim">Weekly timesheets, newest first</span></div><button class="btn" data-act="mclose">Close</button></div>${info}${cards}</div></div>`;
 }
@@ -1784,7 +1818,9 @@ document.addEventListener('click', ev => {
   else if(a === 'ivdel'){ readDraft(); UI.inv.items.splice(+t.dataset.i, 1); }
   else if(a === 'ivadd'){ readDraft(); UI.inv.items.push({item:'', qty:null, amt:0, cat:'Other'}); }
   else if(a === 'ivclear'){ readDraft(); UI.inv = null; }
-  else if(a === 'emp'){ UI.modal = {kind:'emp', name:t.dataset.v}; }
+  else if(a === 'emp'){ UI.modal = {kind:'emp', name:t.dataset.v}; UI.payEd = ''; }
+  else if(a === 'payed'){ UI.payEd = t.dataset.v; }
+  else if(a === 'paysave'){ paySave(t.dataset.v); return; }
   else if(a === 'mclose'){ UI.modal = null; }
   else if(a === 'vinv'){
     const en = S.entries.find(e => e.id === +t.dataset.id); if(!en) return;

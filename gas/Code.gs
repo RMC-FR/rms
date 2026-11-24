@@ -51,6 +51,8 @@ function route_(b) {
   if (b.a === 'chk') return withLock_(() => chk_(me, b));
   if (b.a === 'inv') return withLock_(() => inv_(me, b));
   if (b.a === 'mail') return withLock_(() => mail_(me, b));
+  if (b.a === 'shift_save') return withLock_(() => shiftSave_(me, b));
+  if (b.a === 'wage_save') return withLock_(() => wageSave_(me, b));
   if (b.a === 'chpw') return withLock_(() => chpw_(me, b));
   if (b.a === 'mgr_gate') return mgrGate_(me, b);
   if (b.a === 'mgr_set') return withLock_(() => mgrSet_(me, b));
@@ -559,4 +561,36 @@ function digitalOf_() {
     try { items = JSON.parse(r.items || '[]'); } catch (e) {}
     return { id: r.msg + '|' + r.att, date: String(r.date || ''), mail_date: String(r.mail_date || ''), supplier: String(r.supplier || ''), no: String(r.inv_no || ''), total: r.total === '' || r.total === null ? null : Number(r.total), items, to: String(r.to || ''), subject: String(r.subject || ''), file: String(r.file || ''), err: String(r.err || '') };
   });
+}
+
+
+/* ---------- admin edits: timesheet detail and pay rows ---------- */
+function rowAt_(sh, h, week, br, name) {
+  const n = sh.getLastRow(); if (n < 2) return 0;
+  const v = sh.getRange(2, 1, n - 1, 3).getValues(); let at = 0;
+  v.forEach((r, i) => { if (String(r[0]) === week && String(r[1]) === br && String(r[2]).trim().toLowerCase() === String(name).trim().toLowerCase()) at = i + 2; });
+  return at;
+}
+function shiftSave_(me, b) {
+  if (me.role !== 'admin') throw new Error('Admin only');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.week)) || !b.br || !b.name) throw new Error('Invalid timesheet row');
+  const json = JSON.stringify(b.days || {}); if (json.length > 40000) throw new Error('Timesheet too large');
+  const sh = SHEET_('shifts'); let at = rowAt_(sh, HEAD_.shifts, String(b.week), String(b.br), String(b.name));
+  if (!at) { at = Math.max(sh.getLastRow(), 1) + 1; sh.getRange(at, 1, 1, 3).setValues([[String(b.week), String(b.br), String(b.name)]]); }
+  sh.getRange(at, 4).setValue(json);
+  return { ok: true };
+}
+function wageSave_(me, b) {
+  if (me.role !== 'admin') throw new Error('Admin only');
+  const sh = SHEET_('wages'), h = HEAD_.wages, at = rowAt_(sh, h, String(b.week), String(b.br), String(b.name));
+  if (!at) throw new Error('Wage row not found');
+  const OK = ['ordH', 'ordR', 'satH', 'satR', 'sunH', 'sunR', 'otH', 'otR', 'ot2H', 'ot2R', 'adjH', 'stp', 'note'], f = b.f || {};
+  OK.forEach(k => {
+    if (!(k in f)) return;
+    let v = f[k];
+    if (k === 'note') v = String(v || '').slice(0, 1000);
+    else { if (v === null || v === '') v = ''; else { v = Number(v); if (!isFinite(v)) throw new Error('Invalid number for ' + k); } }
+    sh.getRange(at, h.indexOf(k) + 1).setValue(v);
+  });
+  return { ok: true };
 }
